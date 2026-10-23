@@ -1,6 +1,8 @@
-# Superiss — Fertig braucht einen Beleg.
+# Superiss - no more Issues.
 
-![Superiss: Done needs proof](assets/superiss-hero.png)
+![Superiss - no more Issues. Goal Coordination for Agents.](assets/superiss-hero.png)
+
+**Goal Coordination for Agents.**
 
 **Lokale Aufgabenkoordination und dauerhaftes Arbeitsgedächtnis für KI-Agenten. Eine Beads-Alternative mit ausführbarer Abnahme, abgesicherten Claims und Wiederaufnahme.**
 

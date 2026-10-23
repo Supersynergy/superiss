@@ -1,4 +1,4 @@
-<p align="center"><img src="assets/superiss-hero.png" alt="Superiss — Done needs proof. Local-first agent coordination." width="100%"></p>
+<p align="center"><img src="assets/superiss-hero.png" alt="Superiss - no more Issues. Goal Coordination for Agents." width="100%"></p>
 
 <p align="center">
   <a href="https://github.com/Supersynergy/superiss/actions/workflows/ci.yml"><img src="https://github.com/Supersynergy/superiss/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
@@ -7,9 +7,11 @@
   <img src="https://img.shields.io/badge/storage-local_SQLite-D7FF64?style=flat-square&labelColor=101410" alt="Local SQLite">
 </p>
 
-<h1 align="center">Your agent says done.<br>Superiss asks for proof.</h1>
+<h1 align="center">Superiss - no more Issues.</h1>
 
-<p align="center"><strong>Local-first task coordination and durable memory for AI agents.<br>A Beads alternative with executable acceptance, fenced ownership and recovery.</strong></p>
+<p align="center"><strong>Goal Coordination for Agents.</strong></p>
+
+<p align="center">Local-first task coordination and durable memory for AI agents.<br>A Beads alternative with executable acceptance, fenced ownership and recovery.</p>
 
 <p align="center"><a href="docs/GETTING-STARTED.md">Get started</a> · <a href="docs/FEATURES.md">All features</a> · <a href="docs/COMPARISON.md">Compare 5 tools</a> · <a href="docs/BEADS-ALTERNATIVE.md">Coming from Beads?</a> · <a href="README.de.md">Deutsch</a></p>
 
@@ -76,22 +78,22 @@ bin/sis serve --db "$SIS_DB" --http 8765
 
 ## Compare the approaches
 
-Five established alternatives, researched **23 October 2026**. ✅ documented · 🧩 integration/different mechanism · 🔎 exact capability not established by the reviewed sources.
+Five established alternatives, researched **23 October 2026**. ✅ documented · 🧩 integration/different mechanism · ❌ exact capability not established by the reviewed sources.
 
 | | **Superiss** | **Beads** | **beads_rust** | **Task Master AI** | **Vibe Kanban** | **Taskwarrior** |
 | --- | --- | --- | --- | --- | --- | --- |
 | 🎯 Focus | Verified coordination | Agent memory | Local Rust tracker | AI planning | Visual orchestration | Terminal tasks |
 | 🗃️ Local tasks | ✅ SQLite | ✅ Dolt | ✅ SQLite | ✅ Task files | ✅ Local backend | ✅ Local store |
-| 🔗 Dependencies | ✅ | ✅ | ✅ | ✅ | 🔎 | ✅ |
+| 🔗 Dependencies | ✅ | ✅ | ✅ | ✅ | ❌ | ✅ |
 | 🔌 Agent interface | ✅ CLI/MCP/HTTP | ✅ CLI/setup | ✅ CLI/MCP option | ✅ CLI/MCP | ✅ Agents/MCP | ✅ CLI/hooks |
-| 🧾 Source-bound proof required at close | ✅ | 🔎 | 🔎 | 🔎 | 🔎 | 🧩 Hooks |
-| 🔒 Actor + epoch + expiring task lease | ✅ | 🧩 Atomic claim | 🧩 Coordination | 🔎 | 🔎 | 🔎 |
-| 💸 Cost rollup + close budget gate | ✅ | 🔎 | 🔎 | 🔎 | 🔎 | 🧩 Custom rules |
+| 🧾 Source-bound proof required at close | ✅ | ❌ | ❌ | ❌ | ❌ | 🧩 Hooks |
+| 🔒 Actor + epoch + expiring task lease | ✅ | 🧩 Atomic claim | 🧩 Coordination | ❌ | ❌ | ❌ |
+| 💸 Cost rollup + close budget gate | ✅ | ❌ | ❌ | ❌ | ❌ | 🧩 Custom rules |
 | 🖥️ Browser board | ✅ Local | 🧩 Community | 🧩 Companion | 🧩 Integrations | ✅ | 🧩 Third party |
 
 [Read the sourced comparison, strengths, definitions and limits →](docs/COMPARISON.md)
 
-This is a curated research comparison, not a performance ranking. 🔎 does not mean an extension could never implement the feature. Vibe Kanban's official site currently announces a transition to community maintenance.
+This is a curated research comparison, not a performance ranking. ❌ does not mean an extension could never implement the feature. Vibe Kanban's official site currently announces a transition to community maintenance.
 
 ## Use it with your agent
 

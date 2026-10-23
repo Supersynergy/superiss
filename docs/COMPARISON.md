@@ -2,22 +2,22 @@
 
 Research snapshot: **23 October 2026**. These five tools cover adjacent needs: agent memory, a Rust local tracker, AI-assisted planning, visual agent orchestration and a mature terminal task manager. This is a curated shortlist, not a claim that all five rank highest by a single global metric.
 
-✅ = documented in the cited primary sources. 🧩 = optional integration, hook or different mechanism. 🔎 = the reviewed sources do not establish the exact capability. 🔎 does not mean impossible or absent everywhere. This is documentation research, not a hands-on competitor benchmark.
+✅ = documented in the cited primary sources. 🧩 = optional integration, hook or different mechanism. ❌ = the reviewed sources do not establish the exact capability. ❌ does not mean impossible or absent everywhere. This is documentation research, not a hands-on competitor benchmark.
 
 | Capability | **Superiss** | **Beads** | **beads_rust** | **Task Master AI** | **Vibe Kanban** | **Taskwarrior** |
 | --- | --- | --- | --- | --- | --- | --- |
 | 🎯 Main strength | Verified agent coordination | Durable agent memory | Local Rust tracker | AI-assisted planning | Visual agent orchestration | Terminal task management |
 | 🗃️ Persistent local task data | ✅ SQLite | ✅ Dolt | ✅ SQLite + JSONL | ✅ Project task files | ✅ Local backend | ✅ Local task store |
-| 🔗 Dependency-aware tasks | ✅ Typed edges + readiness | ✅ Graph + ready queue | ✅ Graph + ready queue | ✅ Dependencies | 🔎 | ✅ Dependencies |
+| 🔗 Dependency-aware tasks | ✅ Typed edges + readiness | ✅ Graph + ready queue | ✅ Graph + ready queue | ✅ Dependencies | ❌ | ✅ Dependencies |
 | 🗺️ Hierarchy / decomposition | ✅ Goals + atomic plan trees | ✅ Epics + subtasks | ✅ Epics + children | ✅ PRD → subtasks | ✅ Board projects/tasks | 🧩 Projects + dependencies |
 | 🔌 Agent/tool interface | ✅ CLI + MCP + HTTP | ✅ CLI + agent setup | ✅ CLI + optional MCP | ✅ CLI + MCP | ✅ Agent integrations + MCP | ✅ CLI + hooks |
-| 🧾 Native source-bound proof required to close | ✅ Revision + source hash + proof | 🔎 | 🔎 | 🔎 | 🔎 | 🧩 Custom hooks |
-| 🔒 Actor + epoch + expiring task lease | ✅ Fenced ownership | 🧩 Atomic claim; exact contract differs | 🧩 Claim/coordination; exact contract differs | 🔎 | 🔎 | 🔎 |
+| 🧾 Native source-bound proof required to close | ✅ Revision + source hash + proof | ❌ | ❌ | ❌ | ❌ | 🧩 Custom hooks |
+| 🔒 Actor + epoch + expiring task lease | ✅ Fenced ownership | 🧩 Atomic claim; exact contract differs | 🧩 Claim/coordination; exact contract differs | ❌ | ❌ | ❌ |
 | ♻️ Source-bound checkpoints + replay contract | ✅ Checkpoint / resume / local run | 🧩 Persistent memory | 🧩 Persistent issue history | 🧩 Persistent task state | 🧩 Agent sessions | 🧩 Task state + annotations |
 | 🖥️ Browser board in core | ✅ Local board | 🧩 Community tools | 🧩 Companion tools | 🧩 Editor integrations | ✅ Central interface | 🧩 Third-party tools |
 | 🤖 Built-in AI planning | 🧩 Bring your agent | 🧩 Bring your agent | 🧩 Bring your agent | ✅ Model-assisted commands | ✅ Connected coding agents | 🧩 External tooling |
-| 💸 Recorded-cost rollup + close budget gate | ✅ Explicit ledger | 🔎 | 🔎 | 🔎 | 🔎 | 🧩 Custom fields/hooks |
-| 🛡️ Explicit sandboxed local command-to-close flow | ✅ macOS `local_zero` | 🔎 | 🔎 | 🔎 | 🧩 Isolated worktrees differ from sandboxing | 🔎 |
+| 💸 Recorded-cost rollup + close budget gate | ✅ Explicit ledger | ❌ | ❌ | ❌ | ❌ | 🧩 Custom fields/hooks |
+| 🛡️ Explicit sandboxed local command-to-close flow | ✅ macOS `local_zero` | ❌ | ❌ | ❌ | 🧩 Isolated worktrees differ from sandboxing | ❌ |
 
 The strict proof/lease/checkpoint rows describe Superiss' specific contract, not generic checklists or assignment. Other products may achieve similar outcomes through extensions or workflows. Confirm the exact release and integration before choosing.
 
