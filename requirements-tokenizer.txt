@@ -1,0 +1,2 @@
+# Optional Python reference tokenizer. Native Rust embeds its own BPE tables.
+tiktoken==0.12.0

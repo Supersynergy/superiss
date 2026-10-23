@@ -1,0 +1,52 @@
+{
+  "observed_date": "2026-10-23",
+  "method": "Official GitHub REST API and official documentation; no competitor execution benchmark",
+  "stars_are": "Visibility only, not market share or active use",
+  "repositories": [
+    {
+      "full_name": "gastownhall/beads",
+      "html_url": "https://github.com/gastownhall/beads",
+      "stargazers_count": 28137,
+      "default_branch": "main",
+      "pushed_at": "2026-10-23T02:50:09Z",
+      "source_commit": "bc0cc87fd9fda412e2eaca669fa6ae3ec2c713fb",
+      "metadata_source": "https://api.github.com/repos/gastownhall/beads"
+    },
+    {
+      "full_name": "Dicklesworthstone/beads_rust",
+      "html_url": "https://github.com/Dicklesworthstone/beads_rust",
+      "stargazers_count": 1134,
+      "default_branch": "main",
+      "pushed_at": "2026-10-23T00:03:48Z",
+      "source_commit": "1ef8421bdb7400f9d6ab235fef449015df59fe8a",
+      "metadata_source": "https://api.github.com/repos/Dicklesworthstone/beads_rust"
+    },
+    {
+      "full_name": "eyaltoledano/claude-task-master",
+      "html_url": "https://github.com/eyaltoledano/claude-task-master",
+      "stargazers_count": 28269,
+      "default_branch": "main",
+      "pushed_at": "2026-04-28T13:27:12Z",
+      "source_commit": "c0c98d367c55296bfe69e65680625b6db437af02",
+      "metadata_source": "https://api.github.com/repos/eyaltoledano/claude-task-master"
+    },
+    {
+      "full_name": "BloopAI/vibe-kanban",
+      "html_url": "https://github.com/BloopAI/vibe-kanban",
+      "stargazers_count": 28438,
+      "default_branch": "main",
+      "pushed_at": "2026-09-19T06:52:48Z",
+      "source_commit": "d5cbb5380fa0b32e98ef9b8d987f63decce4be3a",
+      "metadata_source": "https://api.github.com/repos/BloopAI/vibe-kanban"
+    },
+    {
+      "full_name": "GothenburgBitFactory/taskwarrior",
+      "html_url": "https://github.com/GothenburgBitFactory/taskwarrior",
+      "stargazers_count": 6132,
+      "default_branch": "develop",
+      "pushed_at": "2026-10-20T11:55:12Z",
+      "source_commit": "c280c347c1adc47e9bb1ad42c92958e2d7f92e9c",
+      "metadata_source": "https://api.github.com/repos/GothenburgBitFactory/taskwarrior"
+    }
+  ]
+}

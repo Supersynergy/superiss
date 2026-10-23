@@ -1,0 +1,279 @@
+#!/usr/bin/env python3
+"""bd-compatible shim over superiss — lets goal-os/planbeads/scalebd/checkin
+and friends run unchanged against a sis store. Socket-first (SIS_SOCK or
+.sis/*.db upward search), falls back to `sis` CLI per call.
+
+Mapping covers the bd surface those skills actually use. Unknown verbs fall
+through to `sis <verb>` verbatim so new ops work without shim updates.
+"""
+import hashlib
+import json
+import os
+import socket
+import subprocess
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+
+
+def find_sock() -> str | None:
+    if os.environ.get("SIS_SOCK"):
+        return os.environ["SIS_SOCK"]
+    # v0.6+: socket name = sha256(canonical db path)[:20]; legacy fallback
+    # keeps stem-name daemons reachable.
+    db = find_db()
+    if db:
+        canon = str(Path(db).resolve())
+        h = hashlib.sha256(canon.encode()).hexdigest()[:20]
+        for cand in (f"/tmp/sis-{h}.sock",
+                     f"/tmp/sis-{Path(db).stem}.sock"):
+            if Path(cand).exists():
+                return cand
+    return os.environ.get("SIS_SOCK")
+
+
+REAL_BD = "/opt/homebrew/bin/bd"
+
+
+def find_db() -> str | None:
+    if os.environ.get("SIS_DB"):
+        return os.environ["SIS_DB"]
+    d = Path.cwd()
+    for _ in range(12):
+        sis = d / ".sis"
+        if sis.is_dir():
+            dbs = list(sis.glob("*.db"))
+            if dbs:
+                return str(dbs[0])
+        if (d / ".git").exists() or d.parent == d:
+            break
+        d = d.parent
+    return None
+
+
+def call(cmd: str, args: dict) -> dict:
+    args = {k: v for k, v in args.items() if v is not None}
+    req = json.dumps({"cmd": cmd, "args": args}) + "\n"
+    sock = find_sock()
+    if sock:
+        s = socket.socket(socket.AF_UNIX)
+        s.connect(sock)
+        s.sendall(req.encode())
+        buf = b""
+        while not buf.endswith(b"\n"):
+            chunk = s.recv(1 << 20)
+            if not chunk:
+                break
+            buf += chunk
+        s.close()
+        return json.loads(buf)
+    # CLI fallback — SIS_DB via env (arg order is brittle across impls);
+    # errors may surface on stderr with rc!=0 — prefer whichever parses.
+    db = os.environ.get("SIS_DB", "")
+    env = dict(os.environ)
+    if db:
+        env["SIS_DB"] = db
+    cli = [str(ROOT / "bin" / "sis"), cmd]
+    for k, v in args.items():
+        if v is not None:
+            cli.append(f"{k}={json.dumps(v) if not isinstance(v, str) else v}")
+    r = subprocess.run(cli, capture_output=True, text=True, env=env)
+    for out in (r.stdout, r.stderr):
+        if out.strip():
+            try:
+                return json.loads(out)
+            except json.JSONDecodeError:
+                continue
+    return {"ok": False, "error": {"code": "empty",
+            "msg": (r.stderr or r.stdout)[:200]}}
+
+
+def emit(v) -> None:
+    print(json.dumps(v, indent=None))
+
+
+def main() -> int:
+    av = sys.argv[1:]
+    if not av or av[0] in ("-h", "--help"):
+        emit({"bd-shim": "superiss", "hint": "bd verbs → sis socket; "
+              "unknown verbs pass through. Set SIS_SOCK or cd into a "
+              "project with .sis/*.db. Outside a sis context this shim "
+              "falls through to the real bd binary."})
+        return 0
+    # Passthrough: no sis context → hand off to real bd untouched.
+    if not find_sock() and not find_db() and Path(REAL_BD).exists():
+        os.execv(REAL_BD, ["bd"] + av)
+    verb = av[0]
+    rest = av[1:]
+    kv = {}
+    pos = []
+    skip = False
+    i = 0
+    while i < len(rest):
+        t = rest[i]
+        if skip:
+            skip = False
+        elif t in ("--json", "--quiet", "-q"):
+            pass
+        elif t.startswith("--") and "=" in t:
+            k, v = t[2:].split("=", 1)
+            kv[k.replace("-", "_")] = v
+        elif t in ("-t", "--type"):
+            kv["type"] = rest[i + 1]; skip = True
+        elif t in ("-p", "--priority"):
+            kv["priority"] = int(rest[i + 1]); skip = True
+        elif t in ("-d", "--desc", "--description"):
+            kv["desc"] = rest[i + 1]; skip = True
+        elif t in ("--acceptance", "--oracle"):
+            kv["oracle_cmd" if t == "--oracle" else "acceptance"] = \
+                rest[i + 1]; skip = True
+        elif t == "--claim":
+            kv["_claim"] = True
+        elif t == "--reason":
+            kv["reason"] = rest[i + 1]; skip = True
+        elif t == "--notes":
+            kv["notes"] = rest[i + 1]; skip = True
+        elif t == "--append-notes":
+            kv["append_notes"] = rest[i + 1]; skip = True
+        elif t == "--status":
+            kv["status"] = rest[i + 1]; skip = True
+        elif t == "--assignee":
+            kv["owner"] = rest[i + 1]; skip = True
+        elif t in ("--label", "-l"):
+            kv["add"] = rest[i + 1]; skip = True
+        elif t == "--actor":
+            kv["actor"] = rest[i + 1]; skip = True
+        elif t == "--limit" or t == "-n":
+            kv["limit"] = int(rest[i + 1]); skip = True
+        elif t == "--defer":
+            kv["until"] = rest[i + 1]; skip = True
+        elif t in ("--metadata", "--external-ref", "--design",
+                   "--estimate", "--due"):
+            skip = True  # accepted, stored nowhere yet
+        else:
+            pos.append(t)
+        i += 1
+
+    actor = kv.get("actor") or os.environ.get("BD_ACTOR") or \
+        os.environ.get("USER") or "agent"
+
+    # bd lifecycle verbs that are no-ops under sis: auto-snapshot and the
+    # store guard replace hooks/setup/doctor machinery entirely.
+    if verb in ("hooks", "setup", "doctor", "onboard", "init"):
+        emit({"ok": True, "shim": f"bd {verb} is a no-op under sis",
+              "hint": "sis auto-snapshots .issues.jsonl; use sis-sync.sh"})
+        return 0
+    if verb == "ready":
+        emit(call("ready", {"lane": kv.get("lane"), "limit": kv.get("limit")}))
+    elif verb == "list":
+        emit(call("list", {"status": kv.get("status")}))
+    elif verb in ("create", "q"):
+        a = {"title": pos[0] if pos else kv.get("title", ""),
+             "type": kv.get("type"), "priority": kv.get("priority"),
+             "desc": kv.get("desc"), "oracle_cmd": kv.get("oracle_cmd"),
+             "acceptance": kv.get("acceptance")}
+        emit(call("create" if verb == "create" else "q",
+                  {k: v for k, v in a.items() if v is not None}))
+    elif verb == "show":
+        emit(call("show", {"id": pos[0] if pos else kv.get("id")}))
+    elif verb == "update":
+        iid = pos[0]
+        if kv.get("_claim"):
+            emit(call("claim", {"id": iid, "actor": actor}))
+        else:
+            a = {k: v for k, v in kv.items() if not k.startswith("_")}
+            a["id"] = iid
+            emit(call("update", a))
+    elif verb == "unclaim":
+        emit(call("unclaim", {"id": pos[0], "actor": actor}))
+    elif verb == "close":
+        # fencing: fetch current epoch, then close. v0.6 requires a
+        # proof receipt — run `verify` (executes the declared oracle with
+        # bounded resources) when close rejects for missing proof.
+        iid = pos[0]
+        sh = call("show", {"id": iid})
+        issue = sh.get("issue") or (sh.get("data") or {}).get("issue") or {}
+        ep = issue.get("lease_epoch", 0)
+        actor = kv.get("actor") or actor
+        r = call("close", {"id": iid, "actor": actor, "epoch": ep,
+                           "reason": kv.get("reason"),
+                           "proof_id": kv.get("proof_id") or kv.get("proof")})
+        if not r.get("ok", True) and issue.get("oracle_cmd"):
+            v = call("verify", {"id": iid, "actor": actor, "epoch": ep,
+                                "cwd": os.getcwd()})
+            if "missing_scope" in json.dumps(v.get("error", {})):
+                # bd had no path scope — grant cwd as the worker's scope
+                # (event-logged, actor-attributed) then retry once.
+                call("update", {"id": iid,
+                                "allowed_paths": [os.getcwd()]})
+                v = call("verify", {"id": iid, "actor": actor,
+                                    "epoch": ep, "cwd": os.getcwd()})
+            pid = (v.get("data") or v).get("proof_id")
+            if pid:
+                r = call("close", {"id": iid, "actor": actor, "epoch": ep,
+                                   "reason": kv.get("reason"),
+                                   "proof_id": pid})
+        emit(r)
+    elif verb == "reopen":
+        emit(call("reopen", {"id": pos[0], "actor": actor}))
+    elif verb == "dep" and len(pos) >= 3 and pos[0] == "add":
+        emit(call("dep", {"issue": pos[1], "depends_on": pos[2],
+                          "type": kv.get("type")}))
+    elif verb == "dep":
+        emit(call("dep_list", {"id": pos[-1] if pos else None}))
+    elif verb == "stats":
+        emit(call("stats", {}))
+    elif verb == "stale":
+        emit(call("stale", {}))
+    elif verb == "orphans":
+        emit(call("orphans", {}))
+    elif verb == "prime":
+        emit(call("prime", {}))
+    elif verb == "remember":
+        emit(call("remember", {"key": pos[0] if pos else kv.get("key"),
+                               "value": pos[1] if len(pos) > 1
+                               else kv.get("value")}))
+    elif verb == "context":
+        emit(call("contract", {"id": pos[0] if pos else None}))
+    elif verb == "gate":
+        emit(call("gate", {"name": pos[0] if pos else kv.get("name"),
+                           "state": pos[1] if len(pos) > 1
+                           else kv.get("state")}))
+    elif verb == "epic":
+        emit(call("epic", {"id": pos[0] if pos else kv.get("id")}))
+    elif verb == "children":
+        emit(call("children", {"id": pos[0] if pos else kv.get("id")}))
+    elif verb == "tree":
+        emit(call("goal_tree", {"id": pos[0] if pos else None}))
+    elif verb == "goal":
+        a = {"name": pos[0] if pos else kv.get("name"),
+             "objective": kv.get("objective"),
+             "oracle_cmd": kv.get("oracle_cmd")}
+        emit(call("goal", {k: v for k, v in a.items() if v is not None}))
+    elif verb == "search":
+        emit(call("search", {"q": pos[0] if pos else kv.get("q")}))
+    elif verb == "history":
+        emit(call("history", {"id": pos[0] if pos else kv.get("id")}))
+    elif verb == "watch":
+        emit(call("watch", {"after": kv.get("after")}))
+    elif verb == "defer":
+        emit(call("defer", {"id": pos[0], "until": kv.get("until")}))
+    elif verb == "undefer":
+        emit(call("undefer", {"id": pos[0], "actor": actor}))
+    elif verb == "note":
+        emit(call("note", {"id": pos[0], "text": " ".join(pos[1:])
+                           or kv.get("text")}))
+    elif verb == "label":
+        emit(call("label", {"id": pos[0], "add": kv.get("add")}))
+    else:
+        # pass-through: `bd <sis-op> k=v ...`
+        a = dict(kv)
+        if pos:
+            a["_pos"] = pos
+        emit(call(verb, a))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

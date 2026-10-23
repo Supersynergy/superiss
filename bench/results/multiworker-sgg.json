@@ -1,0 +1,72 @@
+{
+  "schemaVersion": 1,
+  "status": "candidate_improves_observed_workload",
+  "eligible": true,
+  "evidence": "imported_source_declared_comparison",
+  "pairs": 12,
+  "baselineName": "baseline",
+  "candidateName": "candidate",
+  "protocol": {
+    "cacheState": "warm",
+    "environmentSha256": "682978ef659b1a2f45b70f7b954084deea7f3c738c8c9ff29c389540b36db53f",
+    "minPairs": 3,
+    "objective": "time",
+    "oracleSha256": "49c2625f62e45e797924f27e0c0f2efc0068f4f9f8ee56421113094a3d4b1be0",
+    "varied": [
+      "source"
+    ],
+    "workloadSha256": "a22f67eb3e3699d6c8da6e85d29e7ee48aa019a00ad0a233cd26ee2b221f66cd"
+  },
+  "arms": {
+    "baseline": {
+      "sourceSha256": "e7e69fe6c56445b285f0ef1d56b1009b1e9aa710d091f641a8edb51cf5f2184d",
+      "model": "none-local-native",
+      "effort": "none",
+      "transport": "unix-ndjson"
+    },
+    "candidate": {
+      "sourceSha256": "cf737fb1aca3be01f3a09c0653d61923c24aef482cc6881a82492e690bf74656",
+      "model": "none-local-native",
+      "effort": "none",
+      "transport": "unix-ndjson"
+    }
+  },
+  "baseline": {
+    "accepted": 12,
+    "runs": 12,
+    "attempts": 12,
+    "totalMs": 8159.5618310002465,
+    "medianMs": 564.4855625005221,
+    "p95Ms": null,
+    "inputTokens": null,
+    "outputTokens": null,
+    "cachedInputTokens": null,
+    "costUsd": null,
+    "totalTokens": null
+  },
+  "candidate": {
+    "accepted": 12,
+    "runs": 12,
+    "attempts": 12,
+    "totalMs": 4862.574210001185,
+    "medianMs": 376.60685399987415,
+    "p95Ms": null,
+    "inputTokens": null,
+    "outputTokens": null,
+    "cachedInputTokens": null,
+    "costUsd": null,
+    "totalTokens": null
+  },
+  "timeChangePercent": -40.40642977264991,
+  "timeChange95": [
+    -48.613089427876986,
+    -29.344221818916804
+  ],
+  "totalTokenChangePercent": null,
+  "warnings": [
+    "Input includes cached tokens; cachedInputTokens is not added again.",
+    "Imported records and declared hashes are not independent execution proof.",
+    "Bootstrap describes this workload; repeated tasks are not independent user samples.",
+    "Fewer than 20 pairs; p95 is withheld and general rankings are unsupported."
+  ]
+}

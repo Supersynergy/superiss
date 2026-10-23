@@ -1,0 +1,101 @@
+import {writeFileSync} from "node:fs";
+import {resolve} from "node:path";
+
+const str = {type: "string"};
+const int = {type: "integer"};
+const num = {type: "number"};
+const bool = {type: "boolean"};
+const strings = {type: "array", items: str};
+const common = {id: str, actor: str, epoch: int, run_id: str, idem: str};
+const tokens = {max_tokens: {...int, minimum: 1}, encoding: {type: "string", enum: ["o200k_base", "cl100k_base"]}, model: str};
+const list = {status: str, type: str, lane: str, owner: str, priority: int, label: str, q: str,
+  limit: {...int, minimum: 1, maximum: 1000}, fields: strings, cursor: str, goal: str};
+const issue = {title: str, desc: str, type: str, priority: int, status: str, owner: str,
+  oracle_cmd: str, allowed_paths: strings, lane: str, budget_eur: {...num, minimum: 0},
+  acceptance: str, meta: {type: "object"}, parent: str, defer_until: num,
+  expires_at: num, ttl_secs: {...num, exclusiveMinimum: 0}};
+const review = {type: "object", properties: {reviewer: str, verdict: {type: "string", enum: ["pass", "fail"]},
+  revision: str, source_hash: str, artifact: str}, required: ["reviewer", "verdict", "revision", "source_hash", "artifact"]};
+const ops: any[] = [];
+function op(name: string, description: string, properties: any = {}, required: string[] = [], identity = true) {
+  ops.push({name, description, inputSchema: {type: "object", properties: {...(identity ? common : {}), ...properties}, required}});
+}
+op("create", "Create a task with executable acceptance and explicit writable paths.", issue, ["title"]);
+op("update", "Edit task content; worker status/lease mutations are prohibited.", {...issue, set: {type: "object"}, expected_revision: str}, ["id"]);
+op("admin_update", "Administrative correction; requires configured server admin token and reason.", {...issue, set: {type: "object"}, admin_token: {...str, writeOnly: true}, reason: str}, ["id", "admin_token", "reason"]);
+op("dep", "Add typed dependencies; blocks edges are acyclic and gates await named approval.", {issue: str, depends_on: str, type: str, deps: {type: "array", items: {type: "object", properties: {issue: str, depends_on: str, type: str}, required: ["issue", "depends_on"]}}});
+op("dep_list", "List typed dependencies for an issue or store.");
+op("dep_remove", "Remove a specific dependency edge.", {issue: str, depends_on: str}, ["issue", "depends_on"]);
+for (const name of ["ready", "list", "query", "count", "next"]) op(name,
+  name === "next" ? "Read qualified leaf tasks in a goal subtree; does not claim ownership." : `Read ${name} task data with explicit filters.`, list);
+op("acquire", "Atomically select qualified work and return claim plus complete bounded contract.", {goal: str, lane: str, ttl: {...num, minimum: 1, maximum: 86400}, ...tokens}, ["actor"]);
+op("claim", "Claim executable work; finalize:true explicitly claims a container after descendant acceptance. meta.autorun enqueues an outbox autorun job for external runners.", {finalize: bool, ttl: {...num, minimum: 1, maximum: 86400}}, ["id", "actor"]);
+op("claim_next", "Atomically claim the next qualified task within goal/lane.", {goal: str, lane: str, ttl: {...num, minimum: 1, maximum: 86400}}, ["actor"]);
+op("heartbeat", "Refresh a live matching lease and read cancellation intent.", {ttl: {...num, minimum: 1, maximum: 86400}}, ["id", "actor", "epoch"]);
+op("unclaim", "Release only your current fenced live claim.", {}, ["id", "actor", "epoch"]);
+op("reclaim", "Recover expired claims; inspect stale facts and ownership before use.");
+op("verify", "Run declared oracle with bounded resources; persist source-bound verification receipt.", {cwd: str, timeout_secs: {...num, minimum: 1, maximum: 300}, review_receipt: review}, ["id", "actor", "epoch", "cwd"]);
+op("close", "Close only with valid matching source-bound verification receipt; honors meta.review_required, meta.attest_required and meta.budget_gate (cost rollup must fit budget_eur).", {proof_id: str, reason: str}, ["id", "actor", "epoch", "proof_id"]);
+op("reopen", "Reopen your/controller task with a fresh epoch; admin token for administrative recovery.", {reason: str, admin_token: {...str, writeOnly: true}}, ["id", "actor"]);
+op("delete", "Administrative task deletion with configured admin authority.", {admin_token: {...str, writeOnly: true}, reason: str}, ["id"]);
+op("defer", "Defer task until explicit release or due timestamp.", {until: num}, ["id"]);
+op("undefer", "Make a deferred task eligible for qualification.", {}, ["id"]);
+op("show", "Read complete task, dependencies and bounded recent events.", {}, ["id"]);
+op("search", "Search task text with a bounded result limit.", {q: str, limit: int}, ["q"]);
+op("children", "Read immediate goal/task children.", {}, ["id"]);
+op("label", "Add or remove task labels.", {add: strings, remove: strings}, ["id"]);
+op("rename", "Rename task identity and related references administratively.", {from: str, to: str}, ["from", "to"]);
+op("note", "Append an audit note; task status remains unchanged.", {text: str}, ["id", "text"]);
+op("changes", "Record a compact file-edit summary for a task: path, +adds/-dels and hunk line ranges from the real git worktree (sis changes <id> [--repo P] [--base R] [--patch]). Append-only evidence — no code stored unless --patch snapshots a bounded diff. Identical consecutive diffs dedup unless force:true. sis close records the same automatically.", {files: {type: "array", items: {type: "object"}, maxItems: 80}, base: str, head: str, repo: str, patch: bool, force: bool, no_changes: bool}, ["id"]);
+op("comments", "Read task notes.", {}, ["id"]);
+op("history", "Read ordered task events.", {}, ["id"]);
+op("checkpoint", "Persist bounded source-bound progress and next safe step under a valid lease.", {cwd: str, text: str, next_step: str, artifacts: strings, expected_revision: str}, ["id", "actor", "epoch", "text", "next_step"]);
+op("handoff", "Checkpoint bounded progress and release the fenced claim in one step so a successor agent can claim immediately; `to` names the intended successor.", {cwd: str, text: str, next_step: str, artifacts: strings, to: str, expected_revision: str}, ["id", "actor", "epoch", "text", "next_step"]);
+op("resume", "Read current contract and last checkpoint with drift/cancellation information.", {since: int}, ["id"]);
+op("who", "Dirty-worktree attribution: maps each dirty/untracked path in a git repo to the recorded changes event (claim/actor) that produced it. Orphaned paths with no matching event surface explicitly — answers 'wem gehoert dieser Stand?'.", {repo: {...str, description: "Path inside the worktree; defaults to cwd."}, actor: str, epoch: int, run_id: str, idem: str}, [], false);
+op("cancel", "Request cancellation as current worker or declared controller.", {reason: str}, ["id", "actor"]);
+op("cancel_ack", "Acknowledge cancellation, end the live lease and fence old work.", {}, ["id", "actor", "epoch"]);
+op("contract", "Read complete stable task contract and its revision.", {}, ["id"]);
+op("brief", "Render token-budgeted task context without dropping mandatory acceptance.", {...tokens, since: int}, ["id"]);
+op("tokens", "Count selected tiktoken encoding; explicitly separate count from model billing.", {text: str, encoding: tokens.encoding, model: str}, ["text"], false);
+op("context", "Read stable project identity, database path, capabilities and current stats.", {}, [], false);
+op("capabilities", "Discover operation names and store identity; request schemas only when needed.", {schemas: bool}, [], false);
+op("watch", "Read durable events after cursor or subscribe with bounded wait.", {after: int, limit: int, wait: {...num, minimum: 0, maximum: 60}, follow: bool});
+for (const name of ["lint", "types", "statuses", "prime", "orphans", "stats", "review"]) op(name, `Read ${name} diagnostics without dispatching work.`, {}, [], false);
+op("stale", "Read expired task leases.", {now: num}, [], false);
+op("remember", "Persist a project-scoped learning value.", {key: str, value: {}}, ["key", "value"]);
+op("recall", "Read project-scoped learning values.", {key: str}, [], false);
+op("export", "Export project state for audit or backup.", {}, [], false);
+op("import", "Import administrative event state with explicit admin authority. bd format is conflict-aware: live claims and closed issues are reported, never silently overwritten (force:true to reopen).", {path: str, jsonl: str, format: str, force: bool, admin_token: {...str, writeOnly: true}}, ["admin_token"]);
+op("batch", "Apply a bounded atomic mutation batch; verifier execution is excluded.", {ops: {type: "array", maxItems: 1000, items: {type: "object", properties: {cmd: str, args: {type: "object"}}, required: ["cmd"]}}}, ["ops"]);
+op("budget_claim", "Reserve finite nonnegative task budget atomically.", {issue: str, eur: {...num, minimum: 0}}, ["issue", "eur"]);
+op("outbox_list", "Read unprocessed transactional lessons.", {state: str});
+op("outbox_done", "Confirm successful processing of one outbox record.", {id: int}, ["id"]);
+op("outbox_fail", "Record failed outbox processing for bounded recovery.", {id: int, err: str}, ["id", "err"]);
+op("compact", "Archive old events and reap only expired ephemeral task hints.", {days: num, archive_path: str});
+op("gate", "Read or set a named approval gate; unknown gates are closed.", {name: str, state: str, payload: {}}, ["name"]);
+op("gate_list", "Read named approval gates.", {}, [], false);
+op("slot_acquire", "Acquire a fenced expiring merge slot.", {name: str, ttl: {...num, minimum: 1, maximum: 86400}}, ["name", "actor"]);
+op("slot_release", "Release your matching fenced merge slot.", {name: str}, ["name", "actor", "epoch"]);
+op("slot_list", "Read merge-slot holders and epochs.", {}, [], false);
+op("epic", "Read task hierarchy with completion rollup.", {}, ["id"]);
+op("dup_scan", "Find likely duplicate tasks before creating new work.", {min: int});
+op("q", "Capture a task using the create contract.", issue, ["title"]);
+const goal = {name: str, objective: str, target: str, ...issue};
+op("goal", "Create a named goal container with final acceptance.", goal, ["name"]);
+op("sub", "Create a child task under a goal without a blocking parent edge.", issue, ["parent", "title"]);
+op("plan", "Create atomic goal tree and validated internal dependencies; save or reuse a named template.", {...goal, template: str, save_as: str, subs: {type: "array", maxItems: 1000, items: {type: "object", properties: {...issue, deps: {type: "array", items: int}}, required: ["title"]}}}, ["name"]);
+op("goal_tree", "Read named goal hierarchy and progress.");
+op("goal_done", "Check subtree completion; caller still needs verified final goal acceptance.", {}, ["id"]);
+op("snapshot", "Write the git-diffable <db>.issues.jsonl mirror (one upsert line per issue, deps embedded, sorted by id). Runs automatically after every committed write op; SIS_SNAPSHOT=0 disables.", {}, [], false);
+op("attest", "Attach a structured machine-checkable attestation (junit/coverage/smoke/artifact/custom/run) to the active claim, bound to contract revision and source fingerprint. kind:\"run\" executes cmd store-side — the receipt is not forgeable client-side. Required kinds via meta.attest_required are enforced at close.", {kind: {type: "string", enum: ["junit", "coverage", "smoke", "artifact", "custom", "run"]}, path: str, payload: {type: "object"}, percent: num, min: num, url: str, status: int, expect: int, ref: str, passed: bool, note: str, cmd: str, timeout_secs: int});
+op("cost_add", "Append a cost entry (tokens/cents) to an issue's durable ledger; idempotent via idem key.", {issue: str, tokens_in: int, tokens_out: int, cents: int, eur: num, wave: str, currency: str, note: str});
+op("cost_list", "List cost ledger entries, filterable by issue/actor/run_id/wave.", {issue: str, actor: str, run_id: str, wave: str, limit: int}, [], false);
+op("cost_rollup", "Roll up costs over the container subtree of id (meta.parent + id-prefix): totals plus per-issue/actor/wave breakdown and budget reference.", {}, ["id"], false);
+op("outbox_export", "Render pending outbox rows as durable-runner jobs: formats raw, pgboss-sql, hatchet, temporal; drain:true marks exported rows done atomically.", {format: str, limit: int, drain: bool, task_queue: str});
+op("learn", "Honest learning aggregates over the ledger: attest/proof pass rates, cost (cents/tokens) and time-to-accepted grouped by actor|wave|kind|issue — the posterior for bandit/routing decisions, no invented score.", {group_by: str, since: num}, [], false);
+op("sync_export", "Emit a deterministic sis-sync bundle (schema-stamped issues+deps, memories, proof+attest receipts; events with events:true) for multi-machine replication.", {events: bool}, [], false);
+op("sync_import", "Admin: merge a sis-sync bundle — issue/deps upsert, memory LWW by updated_at, receipts by primary key; live claims are never overwritten and report as conflicts.", {path: str, json: {type: "object"}, admin_token: {...str, writeOnly: true}}, ["admin_token"]);
+op("spans", "Read back OTel-shaped span lines emitted under SIS_EMIT for observability of claim/verify/close and other requests.", {limit: int}, [], false);
+writeFileSync(resolve(import.meta.dir, "../ops.json"), JSON.stringify({version: "0.8.0", protocol: 2, ops}, null, 2) + "\n");
+console.log(JSON.stringify({operations: ops.length}));

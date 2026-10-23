@@ -1,0 +1,111 @@
+{
+  "date": "2026-10-23",
+  "platform": "macOS arm64",
+  "gate": "bash tools/verify-all.sh",
+  "gate_exit": 0,
+  "unittest_suites": [
+    {
+      "tests": 59,
+      "seconds": 8.318
+    },
+    {
+      "tests": 23,
+      "seconds": 3.092
+    },
+    {
+      "tests": 20,
+      "seconds": 4.924
+    },
+    {
+      "tests": 7,
+      "seconds": 7.158
+    },
+    {
+      "tests": 6,
+      "seconds": 3.986
+    },
+    {
+      "tests": 59,
+      "seconds": 23.136
+    },
+    {
+      "tests": 23,
+      "seconds": 18.826
+    },
+    {
+      "tests": 20,
+      "seconds": 12.88
+    },
+    {
+      "tests": 7,
+      "seconds": 13.939
+    },
+    {
+      "tests": 6,
+      "seconds": 10.09
+    }
+  ],
+  "unittest_skips": [
+    "Python cleanup regression"
+  ],
+  "protocol_checks": {
+    "passed": 22,
+    "failed": 0,
+    "missing": 0,
+    "operations_per_runtime": 85
+  },
+  "bun": {
+    "passed": 35,
+    "failed": 0,
+    "files": 5
+  },
+  "gate_log_sha256": "8c8fb49d1ffbe4a26a7e2e9967bee1b5de26e47fd9dedfc3a83ff8026d6638f0",
+  "wrapper": {
+    "backend": "ps",
+    "elapsed_seconds": 137.603,
+    "peak_tree_mib": 215
+  },
+  "secret_findings": 0,
+  "tested_source_sha256": {
+    "Cargo.lock": "b8a66ec3db45fd5416926c1cd408bbf6d561f8e32fd094d527b92a3109bb3b58",
+    "Cargo.toml": "e95250b5e1c792df1f2a117eb2e2fec1e3cd66fb1bf0e53986b7a6a4fa2acc1f",
+    "agent.py": "c3973edb67aae5f3250b0edc6b8bd11789f7e79c2f8f9a25bbabf2b0ddd96826",
+    "agent.rs": "5cc0905079c4070b5af1ad0fe300b986864c8dbd27b4bbe5604ec404e15233d2",
+    "bin/sis": "f8f57015c4eac1860d70ab836133ac7287bbce2bf833964b533f6472d2dfcab9",
+    "mcp/sis-mcp.js": "e7d3dc139ed20076fc616c333b09461e88988c2b6ce5bb801d4fdce39f001061",
+    "ops.json": "eb87bcab4b70766e27e2a2f58e729091a71904adc08eb78db465fe712635c977",
+    "superiss.py": "ed06bde5b83ae4c96ee5c63371983685af40d05a60717f2bdaaf71e67ed9e959",
+    "superiss.rs": "0fba7ab605bdea8bd897c2bf305107c0d45e2a622cb572fd4a6beb43a2ab611c",
+    "tests/agent_suite.py": "780374580335ff1a8fe4ca2ef2f2a8b5dc553b7f42b39a6e13a56093a294b99d",
+    "tests/budget_suite.py": "8ebb3cf627c63ecbd5f5ed68e8538102117596ed3171ca32bc4305ecdea326b5",
+    "tests/contract_suite.py": "90f140eef490e4e311107f38118c967a4b59a16349ca8ab6237fa09788e040ff",
+    "tests/controller_suite.py": "2772bac445926b0c9645ad9b49d744cf4eb37361d5d2587e539e9ac1c1fe42de",
+    "tests/integration_suite.py": "7eb829f4bd2faa6b90671a39452263d9579f82c7b07542b12dc0b92c4e60b5b6",
+    "tests/recovery_edges.py": "c15b36a107c6ea1a1263124419ab4825759f5e3438b67d29f2bb4abd0fac3efb",
+    "tests/service-chaos.test.ts": "165554485acf4795d5a4415271188b54e63e383f4af33424a7098bcde7575c76",
+    "tests/service-defaults.test.ts": "8874b8b74dc00bca9e941a749781c7552a9af4fe0cae4df407aae5867e512206",
+    "tests/service-regression.test.ts": "268202e62665744b2530b764e2a42947f0050336b91346912f258f15d1a79dd6",
+    "tests/service-soak.test.ts": "50d4dabb7f336425ff4440d846ec67fd0451a0c432f1f913203add46f1f3a0fc",
+    "tests/service.test.ts": "02732095918ceab3080a00547e9c1f941ae60f7350f5e8a9151cf9612678c3db",
+    "tests/spec_stub.py": "1030d31f4ec5fea758bb978f880d612b2918b0d52dd7a774b8e130634cf3417a",
+    "tools/bd2sis.py": "75800440b255f75388c87d707840471b836481b3068db30dd2e55865097350e2",
+    "tools/build-registry.ts": "5d0df2a10e6222fe7906594130b8207711156c21c3da251209d7cb8586c1ec3a",
+    "tools/lifecycle.ts": "52e17e9bc54630fbce0c341aa4e68c26361a4c29f6c6f6888216783c0a961216",
+    "tools/service-lock.py": "cac3ab10005534c4342d0bff7716d8f59aeb91db26d0dfe41f206554d6dd2e20",
+    "tools/service-soak.ts": "5777b42684f83d10eb1e42c54ed32b9559ba5d5ad08115c7e97a11fb2f21d9a4",
+    "tools/service.ts": "7df1f85c5cd9d1e1afd020f0881a0c347f8518e1e96ad89d5344581528a4e3f1",
+    "tools/sis-runner.sh": "1b82d3002a38beabd37511b505689cbf4231dfd6e9100e105513c4c30dc8826c",
+    "tools/sis-sync.sh": "849da1b16b58cfe90a7fa0195e5a7794ecc5929a48e9de17fb8b745e245482d9",
+    "tools/sis_runner.py": "f35c97c2dd2dd810722adf4b1955326d242d42a73aef7218c8a2550050118507",
+    "tools/sis_workflow.py": "8202443f47861e38b5838e0a092715e41052f220de6fc4476d52f288939096fe",
+    "tools/verify-all.sh": "1b2ce6170c204e7b93c6ac3ef79219b5605bbe0eb12e63d595fc0133f9b287cb",
+    "transport.rs": "e6967da84f74b3595d5a540c646ba67ee66627ff51643bfcb430a5d799832a23",
+    "web/board.html": "da3cbed9eb51d4b61ba5ab17e7eed28432d212cb2a9fd5c2e021912eebbc5de4",
+    "workloads/findeverything/fe.js": "2336d1fccf9939e9798f72394a407010483018ec203f8f5eb92f114ab6a804ff"
+  },
+  "limits": [
+    "Local tests do not establish 24-hour soak or production reliability",
+    "Static analysis has documented inherited findings",
+    "No competitor performance benchmark was run"
+  ]
+}

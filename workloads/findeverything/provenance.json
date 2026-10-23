@@ -1,0 +1,7 @@
+{
+  "project": "Find Everything",
+  "purpose": "Bundled local search workload for optional Superiss soak fixtures",
+  "original_bundle_sha256": "dc2393f29d0a11ad31a8b9d4680946683e589fb9ae0cffb6e1bc1b499b0fd8c4",
+  "public_bundle_sha256": "2336d1fccf9939e9798f72394a407010483018ec203f8f5eb92f114ab6a804ff",
+  "publication_change": "Replace embedded author build paths with import.meta.dir; no external model required for the soak cases."
+}

@@ -1,0 +1,71 @@
+#!/usr/bin/env bash
+set -euo pipefail
+SELF="${BASH_SOURCE[0]}"
+while [ -L "$SELF" ]; do
+  LINK="$(readlink "$SELF")"
+  if [[ "$LINK" = /* ]]; then SELF="$LINK"; else SELF="$(dirname "$SELF")/$LINK"; fi
+done
+ROOT="$(cd "$(dirname "$SELF")/.." && pwd)"
+export TIKTOKEN_CACHE_DIR="${TIKTOKEN_CACHE_DIR:-$ROOT/.cache/tiktoken}"
+case "${1:-}" in
+  service)
+    shift
+    exec bun "$ROOT/tools/service.ts" "$@" ;;
+  run)
+    shift
+    exec "${SIS_RUNNER_PYTHON:-python3}" "$ROOT/tools/sis_runner.py" --complete --sis "$ROOT/bin/sis" "$@" ;;
+  up|down|status)
+    exec bun "$ROOT/tools/lifecycle.ts" "$ROOT" "$@" ;;
+esac
+IMPL="${SIS_IMPL:-rs}"
+if [ "$IMPL" = py ]; then
+  PYTHON="${SIS_PYTHON:-$ROOT/.venv/bin/python}"
+  if [ ! -x "$PYTHON" ]; then PYTHON="$(command -v python3)"; fi
+  exec "$PYTHON" "$ROOT/superiss.py" "$@"
+fi
+if [ "$IMPL" != rs ]; then printf '%s\n' 'SIS_IMPL must be rs or py' >&2; exit 1; fi
+# Release bundles carry an immutable native executable and need no compiler.
+if [ -x "$ROOT/bin/superiss-native" ]; then
+  exec "$ROOT/bin/superiss-native" "$@"
+fi
+TARGET="${SIS_TARGET_DIR:-$ROOT/.cache/cargo}"
+BIN="$TARGET/debug/superiss"
+stale() {
+  [ -x "$BIN" ] || return 0
+  for INPUT in "$ROOT/Cargo.toml" "$ROOT/Cargo.lock" "$ROOT/ops.json" "$ROOT/web/board.html" "$ROOT"/*.rs; do
+    if [ "$INPUT" -nt "$BIN" ]; then return 0; fi
+  done
+  return 1
+}
+if stale; then
+  if ! command -v cargo >/dev/null 2>&1; then
+    printf '%s\n' 'Superiss native binary missing/stale and cargo unavailable; install or choose SIS_IMPL=py explicitly.' >&2
+    exit 2
+  fi
+  mkdir -p "$TARGET"
+  LOCK="$TARGET/.sis-build-lock"
+  OWN_LOCK=0
+  cleanup() { rm -f "$LOCK/pid"; rmdir "$LOCK" 2>/dev/null || true; }
+  for ((ATTEMPT=0; ATTEMPT<300; ATTEMPT++)); do
+    if mkdir "$LOCK" 2>/dev/null; then OWN_LOCK=1; printf '%s\n' "$$" > "$LOCK/pid"; break; fi
+    if [ -f "$LOCK/pid" ]; then
+      read -r LOCK_PID < "$LOCK/pid" || LOCK_PID=""
+      if [[ "$LOCK_PID" =~ ^[0-9]+$ ]] && ! kill -0 "$LOCK_PID" 2>/dev/null; then
+        rm -f "$LOCK/pid"; rmdir "$LOCK" 2>/dev/null || true
+      fi
+    fi
+    if ! stale; then break; fi
+    sleep 0.1
+  done
+  if stale; then
+    if [ "$OWN_LOCK" -ne 1 ]; then printf '%s\n' 'Superiss build busy after 30s; foreign build preserved.' >&2; exit 2; fi
+    trap cleanup EXIT
+    if command -v mac-resource-run >/dev/null 2>&1; then
+      CARGO_TARGET_DIR="$TARGET" mac-resource-run run --memory-gib 4 --io-slots 1 -- cargo build --manifest-path "$ROOT/Cargo.toml" --locked -j2 >&2
+    else
+      CARGO_TARGET_DIR="$TARGET" cargo build --manifest-path "$ROOT/Cargo.toml" --locked -j2 >&2
+    fi
+  fi
+  if [ "$OWN_LOCK" -eq 1 ]; then cleanup; trap - EXIT; fi
+fi
+exec "$BIN" "$@"

@@ -1,0 +1,69 @@
+<!doctype html><meta charset=utf-8><title>superiss board</title>
+<style>
+:root{color-scheme:dark}body{font:14px/1.5 -apple-system,monospace;background:#0d1117;color:#c9d1d9;margin:0;padding:24px}
+h1{font-size:18px;margin:0 0 4px}.stats{display:flex;gap:10px;flex-wrap:wrap;margin:12px 0 18px}
+.chip{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:8px 14px}
+.chip b{font-size:20px;display:block}.chip span{color:#8b949e;font-size:11px;text-transform:uppercase}
+table{border-collapse:collapse;width:100%}th{text-align:left;color:#8b949e;font-weight:600;font-size:11px;text-transform:uppercase;border-bottom:1px solid #30363d;padding:6px 8px}
+td{border-bottom:1px solid #21262d;padding:6px 8px;vertical-align:top}
+.s-open{color:#3fb950}.s-in_progress{color:#d29922}.s-blocked{color:#f85149}.s-deferred{color:#8b949e}.s-closed{color:#8957e5}
+.id{color:#58a6ff;font-family:monospace;font-size:12px}.oracle{color:#8b949e;font-size:11px;font-family:monospace}
+.chg{color:#8b949e;font-size:12px;white-space:nowrap}
+input{background:#161b22;border:1px solid #30363d;color:#c9d1d9;border-radius:6px;padding:6px 10px;width:280px;margin-bottom:12px}
+.goal{background:#161b22;border:1px solid #30363d;border-left:3px solid #58a6ff;border-radius:8px;padding:10px 14px;margin-bottom:8px}
+.goal .t{font-weight:600}.goal .obj{color:#8b949e;font-size:12px}.goal .bar{height:6px;background:#21262d;border-radius:3px;margin-top:6px}
+.goal .bar i{display:block;height:6px;background:#3fb950;border-radius:3px}
+.goal .kid{color:#8b949e;font-size:12px;margin-left:14px}
+</style>
+<h1>superiss board <small id=stamp style=color:#8b949e;font-weight:400></small></h1>
+<div class=stats id=stats></div>
+<div id=goals></div>
+<input id=q aria-label="Filter tasks and agents" placeholder="filter task / agent / controller / lane…" oninput="render()">
+<table><thead><tr><th>id</th><th>status</th><th>p</th><th>type</th><th>title</th><th>agent / controller / lane</th><th>oracle</th></tr></thead><tbody id=rows></tbody></table>
+<script>
+let D={issues:[]},G=[];
+async function load(){try{const r=await fetch('/board');D=await r.json();D=D.data||D;
+ const g=await fetch('/op?q='+encodeURIComponent('{"cmd":"goal_tree"}'));let gj=await g.json();G=(gj.data||[]);
+ render();}catch(e){}}
+function esc(s){return (s||'').replace(/[<>&]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]))}
+function assignment(i){
+ const active=i.status==='in_progress'&&i.claim_actor;
+ const lease=active?(Number(i.lease_until)>Date.now()/1000?'active':'expired'):'';
+ const trace=encodeURIComponent(JSON.stringify({cmd:'history',args:{id:i.id}}));
+ return `Agent: ${esc(i.claim_actor||'unassigned')}<br><span class=oracle>Controller: ${esc(i.owner||(i.meta||{}).controller||'unassigned')}${i.lane?'<br>Lane: '+esc(i.lane):''}${active?'<br>Claim #'+esc(String(i.lease_epoch))+' · '+lease:''}</span><br><a class=id href="/op?q=${trace}">history</a>`;
+}
+function changes(i){
+ const fs=i.changes||[];if(!fs.length)return '';
+ return fs.slice(0,4).map(f=>{
+  const hs=Array.isArray(f.hunks)?f.hunks:[];
+  const rg=hs.length?' @'+hs.slice(0,3).map(h=>h[0]+'–'+h[1]).join(',')+(hs.length>3?'…':''):'';
+  return `<div class=chg>${esc(f.status||'M')} ${esc(f.path||'')} <b style=color:#3fb950>+${f.adds??0}</b> <b style=color:#f85149>-${f.dels??0}</b>${rg}</div>`;
+ }).join('')+(fs.length>4?`<div class=chg>… +${fs.length-4} files</div>`:'');
+}
+function render(){
+ const S=D.stats||{};document.getElementById('stats').innerHTML=
+  ['total','ready','open','in_progress','blocked','deferred','closed','pending_outbox']
+  .map(k=>S[k]!==undefined?`<div class=chip><b>${S[k]}</b><span>${k}</span></div>`:'').join('');
+ const flat=(n,acc)=>{acc.push(n);(n.children||[]).forEach(c=>flat(c,acc));return acc};
+ document.getElementById('goals').innerHTML=(G||[]).map(g=>{
+  const kids=flat(g,[]).slice(1);const done=kids.filter(k=>k.status==='closed').length;
+  const pct=kids.length?Math.round(done*100/kids.length):0;
+  return `<div class=goal><div class=t>${esc(g.title)} <span class=id>${esc(g.id)}</span></div>
+   ${g.meta&&g.meta.objective?`<div class=obj>${esc(g.meta.objective)}</div>`:''}
+   <div class=bar><i style="width:${pct}%"></i></div>
+   <div class=obj>${done}/${kids.length} done · ${esc(g.oracle_cmd||'')}</div>
+   ${kids.slice(0,4).map(k=>`<div class=kid><span class=s-${k.status}>●</span> ${esc(k.id)} — ${esc(k.title)}</div>`).join('')}
+   ${kids.length>4?`<div class=kid>… +${kids.length-4} more</div>`:''}</div>`;
+ }).join('');
+ const q=document.getElementById('q').value.toLowerCase();
+ const rows=(D.issues||[]).filter(i=>!q||([i.id,i.title,i.oracle_cmd,i.claim_actor,i.owner,(i.meta||{}).controller,i.lane,i.run_state,...(i.changes||[]).map(f=>f.path)].filter(Boolean).join(' ').toLowerCase().includes(q)))
+  .sort((a,b)=>(a.status==='closed')-(b.status==='closed')||a.priority-b.priority);
+ document.getElementById('rows').innerHTML=rows.map(i=>
+  `<tr><td class=id>${esc(i.id)}</td><td class=s-${i.status}>${i.status}${i.run_state&&i.run_state!==i.status?'<br><span class=id>'+esc(i.run_state)+'</span>':''}</td><td>${i.priority}</td>
+  <td>${esc(i.type||'')}</td><td>${esc(i.title)}${changes(i)}</td>
+  <td>${assignment(i)}</td>
+  <td class=oracle>${esc(i.oracle_cmd||'')}</td></tr>`).join('');
+ document.getElementById('stamp').textContent=' · '+new Date().toLocaleTimeString();
+}
+load();setInterval(load,4000);
+</script>

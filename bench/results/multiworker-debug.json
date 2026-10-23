@@ -1,0 +1,319 @@
+{
+  "arms": {
+    "baseline": {
+      "binarySha256": "35e1063ac1a31d61289c6b70b886243ddc4c2fa51d8151eda1f0712780062d9f",
+      "effort": "none",
+      "model": "none-local-native",
+      "sourceSha256": "e7e69fe6c56445b285f0ef1d56b1009b1e9aa710d091f641a8edb51cf5f2184d",
+      "transport": "unix-ndjson"
+    },
+    "candidate": {
+      "binarySha256": "cca180d490929436964765c0d625c279e247c1054d556933f2b439ea9d27eb5a",
+      "effort": "none",
+      "model": "none-local-native",
+      "sourceSha256": "cf737fb1aca3be01f3a09c0653d61923c24aef482cc6881a82492e690bf74656",
+      "transport": "unix-ndjson"
+    }
+  },
+  "automaticPromotion": false,
+  "baseline": "baseline",
+  "candidate": "candidate",
+  "environment": {
+    "modelCalls": 0,
+    "platform": "macOS-15.5-arm64-arm-64bit-Mach-O",
+    "profile": "debug",
+    "python": "3.15.0",
+    "setupExcluded": true
+  },
+  "limits": "Virtual clients, not coding agents. No optimum agent count or billing claim.",
+  "protocol": {
+    "cacheState": "warm",
+    "environmentSha256": "682978ef659b1a2f45b70f7b954084deea7f3c738c8c9ff29c389540b36db53f",
+    "minPairs": 3,
+    "objective": "time",
+    "oracleSha256": "49c2625f62e45e797924f27e0c0f2efc0068f4f9f8ee56421113094a3d4b1be0",
+    "varied": [
+      "source"
+    ],
+    "workloadSha256": "a22f67eb3e3699d6c8da6e85d29e7ee48aa019a00ad0a233cd26ee2b221f66cd"
+  },
+  "schemaVersion": 1,
+  "trials": [
+    {
+      "accepted": 2,
+      "acceptedPerSecond": 4.820653608310486,
+      "arm": "baseline",
+      "attempts": 1,
+      "durationMs": 414.8815000007744,
+      "pairId": "workers-1-round-0",
+      "pass": true,
+      "taskP95Ms": 206.0822500006907,
+      "workers": 1
+    },
+    {
+      "accepted": 2,
+      "acceptedPerSecond": 5.669476601006096,
+      "arm": "candidate",
+      "attempts": 1,
+      "durationMs": 352.7662500000588,
+      "pairId": "workers-1-round-0",
+      "pass": true,
+      "taskP95Ms": 175.78687499917578,
+      "workers": 1
+    },
+    {
+      "accepted": 4,
+      "acceptedPerSecond": 8.426912298368027,
+      "arm": "baseline",
+      "attempts": 1,
+      "durationMs": 474.6697079990554,
+      "pairId": "workers-2-round-0",
+      "pass": true,
+      "taskP95Ms": 255.84120900020935,
+      "workers": 2
+    },
+    {
+      "accepted": 4,
+      "acceptedPerSecond": 10.925915597395583,
+      "arm": "candidate",
+      "attempts": 1,
+      "durationMs": 366.10204099997645,
+      "pairId": "workers-2-round-0",
+      "pass": true,
+      "taskP95Ms": 182.89929200000188,
+      "workers": 2
+    },
+    {
+      "accepted": 8,
+      "acceptedPerSecond": 12.410568762774645,
+      "arm": "baseline",
+      "attempts": 1,
+      "durationMs": 644.6118750009191,
+      "pairId": "workers-4-round-0",
+      "pass": true,
+      "taskP95Ms": 424.2939590003516,
+      "workers": 4
+    },
+    {
+      "accepted": 8,
+      "acceptedPerSecond": 20.665871586879128,
+      "arm": "candidate",
+      "attempts": 1,
+      "durationMs": 387.11166699977184,
+      "pairId": "workers-4-round-0",
+      "pass": true,
+      "taskP95Ms": 197.61470800040115,
+      "workers": 4
+    },
+    {
+      "accepted": 16,
+      "acceptedPerSecond": 11.992979234998051,
+      "arm": "baseline",
+      "attempts": 1,
+      "durationMs": 1334.1138750001846,
+      "pairId": "workers-8-round-0",
+      "pass": true,
+      "taskP95Ms": 1111.6049169995676,
+      "workers": 8
+    },
+    {
+      "accepted": 16,
+      "acceptedPerSecond": 29.61186251204457,
+      "arm": "candidate",
+      "attempts": 1,
+      "durationMs": 540.3240000014193,
+      "pairId": "workers-8-round-0",
+      "pass": true,
+      "taskP95Ms": 287.50133299945446,
+      "workers": 8
+    },
+    {
+      "accepted": 2,
+      "acceptedPerSecond": 5.66904403792539,
+      "arm": "candidate",
+      "attempts": 1,
+      "durationMs": 352.7931669996178,
+      "pairId": "workers-1-round-1",
+      "pass": true,
+      "taskP95Ms": 177.73037500046485,
+      "workers": 1
+    },
+    {
+      "accepted": 2,
+      "acceptedPerSecond": 4.936339217076041,
+      "arm": "baseline",
+      "attempts": 1,
+      "durationMs": 405.1585419983894,
+      "pairId": "workers-1-round-1",
+      "pass": true,
+      "taskP95Ms": 202.7310840003338,
+      "workers": 1
+    },
+    {
+      "accepted": 4,
+      "acceptedPerSecond": 11.368326056526461,
+      "arm": "candidate",
+      "attempts": 1,
+      "durationMs": 351.854791999358,
+      "pairId": "workers-2-round-1",
+      "pass": true,
+      "taskP95Ms": 177.02729200027534,
+      "workers": 2
+    },
+    {
+      "accepted": 4,
+      "acceptedPerSecond": 8.470527197660063,
+      "arm": "baseline",
+      "attempts": 1,
+      "durationMs": 472.2256250006467,
+      "pairId": "workers-2-round-1",
+      "pass": true,
+      "taskP95Ms": 258.31450000077893,
+      "workers": 2
+    },
+    {
+      "accepted": 8,
+      "acceptedPerSecond": 20.12003274530582,
+      "arm": "candidate",
+      "attempts": 1,
+      "durationMs": 397.61366699895007,
+      "pairId": "workers-4-round-1",
+      "pass": true,
+      "taskP95Ms": 201.98449999952572,
+      "workers": 4
+    },
+    {
+      "accepted": 8,
+      "acceptedPerSecond": 12.163003260551093,
+      "arm": "baseline",
+      "attempts": 1,
+      "durationMs": 657.7322909997747,
+      "pairId": "workers-4-round-1",
+      "pass": true,
+      "taskP95Ms": 437.37187499937136,
+      "workers": 4
+    },
+    {
+      "accepted": 16,
+      "acceptedPerSecond": 30.34685507003494,
+      "arm": "candidate",
+      "attempts": 1,
+      "durationMs": 527.2375000004104,
+      "pairId": "workers-8-round-1",
+      "pass": true,
+      "taskP95Ms": 276.14837500004796,
+      "workers": 8
+    },
+    {
+      "accepted": 16,
+      "acceptedPerSecond": 14.227127419590937,
+      "arm": "baseline",
+      "attempts": 1,
+      "durationMs": 1124.6121250005672,
+      "pairId": "workers-8-round-1",
+      "pass": true,
+      "taskP95Ms": 904.8324159994081,
+      "workers": 8
+    },
+    {
+      "accepted": 2,
+      "acceptedPerSecond": 4.760688621326248,
+      "arm": "baseline",
+      "attempts": 1,
+      "durationMs": 420.1072910000221,
+      "pairId": "workers-1-round-2",
+      "pass": true,
+      "taskP95Ms": 209.77604199833877,
+      "workers": 1
+    },
+    {
+      "accepted": 2,
+      "acceptedPerSecond": 5.797267385542742,
+      "arm": "candidate",
+      "attempts": 1,
+      "durationMs": 344.9901250005496,
+      "pairId": "workers-1-round-2",
+      "pass": true,
+      "taskP95Ms": 172.01370899965696,
+      "workers": 1
+    },
+    {
+      "accepted": 4,
+      "acceptedPerSecond": 8.258333045149788,
+      "arm": "baseline",
+      "attempts": 1,
+      "durationMs": 484.35925000012503,
+      "pairId": "workers-2-round-2",
+      "pass": true,
+      "taskP95Ms": 259.50995800121746,
+      "workers": 2
+    },
+    {
+      "accepted": 4,
+      "acceptedPerSecond": 11.133496645194478,
+      "arm": "candidate",
+      "attempts": 1,
+      "durationMs": 359.2761670006439,
+      "pairId": "workers-2-round-2",
+      "pass": true,
+      "taskP95Ms": 179.96883299929323,
+      "workers": 2
+    },
+    {
+      "accepted": 8,
+      "acceptedPerSecond": 12.240800270108313,
+      "arm": "baseline",
+      "attempts": 1,
+      "durationMs": 653.5520409997844,
+      "pairId": "workers-4-round-2",
+      "pass": true,
+      "taskP95Ms": 427.5357089991303,
+      "workers": 4
+    },
+    {
+      "accepted": 8,
+      "acceptedPerSecond": 20.370805961370625,
+      "arm": "candidate",
+      "attempts": 1,
+      "durationMs": 392.7188750003552,
+      "pairId": "workers-4-round-2",
+      "pass": true,
+      "taskP95Ms": 196.78045799992105,
+      "workers": 4
+    },
+    {
+      "accepted": 16,
+      "acceptedPerSecond": 14.90399441097224,
+      "arm": "baseline",
+      "attempts": 1,
+      "durationMs": 1073.5377080000035,
+      "pairId": "workers-8-round-2",
+      "pass": true,
+      "taskP95Ms": 816.714291999233,
+      "workers": 8
+    },
+    {
+      "accepted": 16,
+      "acceptedPerSecond": 32.667330914640615,
+      "arm": "candidate",
+      "attempts": 1,
+      "durationMs": 489.7859590000735,
+      "pairId": "workers-8-round-2",
+      "pass": true,
+      "taskP95Ms": 248.66404199929093,
+      "workers": 8
+    }
+  ],
+  "workload": {
+    "acceptance": "claim, source-bound verify, proof-bound close, exact closed count",
+    "backlog": 10000,
+    "jobsPerWorker": 2,
+    "repeats": 3,
+    "workers": [
+      1,
+      2,
+      4,
+      8
+    ]
+  }
+}

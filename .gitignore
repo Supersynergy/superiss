@@ -1,0 +1,12 @@
+/.cache/
+/.grepgod/
+/.sis/
+/.venv/
+/.venv
+/target/
+/bin/superiss-native
+__pycache__/
+*.pyc
+*.db
+*.db-wal
+*.db-shm

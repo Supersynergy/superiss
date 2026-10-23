@@ -1,0 +1,3106 @@
+{
+  "version": "0.9.0",
+  "protocol": 2,
+  "ops": [
+    {
+      "name": "create",
+      "description": "Create a task with executable acceptance and explicit writable paths.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "actor": {
+            "type": "string"
+          },
+          "epoch": {
+            "type": "integer"
+          },
+          "run_id": {
+            "type": "string"
+          },
+          "idem": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "desc": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "priority": {
+            "type": "integer"
+          },
+          "status": {
+            "type": "string"
+          },
+          "owner": {
+            "type": "string"
+          },
+          "oracle_cmd": {
+            "type": "string"
+          },
+          "allowed_paths": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "lane": {
+            "type": "string"
+          },
+          "budget_eur": {
+            "type": "number",
+            "minimum": 0
+          },
+          "acceptance": {
+            "type": "string"
+          },
+          "meta": {
+            "type": "object"
+          },
+          "parent": {
+            "type": "string"
+          },
+          "defer_until": {
+            "type": "number"
+          },
+          "expires_at": {
+            "type": "number"
+          },
+          "ttl_secs": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          }
+        },
+        "required": [
+          "title"
+        ]
+      }
+    },
+    {
+      "name": "update",
+      "description": "Edit task content; worker status/lease mutations are prohibited.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "actor": {
+            "type": "string"
+          },
+          "epoch": {
+            "type": "integer"
+          },
+          "run_id": {
+            "type": "string"
+          },
+          "idem": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "desc": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "priority": {
+            "type": "integer"
+          },
+          "status": {
+            "type": "string"
+          },
+          "owner": {
+            "type": "string"
+          },
+          "oracle_cmd": {
+            "type": "string"
+          },
+          "allowed_paths": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "lane": {
+            "type": "string"
+          },
+          "budget_eur": {
+            "type": "number",
+            "minimum": 0
+          },
+          "acceptance": {
+            "type": "string"
+          },
+          "meta": {
+            "type": "object"
+          },
+          "parent": {
+            "type": "string"
+          },
+          "defer_until": {
+            "type": "number"
+          },
+          "expires_at": {
+            "type": "number"
+          },
+          "ttl_secs": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "set": {
+            "type": "object"
+          },
+          "expected_revision": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      }
+    },
+    {
+      "name": "admin_update",
+      "description": "Administrative correction; requires configured server admin token and reason.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "actor": {
+            "type": "string"
+          },
+          "epoch": {
+            "type": "integer"
+          },
+          "run_id": {
+            "type": "string"
+          },
+          "idem": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "desc": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "priority": {
+            "type": "integer"
+          },
+          "status": {
+            "type": "string"
+          },
+          "owner": {
+            "type": "string"
+          },
+          "oracle_cmd": {
+            "type": "string"
+          },
+          "allowed_paths": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "lane": {
+            "type": "string"
+          },
+          "budget_eur": {
+            "type": "number",
+            "minimum": 0
+          },
+          "acceptance": {
+            "type": "string"
+          },
+          "meta": {
+            "type": "object"
+          },
+          "parent": {
+            "type": "string"
+          },
+          "defer_until": {
+            "type": "number"
+          },
+          "expires_at": {
+            "type": "number"
+          },
+          "ttl_secs": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "set": {
+            "type": "object"
+          },
+          "admin_token": {
+            "type": "string",
+            "writeOnly": true
+          },
+          "reason": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "admin_token",
+          "reason"
+        ]
+      }
+    },
+    {
+      "name": "dep",
+      "description": "Add typed dependencies; blocks edges are acyclic and gates await named approval.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "actor": {
+            "type": "string"
+          },
+          "epoch": {
+            "type": "integer"
+          },
+          "run_id": {
+            "type": "string"
+          },
+          "idem": {
+            "type": "string"
+          },
+          "issue": {
+            "type": "string"
+          },
+          "depends_on": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "deps": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "issue": {
+                  "type": "string"
+                },
+                "depends_on": {
+                  "type": "string"
+                },
+                "type": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "issue",
+                "depends_on"
+              ]
+            }
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "dep_list",
+      "description": "List typed dependencies for an issue or store.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "actor": {
+            "type": "string"
+          },
+          "epoch": {
+            "type": "integer"
+          },
+          "run_id": {
+            "type": "string"
+          },
+          "idem": {
+            "type": "string"
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "dep_remove",
+      "description": "Remove a specific dependency edge.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "actor": {
+            "type": "string"
+          },
+          "epoch": {
+            "type": "integer"
+          },
+          "run_id": {
+            "type": "string"
+          },
+          "idem": {
+            "type": "string"
+          },
+          "issue": {
+            "type": "string"
+          },
+          "depends_on": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "issue",
+          "depends_on"
+        ]
+      }
+    },
+    {
+      "name": "ready",
+      "description": "Read ready task data with explicit filters.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "actor": {
+            "type": "string"
+          },
+          "epoch": {
+            "type": "integer"
+          },
+          "run_id": {
+            "type": "string"
+          },
+          "idem": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "lane": {
+            "type": "string"
+          },
+          "owner": {
+            "type": "string"
+          },
+          "priority": {
+            "type": "integer"
+          },
+          "label": {
+            "type": "string"
+          },
+          "q": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000
+          },
+          "fields": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "cursor": {
+            "type": "string"
+          },
+          "goal": {
+            "type": "string"
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "list",
+      "description": "Read list task data with explicit filters.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "actor": {
+            "type": "string"
+          },
+          "epoch": {
+            "type": "integer"
+          },
+          "run_id": {
+            "type": "string"
+          },
+          "idem": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "lane": {
+            "type": "string"
+          },
+          "owner": {
+            "type": "string"
+          },
+          "priority": {
+            "type": "integer"
+          },
+          "label": {
+            "type": "string"
+          },
+          "q": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000
+          },
+          "fields": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "cursor": {
+            "type": "string"
+          },
+          "goal": {
+            "type": "string"
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "query",
+      "description": "Read query task data with explicit filters.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "actor": {
+            "type": "string"
+          },
+          "epoch": {
+            "type": "integer"
+          },
+          "run_id": {
+            "type": "string"
+          },
+          "idem": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "lane": {
+            "type": "string"
+          },
+          "owner": {
+            "type": "string"
+          },
+          "priority": {
+            "type": "integer"
+          },
+          "label": {
+            "type": "string"
+          },
+          "q": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000
+          },
+          "fields": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "cursor": {
+            "type": "string"
+          },
+          "goal": {
+            "type": "string"
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "count",
+      "description": "Read count task data with explicit filters.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "actor": {
+            "type": "string"
+          },
+          "epoch": {
+            "type": "integer"
+          },
+          "run_id": {
+            "type": "string"
+          },
+          "idem": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "lane": {
+            "type": "string"
+          },
+          "owner": {
+            "type": "string"
+          },
+          "priority": {
+            "type": "integer"
+          },
+          "label": {
+            "type": "string"
+          },
+          "q": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000
+          },
+          "fields": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "cursor": {
+            "type": "string"
+          },
+          "goal": {
+            "type": "string"
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "next",
+      "description": "Read qualified leaf tasks in a goal subtree; does not claim ownership.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "actor": {
+            "type": "string"
+          },
+          "epoch": {
+            "type": "integer"
+          },
+          "run_id": {
+            "type": "string"
+          },
+          "idem": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "lane": {
+            "type": "string"
+          },
+          "owner": {
+            "type": "string"
+          },
+          "priority": {
+            "type": "integer"
+          },
+          "label": {
+            "type": "string"
+          },
+          "q": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000
+          },
+          "fields": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "cursor": {
+            "type": "string"
+          },
+          "goal": {
+            "type": "string"
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "acquire",
+      "description": "Atomically select qualified work and return claim plus complete bounded contract.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "actor": {
+            "type": "string"
+          },
+          "epoch": {
+            "type": "integer"
+          },
+          "run_id": {
+            "type": "string"
+          },
+          "idem": {
+            "type": "string"
+          },
+          "goal": {
+            "type": "string"
+          },
+          "lane": {
+            "type": "string"
+          },
+          "ttl": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 86400
+          },
+          "max_tokens": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "encoding": {
+            "type": "string",
+            "enum": [
+              "o200k_base",
+              "cl100k_base"
+            ]
+          },
+          "model": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "actor"
+        ]
+      }
+    },
+    {
+      "name": "claim",
+      "description": "Claim executable work; finalize:true explicitly claims a container after descendant acceptance. meta.autorun enqueues an outbox autorun job for external runners.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "actor": {
+            "type": "string"
+          },
+          "epoch": {
+            "type": "integer"
+          },
+          "run_id": {
+            "type": "string"
+          },
+          "idem": {
+            "type": "string"
+          },
+          "finalize": {
+            "type": "boolean"
+          },
+          "ttl": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 86400
+          }
+        },
+        "required": [
+          "id",
+          "actor"
+        ]
+      }
+    },
+    {
+      "name": "claim_next",
+      "description": "Atomically claim the next qualified task within goal/lane.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "actor": {
+            "type": "string"
+          },
+          "epoch": {
+            "type": "integer"
+          },
+          "run_id": {
+            "type": "string"
+          },
+          "idem": {
+            "type": "string"
+          },
+          "goal": {
+            "type": "string"
+          },
+          "lane": {
+            "type": "string"
+          },
+          "ttl": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 86400
+          }
+        },
+        "required": [
+          "actor"
+        ]
+      }
+    },
+    {
+      "name": "heartbeat",
+      "description": "Refresh a live matching lease and read cancellation intent.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "actor": {
+            "type": "string"
+          },
+          "epoch": {
+            "type": "integer"
+          },
+          "run_id": {
+            "type": "string"
+          },
+          "idem": {
+            "type": "string"
+          },
+          "ttl": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 86400
+          }
+        },
+        "required": [
+          "id",
+          "actor",
+          "epoch"
+        ]
+      }
+    },
+    {
+      "name": "unclaim",
+      "description": "Release only your current fenced live claim.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "actor": {
+            "type": "string"
+          },
+          "epoch": {
+            "type": "integer"
+          },
+          "run_id": {
+            "type": "string"
+          },
+          "idem": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "actor",
+          "epoch"
+        ]
+      }
+    },
+    {
+      "name": "reclaim",
+      "description": "Recover expired claims; inspect stale facts and ownership before use.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "actor": {
+            "type": "string"
+          },
+          "epoch": {
+            "type": "integer"
+          },
+          "run_id": {
+            "type": "string"
+          },
+          "idem": {
+            "type": "string"
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "verify",
+      "description": "Run declared oracle with bounded resources; persist source-bound verification receipt.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "actor": {
+            "type": "string"
+          },
+          "epoch": {
+            "type": "integer"
+          },
+          "run_id": {
+            "type": "string"
+          },
+          "idem": {
+            "type": "string"
+          },
+          "cwd": {
+            "type": "string"
+          },
+          "timeout_secs": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 300
+          },
+          "review_receipt": {
+            "type": "object",
+            "properties": {
+              "reviewer": {
+                "type": "string"
+              },
+              "verdict": {
+                "type": "string",
+                "enum": [
+                  "pass",
+                  "fail"
+                ]
+              },
+              "revision": {
+                "type": "string"
+              },
+              "source_hash": {
+                "type": "string"
+              },
+              "artifact": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "reviewer",
+              "verdict",
+              "revision",
+              "source_hash",
+              "artifact"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "actor",
+          "epoch",
+          "cwd"
+        ]
+      }
+    },
+    {
+      "name": "close",
+      "description": "Close only with valid matching source-bound verification receipt; honors meta.review_required, meta.attest_required and meta.budget_gate (cost rollup must fit budget_eur).",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "actor": {
+            "type": "string"
+          },
+          "epoch": {
+            "type": "integer"
+          },
+          "run_id": {
+            "type": "string"
+          },
+          "idem": {
+            "type": "string"
+          },
+          "proof_id": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "actor",
+          "epoch",
+          "proof_id"
+        ]
+      }
+    },
+    {
+      "name": "reopen",
+      "description": "Reopen your/controller task with a fresh epoch; admin token for administrative recovery.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "actor": {
+            "type": "string"
+          },
+          "epoch": {
+            "type": "integer"
+          },
+          "run_id": {
+            "type": "string"
+          },
+          "idem": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "admin_token": {
+            "type": "string",
+            "writeOnly": true
+          }
+        },
+        "required": [
+          "id",
+          "actor"
+        ]
+      }
+    },
+    {
+      "name": "delete",
+      "description": "Administrative task deletion with configured admin authority.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "actor": {
+            "type": "string"
+          },
+          "epoch": {
+            "type": "integer"
+          },
+          "run_id": {
+            "type": "string"
+          },
+          "idem": {
+            "type": "string"
+          },
+          "admin_token": {
+            "type": "string",
+            "writeOnly": true
+          },
+          "reason": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      }
+    },
+    {
+      "name": "defer",
+      "description": "Defer task until explicit release or due timestamp.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "actor": {
+            "type": "string"
+          },
+          "epoch": {
+            "type": "integer"
+          },
+          "run_id": {
+            "type": "string"
+          },
+          "idem": {
+            "type": "string"
+          },
+          "until": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      }
+    },
+    {
+      "name": "undefer",
+      "description": "Make a deferred task eligible for qualification.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "actor": {
+            "type": "string"
+          },
+          "epoch": {
+            "type": "integer"
+          },
+          "run_id": {
+            "type": "string"
+          },
+          "idem": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      }
+    },
+    {
+      "name": "show",
+      "description": "Read complete task, dependencies and bounded recent events.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "actor": {
+            "type": "string"
+          },
+          "epoch": {
+            "type": "integer"
+          },
+          "run_id": {
+            "type": "string"
+          },
+          "idem": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      }
+    },
+    {
+      "name": "search",
+      "description": "Search task text with a bounded result limit.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "actor": {
+            "type": "string"
+          },
+          "epoch": {
+            "type": "integer"
+          },
+          "run_id": {
+            "type": "string"
+          },
+          "idem": {
+            "type": "string"
+          },
+          "q": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "q"
+        ]
+      }
+    },
+    {
+      "name": "children",
+      "description": "Read immediate goal/task children.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "actor": {
+            "type": "string"
+          },
+          "epoch": {
+            "type": "integer"
+          },
+          "run_id": {
+            "type": "string"
+          },
+          "idem": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      }
+    },
+    {
+      "name": "label",
+      "description": "Add or remove task labels.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "actor": {
+            "type": "string"
+          },
+          "epoch": {
+            "type": "integer"
+          },
+          "run_id": {
+            "type": "string"
+          },
+          "idem": {
+            "type": "string"
+          },
+          "add": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "remove": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "id"
+        ]
+      }
+    },
+    {
+      "name": "rename",
+      "description": "Rename task identity and related references administratively.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "actor": {
+            "type": "string"
+          },
+          "epoch": {
+            "type": "integer"
+          },
+          "run_id": {
+            "type": "string"
+          },
+          "idem": {
+            "type": "string"
+          },
+          "from": {
+            "type": "string"
+          },
+          "to": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "from",
+          "to"
+        ]
+      }
+    },
+    {
+      "name": "note",
+      "description": "Append an audit note; task status remains unchanged.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "actor": {
+            "type": "string"
+          },
+          "epoch": {
+            "type": "integer"
+          },
+          "run_id": {
+            "type": "string"
+          },
+          "idem": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "text"
+        ]
+      }
+    },
+    {
+      "name": "changes",
+      "description": "Record a compact file-edit summary for a task: path, +adds/-dels and hunk line ranges from the real git worktree (sis changes <id> [--repo P] [--base R] [--patch]). Append-only evidence — no code stored unless --patch snapshots a bounded diff. Identical consecutive diffs dedup unless force:true. sis close records the same automatically.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "actor": {
+            "type": "string"
+          },
+          "epoch": {
+            "type": "integer"
+          },
+          "run_id": {
+            "type": "string"
+          },
+          "idem": {
+            "type": "string"
+          },
+          "files": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            },
+            "maxItems": 80
+          },
+          "base": {
+            "type": "string"
+          },
+          "head": {
+            "type": "string"
+          },
+          "repo": {
+            "type": "string"
+          },
+          "patch": {
+            "type": "boolean"
+          },
+          "force": {
+            "type": "boolean"
+          },
+          "no_changes": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      }
+    },
+    {
+      "name": "comments",
+      "description": "Read task notes.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "actor": {
+            "type": "string"
+          },
+          "epoch": {
+            "type": "integer"
+          },
+          "run_id": {
+            "type": "string"
+          },
+          "idem": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      }
+    },
+    {
+      "name": "history",
+      "description": "Read ordered task events.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "actor": {
+            "type": "string"
+          },
+          "epoch": {
+            "type": "integer"
+          },
+          "run_id": {
+            "type": "string"
+          },
+          "idem": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      }
+    },
+    {
+      "name": "checkpoint",
+      "description": "Persist bounded source-bound progress and next safe step under a valid lease.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "actor": {
+            "type": "string"
+          },
+          "epoch": {
+            "type": "integer"
+          },
+          "run_id": {
+            "type": "string"
+          },
+          "idem": {
+            "type": "string"
+          },
+          "cwd": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          },
+          "next_step": {
+            "type": "string"
+          },
+          "artifacts": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "expected_revision": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "actor",
+          "epoch",
+          "text",
+          "next_step"
+        ]
+      }
+    },
+    {
+      "name": "handoff",
+      "description": "Checkpoint bounded progress and release the fenced claim in one step so a successor agent can claim immediately; `to` names the intended successor.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "actor": {
+            "type": "string"
+          },
+          "epoch": {
+            "type": "integer"
+          },
+          "run_id": {
+            "type": "string"
+          },
+          "idem": {
+            "type": "string"
+          },
+          "cwd": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          },
+          "next_step": {
+            "type": "string"
+          },
+          "artifacts": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "to": {
+            "type": "string"
+          },
+          "expected_revision": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "actor",
+          "epoch",
+          "text",
+          "next_step"
+        ]
+      }
+    },
+    {
+      "name": "resume",
+      "description": "Read current contract and last checkpoint with drift/cancellation information.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "actor": {
+            "type": "string"
+          },
+          "epoch": {
+            "type": "integer"
+          },
+          "run_id": {
+            "type": "string"
+          },
+          "idem": {
+            "type": "string"
+          },
+          "since": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      }
+    },
+    {
+      "name": "who",
+      "description": "Dirty-worktree attribution: maps each dirty/untracked path in a git repo to the recorded changes event (claim/actor) that produced it. Orphaned paths with no matching event surface explicitly — answers 'wem gehoert dieser Stand?'.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "repo": {
+            "type": "string",
+            "description": "Path inside the worktree; defaults to cwd."
+          },
+          "actor": {
+            "type": "string"
+          },
+          "epoch": {
+            "type": "integer"
+          },
+          "run_id": {
+            "type": "string"
+          },
+          "idem": {
+            "type": "string"
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "cancel",
+      "description": "Request cancellation as current worker or declared controller.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "actor": {
+            "type": "string"
+          },
+          "epoch": {
+            "type": "integer"
+          },
+          "run_id": {
+            "type": "string"
+          },
+          "idem": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "actor"
+        ]
+      }
+    },
+    {
+      "name": "cancel_ack",
+      "description": "Acknowledge cancellation, end the live lease and fence old work.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "actor": {
+            "type": "string"
+          },
+          "epoch": {
+            "type": "integer"
+          },
+          "run_id": {
+            "type": "string"
+          },
+          "idem": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "actor",
+          "epoch"
+        ]
+      }
+    },
+    {
+      "name": "contract",
+      "description": "Read complete stable task contract and its revision.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "actor": {
+            "type": "string"
+          },
+          "epoch": {
+            "type": "integer"
+          },
+          "run_id": {
+            "type": "string"
+          },
+          "idem": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      }
+    },
+    {
+      "name": "brief",
+      "description": "Render token-budgeted task context without dropping mandatory acceptance.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "actor": {
+            "type": "string"
+          },
+          "epoch": {
+            "type": "integer"
+          },
+          "run_id": {
+            "type": "string"
+          },
+          "idem": {
+            "type": "string"
+          },
+          "max_tokens": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "encoding": {
+            "type": "string",
+            "enum": [
+              "o200k_base",
+              "cl100k_base"
+            ]
+          },
+          "model": {
+            "type": "string"
+          },
+          "since": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      }
+    },
+    {
+      "name": "tokens",
+      "description": "Count selected tiktoken encoding; explicitly separate count from model billing.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string"
+          },
+          "encoding": {
+            "type": "string",
+            "enum": [
+              "o200k_base",
+              "cl100k_base"
+            ]
+          },
+          "model": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
+        ]
+      }
+    },
+    {
+      "name": "context",
+      "description": "Read stable project identity, database path, capabilities and current stats.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "name": "capabilities",
+      "description": "Discover operation names and store identity; request schemas only when needed.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "schemas": {
+            "type": "boolean"
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "watch",
+      "description": "Read durable events after cursor or subscribe with bounded wait.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "actor": {
+            "type": "string"
+          },
+          "epoch": {
+            "type": "integer"
+          },
+          "run_id": {
+            "type": "string"
+          },
+          "idem": {
+            "type": "string"
+          },
+          "after": {
+            "type": "integer"
+          },
+          "limit": {
+            "type": "integer"
+          },
+          "wait": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 60
+          },
+          "follow": {
+            "type": "boolean"
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "lint",
+      "description": "Read lint diagnostics without dispatching work.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "name": "types",
+      "description": "Read types diagnostics without dispatching work.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "name": "statuses",
+      "description": "Read statuses diagnostics without dispatching work.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "name": "prime",
+      "description": "Read prime diagnostics without dispatching work.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "name": "orphans",
+      "description": "Read orphans diagnostics without dispatching work.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "name": "stats",
+      "description": "Read stats diagnostics without dispatching work.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "name": "review",
+      "description": "Read review diagnostics without dispatching work.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "name": "stale",
+      "description": "Read expired task leases.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "now": {
+            "type": "number"
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "remember",
+      "description": "Persist a project-scoped learning value.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "actor": {
+            "type": "string"
+          },
+          "epoch": {
+            "type": "integer"
+          },
+          "run_id": {
+            "type": "string"
+          },
+          "idem": {
+            "type": "string"
+          },
+          "key": {
+            "type": "string"
+          },
+          "value": {}
+        },
+        "required": [
+          "key",
+          "value"
+        ]
+      }
+    },
+    {
+      "name": "recall",
+      "description": "Read project-scoped learning values.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "export",
+      "description": "Export project state for audit or backup.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "name": "import",
+      "description": "Import administrative event state with explicit admin authority. bd format is conflict-aware: live claims and closed issues are reported, never silently overwritten (force:true to reopen).",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "actor": {
+            "type": "string"
+          },
+          "epoch": {
+            "type": "integer"
+          },
+          "run_id": {
+            "type": "string"
+          },
+          "idem": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "jsonl": {
+            "type": "string"
+          },
+          "format": {
+            "type": "string"
+          },
+          "force": {
+            "type": "boolean"
+          },
+          "admin_token": {
+            "type": "string",
+            "writeOnly": true
+          }
+        },
+        "required": [
+          "admin_token"
+        ]
+      }
+    },
+    {
+      "name": "batch",
+      "description": "Apply a bounded atomic mutation batch; verifier execution is excluded.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "actor": {
+            "type": "string"
+          },
+          "epoch": {
+            "type": "integer"
+          },
+          "run_id": {
+            "type": "string"
+          },
+          "idem": {
+            "type": "string"
+          },
+          "ops": {
+            "type": "array",
+            "maxItems": 1000,
+            "items": {
+              "type": "object",
+              "properties": {
+                "cmd": {
+                  "type": "string"
+                },
+                "args": {
+                  "type": "object"
+                }
+              },
+              "required": [
+                "cmd"
+              ]
+            }
+          }
+        },
+        "required": [
+          "ops"
+        ]
+      }
+    },
+    {
+      "name": "budget_claim",
+      "description": "Reserve finite nonnegative task budget atomically.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "actor": {
+            "type": "string"
+          },
+          "epoch": {
+            "type": "integer"
+          },
+          "run_id": {
+            "type": "string"
+          },
+          "idem": {
+            "type": "string"
+          },
+          "issue": {
+            "type": "string"
+          },
+          "eur": {
+            "type": "number",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "issue",
+          "eur"
+        ]
+      }
+    },
+    {
+      "name": "outbox_list",
+      "description": "Read unprocessed transactional lessons.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "actor": {
+            "type": "string"
+          },
+          "epoch": {
+            "type": "integer"
+          },
+          "run_id": {
+            "type": "string"
+          },
+          "idem": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "outbox_done",
+      "description": "Confirm successful processing. Leased deliveries require matching actor, delivery epoch and unexpired lease.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "actor": {
+            "type": "string"
+          },
+          "epoch": {
+            "type": "integer"
+          },
+          "run_id": {
+            "type": "string"
+          },
+          "idem": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      }
+    },
+    {
+      "name": "outbox_fail",
+      "description": "Record failed outbox processing. Leased deliveries require matching actor, delivery epoch and unexpired lease.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "actor": {
+            "type": "string"
+          },
+          "epoch": {
+            "type": "integer"
+          },
+          "run_id": {
+            "type": "string"
+          },
+          "idem": {
+            "type": "string"
+          },
+          "err": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "err"
+        ]
+      }
+    },
+    {
+      "name": "compact",
+      "description": "Archive old events and reap only expired ephemeral task hints.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "actor": {
+            "type": "string"
+          },
+          "epoch": {
+            "type": "integer"
+          },
+          "run_id": {
+            "type": "string"
+          },
+          "idem": {
+            "type": "string"
+          },
+          "days": {
+            "type": "number"
+          },
+          "archive_path": {
+            "type": "string"
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "gate",
+      "description": "Read or set a named approval gate; unknown gates are closed.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "actor": {
+            "type": "string"
+          },
+          "epoch": {
+            "type": "integer"
+          },
+          "run_id": {
+            "type": "string"
+          },
+          "idem": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          },
+          "payload": {}
+        },
+        "required": [
+          "name"
+        ]
+      }
+    },
+    {
+      "name": "gate_list",
+      "description": "Read named approval gates.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "name": "slot_acquire",
+      "description": "Acquire a fenced expiring merge slot.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "actor": {
+            "type": "string"
+          },
+          "epoch": {
+            "type": "integer"
+          },
+          "run_id": {
+            "type": "string"
+          },
+          "idem": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "ttl": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 86400
+          }
+        },
+        "required": [
+          "name",
+          "actor"
+        ]
+      }
+    },
+    {
+      "name": "slot_release",
+      "description": "Release your matching fenced merge slot.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "actor": {
+            "type": "string"
+          },
+          "epoch": {
+            "type": "integer"
+          },
+          "run_id": {
+            "type": "string"
+          },
+          "idem": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "actor",
+          "epoch"
+        ]
+      }
+    },
+    {
+      "name": "slot_list",
+      "description": "Read merge-slot holders and epochs.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "name": "epic",
+      "description": "Read task hierarchy with completion rollup.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "actor": {
+            "type": "string"
+          },
+          "epoch": {
+            "type": "integer"
+          },
+          "run_id": {
+            "type": "string"
+          },
+          "idem": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      }
+    },
+    {
+      "name": "dup_scan",
+      "description": "Find likely duplicate tasks before creating new work.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "actor": {
+            "type": "string"
+          },
+          "epoch": {
+            "type": "integer"
+          },
+          "run_id": {
+            "type": "string"
+          },
+          "idem": {
+            "type": "string"
+          },
+          "min": {
+            "type": "integer"
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "q",
+      "description": "Capture a task using the create contract.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "actor": {
+            "type": "string"
+          },
+          "epoch": {
+            "type": "integer"
+          },
+          "run_id": {
+            "type": "string"
+          },
+          "idem": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "desc": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "priority": {
+            "type": "integer"
+          },
+          "status": {
+            "type": "string"
+          },
+          "owner": {
+            "type": "string"
+          },
+          "oracle_cmd": {
+            "type": "string"
+          },
+          "allowed_paths": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "lane": {
+            "type": "string"
+          },
+          "budget_eur": {
+            "type": "number",
+            "minimum": 0
+          },
+          "acceptance": {
+            "type": "string"
+          },
+          "meta": {
+            "type": "object"
+          },
+          "parent": {
+            "type": "string"
+          },
+          "defer_until": {
+            "type": "number"
+          },
+          "expires_at": {
+            "type": "number"
+          },
+          "ttl_secs": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          }
+        },
+        "required": [
+          "title"
+        ]
+      }
+    },
+    {
+      "name": "goal",
+      "description": "Create a named goal container with final acceptance.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "actor": {
+            "type": "string"
+          },
+          "epoch": {
+            "type": "integer"
+          },
+          "run_id": {
+            "type": "string"
+          },
+          "idem": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "objective": {
+            "type": "string"
+          },
+          "target": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "desc": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "priority": {
+            "type": "integer"
+          },
+          "status": {
+            "type": "string"
+          },
+          "owner": {
+            "type": "string"
+          },
+          "oracle_cmd": {
+            "type": "string"
+          },
+          "allowed_paths": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "lane": {
+            "type": "string"
+          },
+          "budget_eur": {
+            "type": "number",
+            "minimum": 0
+          },
+          "acceptance": {
+            "type": "string"
+          },
+          "meta": {
+            "type": "object"
+          },
+          "parent": {
+            "type": "string"
+          },
+          "defer_until": {
+            "type": "number"
+          },
+          "expires_at": {
+            "type": "number"
+          },
+          "ttl_secs": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          }
+        },
+        "required": [
+          "name"
+        ]
+      }
+    },
+    {
+      "name": "sub",
+      "description": "Create a child task under a goal without a blocking parent edge.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "actor": {
+            "type": "string"
+          },
+          "epoch": {
+            "type": "integer"
+          },
+          "run_id": {
+            "type": "string"
+          },
+          "idem": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "desc": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "priority": {
+            "type": "integer"
+          },
+          "status": {
+            "type": "string"
+          },
+          "owner": {
+            "type": "string"
+          },
+          "oracle_cmd": {
+            "type": "string"
+          },
+          "allowed_paths": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "lane": {
+            "type": "string"
+          },
+          "budget_eur": {
+            "type": "number",
+            "minimum": 0
+          },
+          "acceptance": {
+            "type": "string"
+          },
+          "meta": {
+            "type": "object"
+          },
+          "parent": {
+            "type": "string"
+          },
+          "defer_until": {
+            "type": "number"
+          },
+          "expires_at": {
+            "type": "number"
+          },
+          "ttl_secs": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          }
+        },
+        "required": [
+          "parent",
+          "title"
+        ]
+      }
+    },
+    {
+      "name": "plan",
+      "description": "Create atomic goal tree and validated internal dependencies; save or reuse a named template.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "actor": {
+            "type": "string"
+          },
+          "epoch": {
+            "type": "integer"
+          },
+          "run_id": {
+            "type": "string"
+          },
+          "idem": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "objective": {
+            "type": "string"
+          },
+          "target": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "desc": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "priority": {
+            "type": "integer"
+          },
+          "status": {
+            "type": "string"
+          },
+          "owner": {
+            "type": "string"
+          },
+          "oracle_cmd": {
+            "type": "string"
+          },
+          "allowed_paths": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "lane": {
+            "type": "string"
+          },
+          "budget_eur": {
+            "type": "number",
+            "minimum": 0
+          },
+          "acceptance": {
+            "type": "string"
+          },
+          "meta": {
+            "type": "object"
+          },
+          "parent": {
+            "type": "string"
+          },
+          "defer_until": {
+            "type": "number"
+          },
+          "expires_at": {
+            "type": "number"
+          },
+          "ttl_secs": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "template": {
+            "type": "string"
+          },
+          "save_as": {
+            "type": "string"
+          },
+          "subs": {
+            "type": "array",
+            "maxItems": 1000,
+            "items": {
+              "type": "object",
+              "properties": {
+                "title": {
+                  "type": "string"
+                },
+                "desc": {
+                  "type": "string"
+                },
+                "type": {
+                  "type": "string"
+                },
+                "priority": {
+                  "type": "integer"
+                },
+                "status": {
+                  "type": "string"
+                },
+                "owner": {
+                  "type": "string"
+                },
+                "oracle_cmd": {
+                  "type": "string"
+                },
+                "allowed_paths": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "lane": {
+                  "type": "string"
+                },
+                "budget_eur": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "acceptance": {
+                  "type": "string"
+                },
+                "meta": {
+                  "type": "object"
+                },
+                "parent": {
+                  "type": "string"
+                },
+                "defer_until": {
+                  "type": "number"
+                },
+                "expires_at": {
+                  "type": "number"
+                },
+                "ttl_secs": {
+                  "type": "number",
+                  "exclusiveMinimum": 0
+                },
+                "deps": {
+                  "type": "array",
+                  "items": {
+                    "type": "integer"
+                  }
+                }
+              },
+              "required": [
+                "title"
+              ]
+            }
+          }
+        },
+        "required": [
+          "name"
+        ]
+      }
+    },
+    {
+      "name": "goal_tree",
+      "description": "Read named goal hierarchy and progress.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "actor": {
+            "type": "string"
+          },
+          "epoch": {
+            "type": "integer"
+          },
+          "run_id": {
+            "type": "string"
+          },
+          "idem": {
+            "type": "string"
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "goal_done",
+      "description": "Check subtree completion; caller still needs verified final goal acceptance.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "actor": {
+            "type": "string"
+          },
+          "epoch": {
+            "type": "integer"
+          },
+          "run_id": {
+            "type": "string"
+          },
+          "idem": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      }
+    },
+    {
+      "name": "snapshot",
+      "description": "Write the git-diffable <db>.issues.jsonl mirror (one upsert line per issue, deps embedded, sorted by id). Runs automatically after every committed write op; SIS_SNAPSHOT=0 disables.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "name": "attest",
+      "description": "Attach a structured machine-checkable attestation (junit/coverage/smoke/artifact/custom/run) to the active claim, bound to contract revision and source fingerprint. kind:\"run\" executes cmd store-side — the receipt is not forgeable client-side. Required kinds via meta.attest_required are enforced at close.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "actor": {
+            "type": "string"
+          },
+          "epoch": {
+            "type": "integer"
+          },
+          "run_id": {
+            "type": "string"
+          },
+          "idem": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "junit",
+              "coverage",
+              "smoke",
+              "artifact",
+              "custom",
+              "run"
+            ]
+          },
+          "path": {
+            "type": "string"
+          },
+          "payload": {
+            "type": "object"
+          },
+          "percent": {
+            "type": "number"
+          },
+          "min": {
+            "type": "number"
+          },
+          "url": {
+            "type": "string"
+          },
+          "status": {
+            "type": "integer"
+          },
+          "expect": {
+            "type": "integer"
+          },
+          "ref": {
+            "type": "string"
+          },
+          "passed": {
+            "type": "boolean"
+          },
+          "note": {
+            "type": "string"
+          },
+          "cmd": {
+            "type": "string"
+          },
+          "timeout_secs": {
+            "type": "integer"
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "cost_add",
+      "description": "Append a cost entry (tokens/cents) to an issue's durable ledger; idempotent via idem key.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "actor": {
+            "type": "string"
+          },
+          "epoch": {
+            "type": "integer"
+          },
+          "run_id": {
+            "type": "string"
+          },
+          "idem": {
+            "type": "string"
+          },
+          "issue": {
+            "type": "string"
+          },
+          "tokens_in": {
+            "type": "integer"
+          },
+          "tokens_out": {
+            "type": "integer"
+          },
+          "cents": {
+            "type": "integer"
+          },
+          "eur": {
+            "type": "number"
+          },
+          "wave": {
+            "type": "string"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "note": {
+            "type": "string"
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "cost_list",
+      "description": "List cost ledger entries, filterable by issue/actor/run_id/wave.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "issue": {
+            "type": "string"
+          },
+          "actor": {
+            "type": "string"
+          },
+          "run_id": {
+            "type": "string"
+          },
+          "wave": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "integer"
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "cost_rollup",
+      "description": "Roll up costs over the container subtree of id (meta.parent + id-prefix): totals plus per-issue/actor/wave breakdown and budget reference.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "required": [
+          "id"
+        ]
+      }
+    },
+    {
+      "name": "outbox_export",
+      "description": "Export raw, pgboss-sql, hatchet or temporal jobs. Explicit actor reserves deliveries with ttl 5..3600 seconds, fenced ACK and at most three attempts. Without actor, legacy preview/drain semantics apply.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "actor": {
+            "type": "string"
+          },
+          "epoch": {
+            "type": "integer"
+          },
+          "run_id": {
+            "type": "string"
+          },
+          "idem": {
+            "type": "string"
+          },
+          "format": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "integer"
+          },
+          "drain": {
+            "type": "boolean"
+          },
+          "task_queue": {
+            "type": "string"
+          },
+          "kind": {"type": "string"},
+          "ttl": {"type": "number", "minimum": 5, "maximum": 3600}
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "learn",
+      "description": "Honest learning aggregates over the ledger: attest/proof pass rates, cost (cents/tokens) and time-to-accepted grouped by actor|wave|kind|issue — the posterior for bandit/routing decisions, no invented score.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "group_by": {
+            "type": "string"
+          },
+          "since": {
+            "type": "number"
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "sync_export",
+      "description": "Emit a deterministic sis-sync bundle (schema-stamped issues+deps, memories, proof+attest receipts; events with events:true) for multi-machine replication.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "events": {
+            "type": "boolean"
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "sync_import",
+      "description": "Admin: merge a sis-sync bundle — issue/deps upsert, memory LWW by updated_at, receipts by primary key; live claims are never overwritten and report as conflicts.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "actor": {
+            "type": "string"
+          },
+          "epoch": {
+            "type": "integer"
+          },
+          "run_id": {
+            "type": "string"
+          },
+          "idem": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "json": {
+            "type": "object"
+          },
+          "admin_token": {
+            "type": "string",
+            "writeOnly": true
+          }
+        },
+        "required": [
+          "admin_token"
+        ]
+      }
+    },
+    {
+      "name": "spans",
+      "description": "Read back OTel-shaped span lines emitted under SIS_EMIT for observability of claim/verify/close and other requests.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "limit": {
+            "type": "integer"
+          }
+        },
+        "required": []
+      }
+    }
+  ]
+}

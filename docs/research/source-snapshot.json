@@ -1,0 +1,224 @@
+{
+  "source_version": "0.9.0",
+  "source_release_identifier": "0.9.0-defaults-814499bba04c",
+  "original_source_sha256": [
+    {
+      "sha256": "a2b8906ebabb25c61c38ba9a2eead080dcca8063a7bf4af627521b8759625c59",
+      "path": "AGENT-V06-CONTRACT.md"
+    },
+    {
+      "sha256": "b8a66ec3db45fd5416926c1cd408bbf6d561f8e32fd094d527b92a3109bb3b58",
+      "path": "Cargo.lock"
+    },
+    {
+      "sha256": "e95250b5e1c792df1f2a117eb2e2fec1e3cd66fb1bf0e53986b7a6a4fa2acc1f",
+      "path": "Cargo.toml"
+    },
+    {
+      "sha256": "454464f1c4000bbcbebe44f9761a51b448a1df179a4d7c13377102ceec32f164",
+      "path": "MULTIWORKER.md"
+    },
+    {
+      "sha256": "72c7034cd699fadeb9ac9badb627ff1ca00945b457c12825dc64adf17092cf03",
+      "path": "README.md"
+    },
+    {
+      "sha256": "a841389412fe1862559dc00c6ec7e681dc2c38f6e46f3b288511e78aa5dbe0e1",
+      "path": "SERVICE.md"
+    },
+    {
+      "sha256": "25693e8d25f77085ecd494ff5a7d3a7d7785d75f7a86d6202bb4d10b18afa954",
+      "path": "SPEC.md"
+    },
+    {
+      "sha256": "763ced9d1d41d9626f1993b6c99eb45d00fa2de78684adbabf98b880d67dc2f4",
+      "path": "ZERO-RECOVERY.md"
+    },
+    {
+      "sha256": "c3973edb67aae5f3250b0edc6b8bd11789f7e79c2f8f9a25bbabf2b0ddd96826",
+      "path": "agent.py"
+    },
+    {
+      "sha256": "5cc0905079c4070b5af1ad0fe300b986864c8dbd27b4bbe5604ec404e15233d2",
+      "path": "agent.rs"
+    },
+    {
+      "sha256": "437d203ed55087c08e35abd4d3550511658352e29cfcffd4594635169d3ad3e1",
+      "path": "bench/agent-read-oracle.ts"
+    },
+    {
+      "sha256": "950476115f610f5310a3fa33c3ae6cccdb23e77f7a57a3fedf757ce9f3bb8ed3",
+      "path": "bench/agent-read.ts"
+    },
+    {
+      "sha256": "0880b33b330600f55e22ce8b6e7ac0abb4788d4816b6246449e29b15308fbe21",
+      "path": "bench/bench_ops.py"
+    },
+    {
+      "sha256": "c596b629ac965f6f62fb81da79fd68e94251124c0fc06183c5ff82cb932c4b88",
+      "path": "bench/multiworker.py"
+    },
+    {
+      "sha256": "a5a4fe04b29660dcb0fe71541becfb4f081309489f8c1505af69f3f220bdac20",
+      "path": "bench/results/README.md"
+    },
+    {
+      "sha256": "030b8d499994c7c612573930aabf4bbffb70fbfdc9bcbce4b32cdb89283ad47a",
+      "path": "bench/results/multiworker-debug.json"
+    },
+    {
+      "sha256": "c609db75556c0f2c49ca80b4ef22826c98c8500d2e7ee647fcf469ed6ab2cbab",
+      "path": "bench/results/multiworker-sgg.json"
+    },
+    {
+      "sha256": "e6f5c4db1e7f7cb5c12b2e317cc364647721ba00502ed70cf2ef42f4880f9ca4",
+      "path": "bench/token-transport.ts"
+    },
+    {
+      "sha256": "a7833305d3e3188d22ac3a993493813046fd9d07e6618c7d978c7afc95ac700f",
+      "path": "bin/bd"
+    },
+    {
+      "sha256": "f8f57015c4eac1860d70ab836133ac7287bbce2bf833964b533f6472d2dfcab9",
+      "path": "bin/sis"
+    },
+    {
+      "sha256": "e7d3dc139ed20076fc616c333b09461e88988c2b6ce5bb801d4fdce39f001061",
+      "path": "mcp/sis-mcp.js"
+    },
+    {
+      "sha256": "eb87bcab4b70766e27e2a2f58e729091a71904adc08eb78db465fe712635c977",
+      "path": "ops.json"
+    },
+    {
+      "sha256": "5ec5aacbabdf4505d4d30adf9bad5f3bc48782f750e115dad95269fd665520ae",
+      "path": "requirements-tokenizer.lock"
+    },
+    {
+      "sha256": "9f92a320796138ac7ee0fef6af23034a8bb669255713876ac9103638d174bd80",
+      "path": "requirements-tokenizer.txt"
+    },
+    {
+      "sha256": "ed06bde5b83ae4c96ee5c63371983685af40d05a60717f2bdaaf71e67ed9e959",
+      "path": "superiss.py"
+    },
+    {
+      "sha256": "0fba7ab605bdea8bd897c2bf305107c0d45e2a622cb572fd4a6beb43a2ab611c",
+      "path": "superiss.rs"
+    },
+    {
+      "sha256": "780374580335ff1a8fe4ca2ef2f2a8b5dc553b7f42b39a6e13a56093a294b99d",
+      "path": "tests/agent_suite.py"
+    },
+    {
+      "sha256": "8ebb3cf627c63ecbd5f5ed68e8538102117596ed3171ca32bc4305ecdea326b5",
+      "path": "tests/budget_suite.py"
+    },
+    {
+      "sha256": "90f140eef490e4e311107f38118c967a4b59a16349ca8ab6237fa09788e040ff",
+      "path": "tests/contract_suite.py"
+    },
+    {
+      "sha256": "2772bac445926b0c9645ad9b49d744cf4eb37361d5d2587e539e9ac1c1fe42de",
+      "path": "tests/controller_suite.py"
+    },
+    {
+      "sha256": "7eb829f4bd2faa6b90671a39452263d9579f82c7b07542b12dc0b92c4e60b5b6",
+      "path": "tests/integration_suite.py"
+    },
+    {
+      "sha256": "c15b36a107c6ea1a1263124419ab4825759f5e3438b67d29f2bb4abd0fac3efb",
+      "path": "tests/recovery_edges.py"
+    },
+    {
+      "sha256": "165554485acf4795d5a4415271188b54e63e383f4af33424a7098bcde7575c76",
+      "path": "tests/service-chaos.test.ts"
+    },
+    {
+      "sha256": "8874b8b74dc00bca9e941a749781c7552a9af4fe0cae4df407aae5867e512206",
+      "path": "tests/service-defaults.test.ts"
+    },
+    {
+      "sha256": "268202e62665744b2530b764e2a42947f0050336b91346912f258f15d1a79dd6",
+      "path": "tests/service-regression.test.ts"
+    },
+    {
+      "sha256": "50d4dabb7f336425ff4440d846ec67fd0451a0c432f1f913203add46f1f3a0fc",
+      "path": "tests/service-soak.test.ts"
+    },
+    {
+      "sha256": "02732095918ceab3080a00547e9c1f941ae60f7350f5e8a9151cf9612678c3db",
+      "path": "tests/service.test.ts"
+    },
+    {
+      "sha256": "1030d31f4ec5fea758bb978f880d612b2918b0d52dd7a774b8e130634cf3417a",
+      "path": "tests/spec_stub.py"
+    },
+    {
+      "sha256": "75800440b255f75388c87d707840471b836481b3068db30dd2e55865097350e2",
+      "path": "tools/bd2sis.py"
+    },
+    {
+      "sha256": "5d0df2a10e6222fe7906594130b8207711156c21c3da251209d7cb8586c1ec3a",
+      "path": "tools/build-registry.ts"
+    },
+    {
+      "sha256": "52e17e9bc54630fbce0c341aa4e68c26361a4c29f6c6f6888216783c0a961216",
+      "path": "tools/lifecycle.ts"
+    },
+    {
+      "sha256": "cac3ab10005534c4342d0bff7716d8f59aeb91db26d0dfe41f206554d6dd2e20",
+      "path": "tools/service-lock.py"
+    },
+    {
+      "sha256": "5777b42684f83d10eb1e42c54ed32b9559ba5d5ad08115c7e97a11fb2f21d9a4",
+      "path": "tools/service-soak.ts"
+    },
+    {
+      "sha256": "7df1f85c5cd9d1e1afd020f0881a0c347f8518e1e96ad89d5344581528a4e3f1",
+      "path": "tools/service.ts"
+    },
+    {
+      "sha256": "1b82d3002a38beabd37511b505689cbf4231dfd6e9100e105513c4c30dc8826c",
+      "path": "tools/sis-runner.sh"
+    },
+    {
+      "sha256": "849da1b16b58cfe90a7fa0195e5a7794ecc5929a48e9de17fb8b745e245482d9",
+      "path": "tools/sis-sync.sh"
+    },
+    {
+      "sha256": "f35c97c2dd2dd810722adf4b1955326d242d42a73aef7218c8a2550050118507",
+      "path": "tools/sis_runner.py"
+    },
+    {
+      "sha256": "8202443f47861e38b5838e0a092715e41052f220de6fc4476d52f288939096fe",
+      "path": "tools/sis_workflow.py"
+    },
+    {
+      "sha256": "1b2ce6170c204e7b93c6ac3ef79219b5605bbe0eb12e63d595fc0133f9b287cb",
+      "path": "tools/verify-all.sh"
+    },
+    {
+      "sha256": "e6967da84f74b3595d5a540c646ba67ee66627ff51643bfcb430a5d799832a23",
+      "path": "transport.rs"
+    },
+    {
+      "sha256": "da3cbed9eb51d4b61ba5ab17e7eed28432d212cb2a9fd5c2e021912eebbc5de4",
+      "path": "web/board.html"
+    },
+    {
+      "sha256": "dc2393f29d0a11ad31a8b9d4680946683e589fb9ae0cffb6e1bc1b499b0fd8c4",
+      "path": "workloads/findeverything/fe.js"
+    },
+    {
+      "sha256": "5e374426a6cb5e88ae11b391b846efad7f108ee13263e0b46bfb064dfd16d82b",
+      "path": "workloads/findeverything/provenance.json"
+    }
+  ],
+  "publication_changes": [
+    "New launch documentation, artwork, runnable demo, CI and publication checks",
+    "Remove internal acceptance contract and original machine paths",
+    "Correct service defaults in documentation",
+    "Make bundled workload build paths portable; retain original and public hashes"
+  ]
+}
