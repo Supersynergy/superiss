@@ -31,7 +31,9 @@ bin/sisf serve --db "$SIS_DB" --repo "$PWD" --port 8766
 # Open http://127.0.0.1:8766/forge
 ```
 
-The repository must have a commit and the configured base branch, `main` by default. Include `/.sisf/` in that repository's `.gitignore`. Each store has a separate adapter process and port. Its state is stored beside the task database as `<database-name>.sisf.state.db` and bound to the native project identity. An older unscoped `sisf.state.db` is preserved and is not imported automatically. The current command path uses the `default` repository; a `repos` map is configuration groundwork, not a tested multi-repository dispatcher.
+The repository must have a commit and the configured base branch, `main` by default. Include `/.sisf/` in that repository's `.gitignore`. For a shared store, `--actors worker-a,worker-b` (or `SISF_ACTORS`, or a config `actors` array) limits automatic worktree creation to those claim actors. Proxied claims from other actors are rejected before calling sis. An explicit empty list disables all bindings; omitting the setting preserves the project-wide default. This selects adapter work, not native authorization or a filesystem sandbox.
+
+Each store has a separate adapter process and port. Its state is stored beside the task database as `<database-name>.sisf.state.db` and bound to the native project identity. An older unscoped `sisf.state.db` is preserved and is not imported automatically. The current command path uses the `default` repository; a `repos` map is configuration groundwork, not a tested multi-repository dispatcher.
 
 Create a task with an executable oracle and relative source scope, then claim through the proxy:
 

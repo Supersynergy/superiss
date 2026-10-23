@@ -72,6 +72,40 @@ test("task identifiers do not collapse into another task's branch", () => {
   expect(_test.workspaceId("t1")).toBe("t1");
 });
 
+test("configured actor scope refuses foreign worktree creation before Git mutation", () => {
+  const f = fixture();
+  try {
+    f.cfg.actors = ["our-worker"];
+    expect(() => _test.ensureWorktree(f.cfg, f.state, "foreign-task", "other-worker", 1)).toThrow(/actor/);
+    expect(f.git("branch", "--list", "sis/foreign-task")).toBe("");
+    expect(f.state.query("SELECT task FROM worktrees").get()).toBeNull();
+  } finally { f.cleanup(); }
+});
+
+test("actor configuration preserves default, normalizes flags and denies an explicit empty scope", () => {
+  const f = fixture(), argv = process.argv, actors = process.env.SISF_ACTORS;
+  try {
+    delete process.env.SISF_ACTORS;
+    process.argv = ["bun", "sisf", "health", "--db", f.cfg.db];
+    expect(_test.loadCfg().actors).toBeUndefined();
+    process.env.SISF_ACTORS = " first, second ";
+    expect(_test.loadCfg().actors).toEqual(["first", "second"]);
+    process.argv.push("--actors", "");
+    const cfg = _test.loadCfg();
+    expect(cfg.actors).toEqual([]);
+    expect(() => _test.ensureWorktree({...f.cfg, actors: cfg.actors}, f.state, "t", "first", 1)).toThrow(/actor/);
+    expect(f.state.query("SELECT task FROM worktrees").get()).toBeNull();
+    process.argv = ["bun", "sisf", "health", "--db", f.cfg.db];
+    delete process.env.SISF_ACTORS;
+    writeFileSync(join(f.dir, "sisf.config.json"), JSON.stringify({actors: ["configured"]}));
+    expect(_test.loadCfg().actors).toEqual(["configured"]);
+  } finally {
+    process.argv = argv;
+    if (actors === undefined) delete process.env.SISF_ACTORS; else process.env.SISF_ACTORS = actors;
+    f.cleanup();
+  }
+});
+
 test("two stores in the same directory have distinct adapter state", () => {
   const f = fixture(), argv = process.argv;
   try {

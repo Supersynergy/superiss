@@ -27,13 +27,22 @@ start_forge() {
   for i in $(seq 1 100); do curl -sf "http://127.0.0.1:$PORT/health" >/dev/null && return; sleep .05; done
   return 1
 }
+export SISF_ACTORS=socket-worker
 start_forge
+"$ROOT/bin/sis" create id=foreign title=foreign oracle_cmd=true 'allowed_paths=["."]' --db "$SIS_DB" >/dev/null
+# Rejection happens before the native task changes ownership.
+[[ "$(curl -s -o "$TMP/rejected.json" -w '%{http_code}' -H 'content-type: application/json' -X POST "http://127.0.0.1:$PORT/" -d '{"cmd":"acquire","args":{"id":"foreign","actor":"other-worker","ttl":120}}')" == 403 ]]
+"$ROOT/bin/sis" show foreign --db "$SIS_DB" | python3 -c 'import json,sys;assert json.load(sys.stdin)["issue"]["status"]=="open"'
+# A direct foreign claim is observed, but must not create a worktree.
+"$ROOT/bin/sis" acquire id=foreign actor=other-worker ttl=120 --db "$SIS_DB" >/dev/null
 "$ROOT/bin/sis" acquire id=direct actor=socket-worker ttl=120 --db "$SIS_DB" >/dev/null
 for i in $(seq 1 100); do [[ ! -f "$TMP/repo/.sisf/wt/direct/f" ]] || break; sleep .05; done
 [[ -f "$TMP/repo/.sisf/wt/direct/f" ]]
 # The cursor must be durable before a restart; no replay creates another tree.
 CURSOR="$(bun -e 'import {Database} from "bun:sqlite"; console.log(new Database(process.argv[1]).query("SELECT v FROM kv WHERE k=?").get("last_seq").v)' "$TMP/sis.db.sisf.state.db")"
 [[ "$CURSOR" -gt 0 ]]
+[[ ! -e "$TMP/repo/.sisf/wt/foreign" ]]
+git -C "$TMP/repo" branch --list sis/foreign | python3 -c 'import sys;assert not sys.stdin.read().strip()'
 kill "$SISF_PID"; wait "$SISF_PID" 2>/dev/null || true
 start_forge
 curl -sf "http://127.0.0.1:$PORT/forge/board" | python3 -c 'import json,sys;d=json.load(sys.stdin);assert len(d["worktrees"])==1 and d["worktrees"][0]["epoch"]==1,d'

@@ -20,6 +20,7 @@ interface Cfg {
   state: string; repos: Record<string, RepoConf>;
   gitea: { url: string; token?: string } | null;
   lanes: Record<string, { paths?: string[] }>;
+  actors?: string[];
 }
 const arg = (k: string, d?: string) => {
   const i = process.argv.indexOf("--" + k);
@@ -33,6 +34,9 @@ function loadCfg(): Cfg {
   const cf = join(dirname(db), "sisf.config.json");
   if (existsSync(cf)) try { file = JSON.parse(readFileSync(cf, "utf8")); } catch (e) { fail(`bad sisf.config.json: ${(e as Error).message}`); }
   const repoRoot = arg("repo", process.env.SISF_REPO) || file.repo || findGitRoot(dirname(db)) || dirname(db);
+  const actorArg = arg("actors", process.env.SISF_ACTORS);
+  const actors = actorArg === undefined ? file.actors : actorArg.split(",").map(x => x.trim()).filter(Boolean);
+  if (actors !== undefined && (!Array.isArray(actors) || actors.some(x => typeof x !== "string" || !x.trim()))) fail("actors must be a list of nonempty actor names");
   return {
     db,
     sock: arg("sock", process.env.SIS_SOCK) || file.sock || "/tmp/sis-" + createHash("sha256").update(db).digest("hex").slice(0, 20) + ".sock",
@@ -42,6 +46,7 @@ function loadCfg(): Cfg {
     repos: { default: { path: repoRoot, base: file.base || "main", ...(file.mirror ? { mirror: file.mirror } : {}) }, ...file.repos },
     gitea: file.gitea ?? (process.env.SISF_GITEA_URL ? { url: process.env.SISF_GITEA_URL, token: process.env.SISF_GITEA_TOKEN } : null),
     lanes: file.lanes ?? {},
+    actors,
   };
 }
 function fail(msg: string): never { console.error(JSON.stringify({ ok: false, error: { code: "sisf", msg } })); process.exit(1); }
@@ -165,6 +170,7 @@ function git(repo: string, ...a: string[]): string | null {
   return r.status === 0 ? r.stdout.trim() : null;
 }
 function taskFrom(r: any) { return r?.ok ? r.data?.issue ?? r.data?.task ?? r.data : null; }
+function actorAllowed(cfg: Cfg, actor?: string) { return cfg.actors === undefined || !!actor && cfg.actors.includes(actor); }
 async function activeClaim(sis: Sis, task: string, actor?: string, epoch?: number, state?: Database) {
   const t = taskFrom(await sis.call("show", { id: task }));
   if (state) bindProject(state, sis.project);
@@ -173,6 +179,7 @@ async function activeClaim(sis: Sis, task: string, actor?: string, epoch?: numbe
   return t;
 }
 function ensureWorktree(cfg: Cfg, s: Database, task: string, actor?: string, epoch?: number, lane?: string | null): { path: string; branch: string; created: boolean } {
+  if (!actorAllowed(cfg, actor)) throw new Error("actor outside configured sisf scope");
   if (!actor || !Number.isSafeInteger(epoch) || epoch! < 1) throw new Error("claim actor and lease epoch required");
   const row = s.query<WorktreeRow, [string]>("SELECT * FROM worktrees WHERE task=?").get(task);
   if (row) {
@@ -337,6 +344,7 @@ async function reconcileEvent(cfg: Cfg, sis: Sis, s: Database, e: any) {
   const t = taskFrom(shown);
   if (CLAIM_OPS.has(e.op)) {
     if (t?.status !== "in_progress" || !(t.lease_until > Date.now() / 1000)) return;
+    if (!actorAllowed(cfg, t.claim_actor)) return;
     const wk = ensureWorktree(cfg, s, e.issue, t.claim_actor, t.lease_epoch, t.lane ?? null);
     process.stderr.write(`[sisf] worktree ${wk.branch} → ${wk.path}\n`);
   } else if (t?.status !== "in_progress") releaseWorktree(s, e.issue, RELEASE_OPS[e.op]);
@@ -494,6 +502,7 @@ async function serve(cfg: Cfg) {
         const body: any = await req.json().catch(() => null);
         if (!body?.cmd) return Response.json({ ok: false, error: { code: "bad_args", msg: "{cmd,args} required" } }, { status: 400 });
         const { cmd, args = {} } = body;
+        if (CLAIM_OPS.has(cmd) && !actorAllowed(cfg, args.actor)) return Response.json({ ok: false, error: { code: "actor_scope", msg: "actor outside configured sisf scope" } }, { status: 403 });
         if (cmd === "changes" && args.id) {
           await activeClaim(sis, args.id, args.actor, args.epoch, s);
           const wk = ensureWorktree(cfg, s, args.id, args.actor, args.epoch);
