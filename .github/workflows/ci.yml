@@ -26,6 +26,11 @@ jobs:
           uv pip install --python .venv/bin/python --require-hashes -r requirements-tokenizer.lock
           .venv/bin/python -c 'import tiktoken; tiktoken.get_encoding("o200k_base"); tiktoken.get_encoding("cl100k_base")'
           echo "SIS_PYTHON=$GITHUB_WORKSPACE/.venv/bin/python" >> "$GITHUB_ENV"
+      - name: Optional search workload tools
+        run: |
+          HOMEBREW_NO_AUTO_UPDATE=1 brew install fd ripgrep
+          fd --version
+          rg --version
       - name: Build
         run: cargo build --locked -j2
       - name: Python daemon startup smoke

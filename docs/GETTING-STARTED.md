@@ -5,6 +5,7 @@
 - Rust/Cargo and SQLite development libraries for the native build. macOS provides system SQLite; Linux distributions typically package development headers separately.
 - Python 3 for the demo, reference implementation and runner.
 - Node.js for optional MCP; Bun for lifecycle/service commands and TypeScript tooling.
+- `fd` and `ripgrep` for the optional bundled search/soak workload and its full-gate fixture (`brew install fd ripgrep` on macOS). The tracker itself does not need these tools.
 - macOS for Seatbelt `local_zero` execution and launchd installation. General tracker code is separate from those OS-specific features. This release's full local acceptance runs on macOS.
 
 ```bash

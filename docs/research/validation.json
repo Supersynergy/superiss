@@ -86,7 +86,7 @@
     "tests/service-defaults.test.ts": "8874b8b74dc00bca9e941a749781c7552a9af4fe0cae4df407aae5867e512206",
     "tests/service-regression.test.ts": "268202e62665744b2530b764e2a42947f0050336b91346912f258f15d1a79dd6",
     "tests/service-soak.test.ts": "50d4dabb7f336425ff4440d846ec67fd0451a0c432f1f913203add46f1f3a0fc",
-    "tests/service.test.ts": "02732095918ceab3080a00547e9c1f941ae60f7350f5e8a9151cf9612678c3db",
+    "tests/service.test.ts": "c8ada63bcd0f800d94b54de90a09f4ab8a49ba4b9103f984ea8a56c2f072c39f",
     "tests/spec_stub.py": "1030d31f4ec5fea758bb978f880d612b2918b0d52dd7a774b8e130634cf3417a",
     "tools/bd2sis.py": "75800440b255f75388c87d707840471b836481b3068db30dd2e55865097350e2",
     "tools/build-registry.ts": "5d0df2a10e6222fe7906594130b8207711156c21c3da251209d7cb8586c1ec3a",
@@ -120,5 +120,13 @@
       "log_sha256": "ffcaaab78c7726559efb91e95bb195a6123d6719df5fef24d3fb581239bbef0f"
     },
     "scope": "Loopback HTTP binds without reverse DNS; initial hosted timeout had no captured DNS stack"
-  }
+  },
+  "followup_checks": [
+    {
+      "command": "bun test tests/service.test.ts tests/service-soak.test.ts",
+      "reason": "Use the running Bun executable instead of a fixed Homebrew path; declare fd/ripgrep fixture dependencies",
+      "passed": true,
+      "log_sha256": "d663fcfae769027dd2d8c5b47f6a3ef9e6380d5a84e611c2bc7dca33bcbbf381"
+    }
+  ]
 }

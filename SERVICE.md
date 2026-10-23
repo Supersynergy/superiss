@@ -28,6 +28,10 @@ Auf macOS installiert `install` zwei eigene LaunchAgents für den angemeldeten N
 
 ## 24-Stunden-Test
 
+Der gebündelte Such-Workload benötigt `fd` und `ripgrep` im Suchpfad.
+Auf macOS: `brew install fd ripgrep`. Der Aufgabenstore selbst benötigt
+diese Werkzeuge nicht.
+
 Die optionale `soak`-Konfiguration erzeugt stündlich 20 private Find-Everything-Aufgaben. Sie speichert Zeitproben und eine Hashkette in `soak.sqlite`, beendet absichtlich ausgewählte eigene Worker und beobachtet den Wiederanlauf. Ein zeitlich begrenztes `caffeinate` verhindert während des Tests Leerlaufschlaf; echte Beobachtungslücken bleiben sichtbar.
 
 ```bash
