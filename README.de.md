@@ -23,6 +23,12 @@ Superiss hält den Aufgabenstand samt Projektwissen in SQLite. Zum Abschluss fü
 
 **85 registrierte Operationen, Rust-Kern und Python-Referenz.** Der Tracker braucht keinen Modell-API-Key. Die Qualität des Prüfbefehls bestimmt, was ein grüner Beleg nachweist.
 
+## Git und Forges verbinden
+
+Der optionale Bun-Adapter **sisf** verbindet Claims mit gesperrten Git-Worktrees. Er berechnet Diffs, speichert Artefaktreferenzen, zeigt Aufgaben neben Worktrees und verbindet Gitea- oder GitHub-PRs. Der native Prüfbefehl bleibt für den Abschluss erforderlich.
+
+[Einrichtung und geprüfte Grenzen](docs/SISF.md) · [Vergleich mit Gitea, Forgejo und GitHub](docs/FORGE-COMPARISON.md). Superiss ist auf Agenten-Ownership und belegten Aufgabenabschluss spezialisiert. Die Forge übernimmt Hosting, Konten, Reviews und CI.
+
 ## Ausprobieren
 
 ```bash

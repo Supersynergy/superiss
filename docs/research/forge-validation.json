@@ -1,0 +1,50 @@
+{
+  "date": "2026-10-23",
+  "core_version": "0.9.1",
+  "adapter_version": "0.1.1",
+  "oracle": "bash tools/verify-forge.sh",
+  "passed": true,
+  "bun": {
+    "passed": 13,
+    "failed": 0
+  },
+  "process_oracles": [
+    "race",
+    "board",
+    "p4",
+    "lifecycle"
+  ],
+  "gitea_validation": "local HTTP fixture; no production Gitea end-to-end acceptance",
+  "browser_validation": {
+    "board_reload": true,
+    "task_html_escaped": true
+  },
+  "social_preview": {
+    "configured": true,
+    "og_image": "https://repository-images.githubusercontent.com/1430852672/fc51e4eb-f948-4d6d-bd09-ab9d729f8ce0",
+    "asset": "assets/superiss-social.jpg"
+  },
+  "review": {
+    "semgrep_security_audit_findings": 0,
+    "gitleaks_adapter_findings": 0,
+    "aislop_score": 97,
+    "remaining": [
+      "file length",
+      "parameter count"
+    ]
+  },
+  "gate_log_sha256": "78f86541aff711d5bed2c09cb248b4966eb5629dc6a7699c7adcfd44d09a3e40",
+  "tested_source_sha256": {
+    "bin/sisf": "563f5e8245cee874ea08880ac66d29cd0cc193d8da106c114a37b0a5f964c184",
+    "sisf/contract.test.ts": "53f5673b7ba57837b43e10f49c90993b8744f0c2b28e5596626c0bf58e5ee716",
+    "sisf/package.json": "9e25820b838ff3f9b23037055d2a8b1ff67c953bdcc867ee531dd1b80ea65abe",
+    "sisf/regression.test.ts": "50bdc9ff9596fe706731cf06325a3afcdbee0b3432b6bfee9577609143341e82",
+    "sisf/sisf.test.ts": "487e18a86ecef6b00a0f93cc921f3e0d9e17e46bd74aeb13d3bbdc8b5d057df0",
+    "sisf/sisf.ts": "b2f13b8c9b02b7ccd6709363a81a1608d8c5ac6dba5f9ab4583c877733ab552c",
+    "sisf/test/board.sh": "13b8cbc914a3140d505919dc17531606de14a3b07369d0c9b23bd1c318141c25",
+    "sisf/test/lifecycle.sh": "fbdb1a2f50a3000e09efdb9344188bf5c798723a6db3a8194d23f0bfddb9a166",
+    "sisf/test/p4.sh": "e0d00819bf26e69ba1084232d6d7beff90dbe25c53f9fb212bd11e3a15da095f",
+    "sisf/test/race.sh": "27812f5857676220ba28993dcf86e9bac2afc0407a3a7e9d3bb6a65b80b92d6c",
+    "tools/verify-forge.sh": "558f8a6d0631df4ca7881ae10f907188c1daca1e2304dcf68fa8720fd36f754d"
+  }
+}

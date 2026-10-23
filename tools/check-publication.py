@@ -30,6 +30,14 @@ def main():
     assert validation["secret_findings"] == 0
     for name, digest in validation["tested_source_sha256"].items():
         assert hashlib.sha256((ROOT / name).read_bytes()).hexdigest() == digest, name
+    forge = json.loads((ROOT / "docs/research/forge-validation.json").read_text())
+    assert forge["passed"] is True and forge["bun"]["failed"] == 0
+    for name, digest in forge["tested_source_sha256"].items():
+        assert hashlib.sha256((ROOT / name).read_bytes()).hexdigest() == digest, name
+    social = (ROOT / forge["social_preview"]["asset"]).read_bytes()
+    assert social.startswith(b"\xff\xd8") and 10000 < len(social) < 1000000
+    for name in ("docs/SISF.md", "docs/FORGE-COMPARISON.md", "bin/sisf"):
+        assert (ROOT / name).is_file(), name
     paths = output("git", "ls-files").splitlines()
     for name in paths:
         assert not name.endswith((".db", ".db-wal", ".db-shm", ".issues.jsonl")), name

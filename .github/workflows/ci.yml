@@ -45,3 +45,5 @@ jobs:
         run: bash tools/verify-all.sh
       - name: Runnable quickstart
         run: python3 examples/quickstart.py
+      - name: Forge adapter acceptance
+        run: bash tools/verify-forge.sh

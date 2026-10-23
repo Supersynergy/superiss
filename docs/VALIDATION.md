@@ -26,3 +26,13 @@ The bundled search workload replaces embedded author build paths with `import.me
 ## Claims this does not establish
 
 A local passing gate does not prove production availability, a completed 24-hour soak, authenticated reviewer identity, exactly-once external effects, customer demand, billing savings or superiority over competing tools. The included historical benchmark has its own [scope and provenance](../bench/results/PROVENANCE.md).
+
+## Optional forge adapter 0.1.1
+
+The adapter was integrated with the public 0.9.1 core. Its separate gate, `bash tools/verify-forge.sh`, passes 13 Bun tests and four process oracles: race, board, lane-policy and lifecycle/restart. Regression tests first exposed unsettled socket calls, stale worktree ownership and false artifact success; the fixes passed those same cases. A further reconnect test caught a handshake rejection that did not settle its caller.
+
+The browser check confirmed the task/worktree join after reload and rendered task HTML as text. Actual HTTP checks reject cross-origin requests, hostile Host headers, form posts, malformed JSON and oversized bodies. The Gitea connector is checked against a local HTTP fixture, including configured base, PR payload, commit status, errors and redirects. This does not establish production Gitea, GitHub PR or mirror deployment acceptance.
+
+Source-scoped Semgrep security-audit and adapter Gitleaks scans reported zero findings. The staged Aislop scan scored 97/100 with file-length and parameter-count notices remaining. These are limited automated checks plus self-review, not an independent security audit. Source hashes and results are recorded in [forge-validation.json](research/forge-validation.json).
+
+The generated hero is also configured as GitHub's Social Preview. Public Open Graph and Twitter image metadata point to the uploaded repository image. The JPEG copy is below GitHub's upload size limit.

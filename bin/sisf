@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# sisf — optional forge adapter (see docs/SISF.md)
+set -euo pipefail
+SELF="${BASH_SOURCE[0]}"
+while [ -L "$SELF" ]; do
+  LINK="$(readlink "$SELF")"
+  if [[ "$LINK" = /* ]]; then SELF="$LINK"; else SELF="$(dirname "$SELF")/$LINK"; fi
+done
+ROOT="$(cd "$(dirname "$SELF")/.." && pwd)"
+exec bun "$ROOT/sisf/sisf.ts" "$@"

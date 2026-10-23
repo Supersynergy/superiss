@@ -38,3 +38,5 @@ GitHub API observations on the snapshot date: Vibe Kanban **28,438** stars; Task
 We reviewed official repositories, their READMEs and linked documentation. Repository HEADs are pinned above; Taskwarrior's inspected development HEAD was `c280c347c1adc47e9bb1ad42c92958e2d7f92e9c`. Counts and repository metadata are recorded in [the research snapshot](research/market-snapshot.json). The Superiss column is grounded in this release's source, registry and local verification gate. No comparative speed, cost-saving or superiority benchmark was executed.
 
 The opportunity is specific: teams can already capture and dispatch agent work. Superiss focuses on making a completed task depend on a declared, executed acceptance check. That positioning is an inference from the reviewed feature sets, not evidence of customer demand.
+
+For repository hosting and collaboration, see the separate [Gitea, Forgejo and GitHub comparison](FORGE-COMPARISON.md). The optional [sisf adapter](SISF.md) connects Superiss to Git; it does not replace a forge.

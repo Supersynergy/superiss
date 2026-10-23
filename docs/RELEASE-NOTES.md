@@ -39,3 +39,9 @@ Read the [getting-started guide](GETTING-STARTED.md) for dependencies and platfo
 The full local project gate passed for both implementations, alongside 35 Bun service tests and the runnable demo. Publication secret scanning found no leaks. See [validation](VALIDATION.md) for skips, static-analysis findings and source provenance.
 
 The market comparison is documentation research, not a competitor benchmark. Cost entries are observations rather than invoices. A passing oracle proves its own checked behavior; source hashes do not make a weak check sufficient. No completed 24-hour availability claim or production reliability claim is made.
+
+## Optional sisf 0.1.1
+
+Adds a Bun forge adapter beside the unchanged 0.9.1 core: claim/worktree binding, computed Git changes, artifact records, a task × worktree board, Gitea PR/status APIs, GitHub PR creation through `gh`, explicit mirror push and conservative cleanup. Ownership, socket failures and native watch framing have regression coverage. See [setup and boundaries](SISF.md) and the [forge comparison](FORGE-COMPARISON.md).
+
+Gitea API validation uses a local HTTP fixture. Merge protection and production forge acceptance remain environment-specific. The new hero is configured as the repository's Social Preview.

@@ -33,6 +33,12 @@ flowchart LR
 
 The close operation checks ownership, a live lease, contract revision, source fingerprint and the saved proof. Optional review, attestation and budget requirements add further checks. A changed source invalidates the old proof. Goal containers need final acceptance after their descendants close.
 
+## Optional Git and forge adapter
+
+[sisf](SISF.md) adds claim-to-worktree bindings, a task × worktree board, computed Git changes, artifact records, Gitea PR/status API calls, GitHub PR creation through `gh`, explicit mirror push and conservative cleanup. Bindings check current ownership and preserve the creation base SHA. Claims and Git creation remain separate operations. The adapter adds no core registry operations.
+
+[Compare with Gitea, Forgejo and GitHub](FORGE-COMPARISON.md).
+
 ## Architecture
 
 The Rust implementation and Python reference share the registry, SQLite schema and protocol. SQLite uses WAL with `synchronous=FULL` by default. A deterministic JSONL mirror is written after committed mutations unless explicitly disabled. General CLI use can access SQLite directly; repeated requests can reuse the project-bound Unix socket.

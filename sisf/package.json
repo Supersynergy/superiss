@@ -1,0 +1,14 @@
+{
+  "name": "sisf",
+  "private": true,
+  "version": "0.1.1",
+  "description": "superiss-forge layer: claim→worktree, commit attestation, forge connectors, board v2",
+  "type": "module",
+  "bin": {
+    "sisf": "./sisf.ts"
+  },
+  "scripts": {
+    "test": "bun test",
+    "check": "bun build sisf.ts --target=bun --outdir=../.cache/sisf-check"
+  }
+}

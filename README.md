@@ -13,7 +13,7 @@
 
 <p align="center">Local-first task coordination and durable memory for AI agents.<br>A Beads alternative with executable acceptance, fenced ownership and recovery.</p>
 
-<p align="center"><a href="docs/GETTING-STARTED.md">Get started</a> · <a href="docs/FEATURES.md">All features</a> · <a href="docs/COMPARISON.md">Compare 5 tools</a> · <a href="docs/BEADS-ALTERNATIVE.md">Coming from Beads?</a> · <a href="README.de.md">Deutsch</a></p>
+<p align="center"><a href="docs/GETTING-STARTED.md">Get started</a> · <a href="docs/FEATURES.md">All features</a> · <a href="docs/COMPARISON.md">Compare 5 tools</a> · <a href="docs/BEADS-ALTERNATIVE.md">Coming from Beads?</a> · <a href="docs/SISF.md">Git + forges</a> · <a href="README.de.md">Deutsch</a></p>
 
 ---
 
@@ -43,6 +43,7 @@ Changed files? The old proof expires. Stale worker? Its epoch is rejected. Missi
 | 💸 **Cost visibility** | Recorded usage, goal rollups, close-time budget gates and outcome aggregates. |
 | 🔌 **Agent interfaces** | JSON CLI, Unix socket, MCP, loopback HTTP and a local browser board. |
 | ⚙️ **Local execution** | Opt-in command-to-close workflow and a bounded macOS service. |
+| 🌿 **Forge adapter** | Optional `sisf`: claim-to-worktree binding, Git diffs, artifact records, Gitea/GitHub PR connectors and task × worktree board. |
 | 📦 **Portable state** | JSONL snapshots, conflict-aware sync and explicit Beads-export migration. |
 
 **85 registered operations. Rust core. Python reference. No model API key required for the tracker.**
@@ -95,6 +96,18 @@ Five established alternatives, researched **23 October 2026**. ✅ documented ·
 
 This is a curated research comparison, not a performance ranking. ❌ does not mean an extension could never implement the feature. Vibe Kanban's official site currently announces a transition to community maintenance.
 
+## Take the proof loop into Git
+
+Add **sisf**, the optional Bun adapter, to bind claimed tasks to locked Git worktrees. Record the actual diff and artifact reference, inspect tasks beside worktrees and connect PRs through Gitea or GitHub. The native proof contract still decides whether a task can close.
+
+```bash
+# With the project daemon already running:
+bin/sisf serve --db "$SIS_DB" --repo "$PWD" --port 8766
+# http://127.0.0.1:8766/forge
+```
+
+[Setup, commands and tested boundaries →](docs/SISF.md) · [Superiss + sisf vs Gitea, Forgejo and GitHub →](docs/FORGE-COMPARISON.md)
+
 ## Use it with your agent
 
 Start the project daemon, then add this adapter to a host supporting stdio MCP:
@@ -124,6 +137,7 @@ The worker profile offers twelve tools. The host remains responsible for permiss
 | [All features](docs/FEATURES.md) / [85 operations](docs/OPERATIONS.md) | Capabilities and complete registry-derived catalog |
 | [Beads alternative](docs/BEADS-ALTERNATIVE.md) | Workflow mapping and deliberate export migration |
 | [Five-tool comparison](docs/COMPARISON.md) | Emoji matrix, sources and market observations |
+| [Forge adapter](docs/SISF.md) / [forge comparison](docs/FORGE-COMPARISON.md) | Worktree lifecycle, connectors, board and the division of responsibilities |
 | [Protocol](SPEC.md) | Source binding, wire formats and operational limits |
 | [Local execution](ZERO-RECOVERY.md) / [Service](SERVICE.md) | Sandbox, replay policy, lifecycle and watchdog |
 | [Multiworker](MULTIWORKER.md) | Delivery fencing and benchmark methodology |
