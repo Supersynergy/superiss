@@ -1,9 +1,14 @@
-# Superiss 0.8: Vertrag und Protokoll
+# Superiss 0.9.1: Vertrag und Protokoll
 
 Diese Spezifikation beschreibt den lokalen Aufgabenstore mit atomaren Claims,
-Verträgen und gespeicherten Prüfbelegen. `ops.json`, Version 0.8.0, Protokoll 2,
+Verträgen und gespeicherten Prüfbelegen. `ops.json`, Version 0.9.1, Protokoll 2,
 ist das gemeinsame Eingabeschema für native MCP-Adapter und Node-Bridge.
 Administrative Zustandsimporte sind kein Beleg für eine neue Abnahme.
+
+Der Store verwendet Schema 8. Aktuelle Mehrfach-Runner-Regeln und die Migration
+aus Schema 7 sind in [MULTIWORKER.md](MULTIWORKER.md) beschrieben. Der explizite
+lokale Ablauf und der Dienst ergänzen diesen Kernvertrag; ihre Grenzen stehen
+in [ZERO-RECOVERY.md](ZERO-RECOVERY.md) und [SERVICE.md](SERVICE.md).
 
 ## Speicher und Identität
 
@@ -132,8 +137,11 @@ JUnit-XML-Datei unter cwd, `passed` nur bei tests>0 und failures=errors=0),
 misst selbst, sis ruft nichts auf), `artifact` (`ref`/`digest` als
 Existenzbehauptung), `custom` (explizites `passed` plus `note`) und
 `run` (`cmd` wird vom Store selbst unter cwd ausgeführt, `passed` bei
-exit 0 ohne Timeout — der Beleg ist clientseitig nicht fälschbar;
-`timeout_secs` 1..60, da attest in der Schreibtransaktion läuft).
+exit 0 ohne Timeout; `timeout_secs` 1..60). Seit 0.9 läuft das Kommando
+außerhalb der Schreibtransaktion. Vor dem Speichern werden Claim, Lease,
+Abbruch, Revision und Quellen erneut geprüft. Run-Attestierungen sind im
+Batch gesperrt. Ein direkt manipulierbarer Store liegt außerhalb dieser
+Vertrauensgrenze.
 `payload` ist auf 64 KiB begrenzt. `meta.attest_required` (Bool, String oder
 Kind-Liste) erzwingt beim `close` passende bestandene Attestierungen —
 `true` verlangt mindestens eine beliebige, eine Liste jede genannte Art;

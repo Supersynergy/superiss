@@ -1,6 +1,6 @@
 # What Superiss can do
 
-Superiss 0.9.0 combines a persistent task graph with an executable acceptance contract. The shared [operation registry](../ops.json) contains **85 operations**. The [complete catalog](OPERATIONS.md) lists every one with its required inputs.
+Superiss 0.9.1 combines a persistent task graph with an executable acceptance contract. The shared [operation registry](../ops.json) contains **85 operations**. The [complete catalog](OPERATIONS.md) lists every one with its required inputs.
 
 | Area | Capabilities | Practical use |
 | --- | --- | --- |

@@ -15,7 +15,7 @@ def output(*args):
 
 def main():
     registry = json.loads((ROOT / "ops.json").read_text())
-    assert registry["version"] == "0.9.0"
+    assert registry["version"] == "0.9.1"
     assert len(registry["ops"]) == 85
     catalog = (ROOT / "docs/OPERATIONS.md").read_text()
     for operation in registry["ops"]:

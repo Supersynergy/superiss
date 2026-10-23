@@ -1,6 +1,10 @@
-# Superiss 0.9.0 — Done needs proof.
+# Superiss 0.9.1 — Done needs proof.
 
-Superiss is now available as a public source release. It provides local task coordination with persistent memory for AI agents. Each task has an executable acceptance contract from claim to close.
+Superiss provides local task coordination with persistent memory for AI agents. Each task has an executable acceptance contract from claim to close.
+
+## 0.9.1 fixes
+
+The Python loopback HTTP server binds without reverse DNS lookup. A failing regression demonstrated the unwanted dependency on name resolution; the fix preserves the bound address and port. CI uses Python 3.14 for the pinned tokenizer and checks daemon startup before running the full gate.
 
 ## Included
 

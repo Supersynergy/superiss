@@ -67,6 +67,27 @@ class Integration(unittest.TestCase):
             except FileNotFoundError:
                 pass
 
+    def test_python_loopback_http_requires_no_name_service(self):
+        script = """
+import socket, sys, threading
+from unittest.mock import patch
+sys.path.insert(0, sys.argv[1])
+import agent
+with socket.socket() as probe:
+    probe.bind(('127.0.0.1', 0))
+    port = probe.getsockname()[1]
+with patch('socket.getfqdn', side_effect=AssertionError('loopback HTTP must not resolve DNS')):
+    server = agent.http_server(sys.argv[2], port, {}, threading.BoundedSemaphore(64), threading.Event())
+    try:
+        assert server.server_name == 'localhost'
+        assert server.server_port == port
+    finally:
+        server.server_close()
+"""
+        result = subprocess.run([sys.executable, '-c', script, str(ROOT), str(self.db)],
+                                capture_output=True, text=True, timeout=5)
+        self.assertEqual(result.returncode, 0, result.stderr)
+
     def rpc(self, cmd, args=None):
         with socket.socket(socket.AF_UNIX) as client:
             client.settimeout(5); client.connect(self.sock)
@@ -135,7 +156,7 @@ class Integration(unittest.TestCase):
                                 capture_output=True, text=True, timeout=10)
         self.assertEqual(result.returncode, 0, result.stderr)
         context = json.loads(result.stdout)
-        self.assertEqual(context['capabilities']['version'], '0.9.0')
+        self.assertEqual(context['capabilities']['version'], '0.9.1')
         self.assertEqual(context['capabilities']['schema_version'], 8)
 
     def test_multiworker_cli_refuses_older_daemon_before_mutation(self) -> None:

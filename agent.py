@@ -12,6 +12,7 @@ from pathlib import Path
 import secrets
 import selectors
 import signal
+import socketserver
 import subprocess
 import stat
 import sys
@@ -246,6 +247,11 @@ def http_server(db_path, port, api, clients, stopping):
     class Server(http.server.ThreadingHTTPServer):
         daemon_threads = True
         request_queue_size = 64
+
+        def server_bind(self):
+            socketserver.TCPServer.server_bind(self)
+            self.server_name = 'localhost'
+            self.server_port = self.server_address[1]
 
         def process_request(self, request, address):
             if not clients.acquire(blocking=False):
@@ -1879,7 +1885,7 @@ def install(s):
     def op_capabilities(db, a, c):
         project_id = db.execute("SELECT v FROM kv WHERE k='project_id'").fetchone()[0]
         registry = operation_registry()
-        result = {'version': '0.9.0', 'protocol': 2, 'schema': 8, 'schema_version': 8,
+        result = {'version': '0.9.1', 'protocol': 2, 'schema': 8, 'schema_version': 8,
                   'project_id': project_id, 'operations': [op['name'] for op in registry],
                   'encodings': ['o200k_base', 'cl100k_base'], 'proof_receipts': True,
                   'billing': False, 'token_billing': False, 'local_zero_execution': True,
@@ -2036,7 +2042,7 @@ def install(s):
     s['POS']['who'] = ['repo']
     s['READS'].add('who')
     s['READS'].update({'cost_list', 'cost_rollup', 'sync_export', 'spans', 'learn'})
-    s['VERSION'] = '0.9.0'
+    s['VERSION'] = '0.9.1'
 
 
 def notify():

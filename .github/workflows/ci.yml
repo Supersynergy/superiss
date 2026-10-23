@@ -32,7 +32,7 @@ jobs:
         run: |
           cat > .cache/python-startup-trace <<'SCRIPT'
           #!/usr/bin/env bash
-          exec "$SIS_TRACE_PYTHON" -c 'import faulthandler,runpy,sys; faulthandler.dump_traceback_later(5); sys.argv=sys.argv[1:]; runpy.run_path(sys.argv[0],run_name="__main__")' "$@"
+          exec "$SIS_TRACE_PYTHON" -c 'import faulthandler,os,runpy,sys; faulthandler.dump_traceback_later(5); sys.argv=sys.argv[1:]; sys.path.insert(0,os.path.dirname(sys.argv[0])); runpy.run_path(sys.argv[0],run_name="__main__")' "$@"
           SCRIPT
           chmod +x .cache/python-startup-trace
           SIS_TRACE_PYTHON="$SIS_PYTHON" SIS_PYTHON="$PWD/.cache/python-startup-trace" python3 tests/integration_suite.py --impl py --case http_health

@@ -6,43 +6,43 @@
   "unittest_suites": [
     {
       "tests": 59,
-      "seconds": 8.318
+      "seconds": 8.955
     },
     {
-      "tests": 23,
-      "seconds": 3.092
+      "tests": 24,
+      "seconds": 3.458
     },
     {
       "tests": 20,
-      "seconds": 4.924
+      "seconds": 5.352
     },
     {
       "tests": 7,
-      "seconds": 7.158
+      "seconds": 7.316
     },
     {
       "tests": 6,
-      "seconds": 3.986
+      "seconds": 4.286
     },
     {
       "tests": 59,
-      "seconds": 23.136
+      "seconds": 24.297
     },
     {
-      "tests": 23,
-      "seconds": 18.826
+      "tests": 24,
+      "seconds": 19.724
     },
     {
       "tests": 20,
-      "seconds": 12.88
+      "seconds": 13.644
     },
     {
       "tests": 7,
-      "seconds": 13.939
+      "seconds": 14.202
     },
     {
       "tests": 6,
-      "seconds": 10.09
+      "seconds": 10.085
     }
   ],
   "unittest_skips": [
@@ -59,28 +59,28 @@
     "failed": 0,
     "files": 5
   },
-  "gate_log_sha256": "8c8fb49d1ffbe4a26a7e2e9967bee1b5de26e47fd9dedfc3a83ff8026d6638f0",
+  "gate_log_sha256": "749be62608e8391c0848dc6a7d87c5e6d558ae4ab715fff5a86ff190503a5f5a",
   "wrapper": {
     "backend": "ps",
-    "elapsed_seconds": 137.603,
-    "peak_tree_mib": 215
+    "elapsed_seconds": 145.503,
+    "peak_tree_mib": 166
   },
   "secret_findings": 0,
   "tested_source_sha256": {
-    "Cargo.lock": "b8a66ec3db45fd5416926c1cd408bbf6d561f8e32fd094d527b92a3109bb3b58",
-    "Cargo.toml": "e95250b5e1c792df1f2a117eb2e2fec1e3cd66fb1bf0e53986b7a6a4fa2acc1f",
-    "agent.py": "c3973edb67aae5f3250b0edc6b8bd11789f7e79c2f8f9a25bbabf2b0ddd96826",
-    "agent.rs": "5cc0905079c4070b5af1ad0fe300b986864c8dbd27b4bbe5604ec404e15233d2",
+    "Cargo.lock": "7bb1d0cde8f50f099cb791b7d49bd0f43d91932fa601b1d5a11d65f899a871a9",
+    "Cargo.toml": "246b868ca2c27d18627b55afef2514be5222653e6291f415f7a408b9c6c08d7a",
+    "agent.py": "92933a35025223425f25b47397eac7bc5cb902bead2d0d585b013e0e8af7570e",
+    "agent.rs": "16d32e7d5ac649282a69ea432106cbe4cf2ee782d30a1b9d52a9c3ca95219510",
     "bin/sis": "f8f57015c4eac1860d70ab836133ac7287bbce2bf833964b533f6472d2dfcab9",
     "mcp/sis-mcp.js": "e7d3dc139ed20076fc616c333b09461e88988c2b6ce5bb801d4fdce39f001061",
-    "ops.json": "eb87bcab4b70766e27e2a2f58e729091a71904adc08eb78db465fe712635c977",
+    "ops.json": "41b831f55573429661e0ecb08343e1ef543f35f06598555fe3403513b864b26c",
     "superiss.py": "ed06bde5b83ae4c96ee5c63371983685af40d05a60717f2bdaaf71e67ed9e959",
-    "superiss.rs": "0fba7ab605bdea8bd897c2bf305107c0d45e2a622cb572fd4a6beb43a2ab611c",
+    "superiss.rs": "fb607567ebb6de2da47b63f26d51101d8d614689a272e5158e83cf34d079fa41",
     "tests/agent_suite.py": "780374580335ff1a8fe4ca2ef2f2a8b5dc553b7f42b39a6e13a56093a294b99d",
     "tests/budget_suite.py": "8ebb3cf627c63ecbd5f5ed68e8538102117596ed3171ca32bc4305ecdea326b5",
     "tests/contract_suite.py": "90f140eef490e4e311107f38118c967a4b59a16349ca8ab6237fa09788e040ff",
     "tests/controller_suite.py": "2772bac445926b0c9645ad9b49d744cf4eb37361d5d2587e539e9ac1c1fe42de",
-    "tests/integration_suite.py": "7eb829f4bd2faa6b90671a39452263d9579f82c7b07542b12dc0b92c4e60b5b6",
+    "tests/integration_suite.py": "ad1c0181740f7d31ffd026ae289c19c4d5273b4e08d70474ccf4c978f9cca49f",
     "tests/recovery_edges.py": "c15b36a107c6ea1a1263124419ab4825759f5e3438b67d29f2bb4abd0fac3efb",
     "tests/service-chaos.test.ts": "165554485acf4795d5a4415271188b54e63e383f4af33424a7098bcde7575c76",
     "tests/service-defaults.test.ts": "8874b8b74dc00bca9e941a749781c7552a9af4fe0cae4df407aae5867e512206",
@@ -107,5 +107,18 @@
     "Local tests do not establish 24-hour soak or production reliability",
     "Static analysis has documented inherited findings",
     "No competitor performance benchmark was run"
-  ]
+  ],
+  "version": "0.9.1",
+  "regression": {
+    "case": "test_python_loopback_http_requires_no_name_service",
+    "red": {
+      "failed": true,
+      "log_sha256": "c92a8a3c13f9db24a4752dc395831f46176151847463984dc06822cd3a7773f2"
+    },
+    "green": {
+      "python_integration_tests": 24,
+      "log_sha256": "ffcaaab78c7726559efb91e95bb195a6123d6719df5fef24d3fb581239bbef0f"
+    },
+    "scope": "Loopback HTTP binds without reverse DNS; initial hosted timeout had no captured DNS stack"
+  }
 }

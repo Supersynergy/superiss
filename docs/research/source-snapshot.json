@@ -219,6 +219,8 @@
     "New launch documentation, artwork, runnable demo, CI and publication checks",
     "Remove internal acceptance contract and original machine paths",
     "Correct service defaults in documentation",
-    "Make bundled workload build paths portable; retain original and public hashes"
-  ]
+    "Make bundled workload build paths portable; retain original and public hashes",
+    "0.9.1: Python loopback HTTP no longer resolves reverse DNS; red-to-green regression and full acceptance; explicit tokenizer Python version and startup diagnostics"
+  ],
+  "publication_version": "0.9.1"
 }

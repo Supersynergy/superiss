@@ -4250,7 +4250,7 @@ fn mcp(dbp: &str) -> i32 {
         let result = match method {
             "initialize" => json!({"protocolVersion":"2024-11-05",
                 "capabilities":{"tools":{}},
-                "serverInfo":{"name":"superiss","version":"0.9.0"}}),
+                "serverInfo":{"name":"superiss","version":"0.9.1"}}),
             "ping" => json!({}),
             "tools/list" => {
                 json!({"tools": agent::mcp_registry().iter().map(|t| json!({

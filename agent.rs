@@ -1833,7 +1833,7 @@ pub fn dispatch(c: &Connection, cmd: &str, a: &Value, dbp: &str) -> Option<R<Val
                 .map(|op| op["name"].clone())
                 .collect();
             let mut result = json!({"schema":SCHEMA_VER,"schema_version":SCHEMA_VER,
-                "version":"0.9.0","protocol":2,
+                "version":"0.9.1","protocol":2,
                 "project_id":c.query_row("SELECT v FROM kv WHERE k='project_id'",[],|r|r.get::<_,String>(0)).map_err(ie).ok(),
                 "operations":names,"encodings":["o200k_base","cl100k_base"],
                 "proof_receipts":true,"billing":false,"local_zero_execution":true});
