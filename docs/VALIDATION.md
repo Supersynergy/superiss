@@ -13,7 +13,7 @@ The public source was prepared from the installed fixed **0.9.0** source bundle.
 
 The full gate ran under a bounded resource wrapper: exit 0, **137.603 seconds**, **215 MiB** observed process-tree peak. An initial native process-identity probe stopped the earlier run; the successful run used the wrapper's `ps` backend. This is a test-run observation, not a speed benchmark.
 
-Machine-readable test summaries and gate-log hash: [validation.json](research/validation.json). The original full logs remain in the local ignored build cache. CI repeats the build, gate and demo on a GitHub macOS runner; its status badge reflects the remote result separately.
+Machine-readable test summaries and gate-log hash: [validation.json](research/validation.json). The original full logs remain in the local ignored build cache. CI repeats the build, gate and demo on a GitHub macOS runner; its status badge reflects the remote result separately. The first public CI setup selected Python 3.15, which the pinned tokenizer's PyO3 dependency rejects. The follow-up CI configuration selects Python 3.14 explicitly.
 
 ## Review limits
 

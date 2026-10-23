@@ -22,7 +22,7 @@ jobs:
           version: "0.13.5"
       - name: Python tokenizer
         run: |
-          uv venv .venv
+          uv venv --python 3.14 .venv
           uv pip install --python .venv/bin/python --require-hashes -r requirements-tokenizer.lock
           .venv/bin/python -c 'import tiktoken; tiktoken.get_encoding("o200k_base"); tiktoken.get_encoding("cl100k_base")'
           echo "SIS_PYTHON=$GITHUB_WORKSPACE/.venv/bin/python" >> "$GITHUB_ENV"

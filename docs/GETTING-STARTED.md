@@ -48,7 +48,7 @@ The tokenizer dependency is pinned with hashes. With [uv](https://docs.astral.sh
 
 ```bash
 export TIKTOKEN_CACHE_DIR="$PWD/.cache/tiktoken"
-uv venv .venv
+uv venv --python 3.14 .venv
 uv pip install --python .venv/bin/python --require-hashes -r requirements-tokenizer.lock
 .venv/bin/python -c 'import tiktoken; tiktoken.get_encoding("o200k_base"); tiktoken.get_encoding("cl100k_base")'
 export SIS_PYTHON="$PWD/.venv/bin/python"
