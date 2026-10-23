@@ -38,3 +38,7 @@ Source-scoped Semgrep security-audit and adapter Gitleaks scans reported zero fi
 The generated hero is also configured as GitHub's Social Preview. Public Open Graph and Twitter image metadata point to the uploaded repository image. The JPEG copy is below GitHub's upload size limit.
 
 The shared-store actor selector was exercised against an Office store and in the process lifecycle oracle. Foreign proxied claims are rejected before native mutation, directly claimed foreign tasks produce no worktree, and the durable watcher cursor still advances. Configuration tests cover the omitted default, an explicit empty scope, environment/flag precedence and the configuration file.
+
+## Cursor correction on main
+
+A later hosted run exposed duplicate rows when a Python cursor was resumed by Rust. A deterministic regression with 16 adjacent SQLite binary64 timestamps reproduced two failures. Enabling the existing serde_json `float_roundtrip` feature preserves the timestamp without changing the locked package version. Both cursor directions now pass. The full core gate passed again: 60 worker-contract tests per runtime and 35 Bun service tests, plus integration, budget, controller, recovery and transport suites. The accepted run took 141.930 seconds with a 214 MiB observed process-tree peak. An earlier concurrent run missed an eight-second recovery-fixture deadline; the complete repeat passed without changing that deadline.

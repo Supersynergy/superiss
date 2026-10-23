@@ -4,6 +4,7 @@ import argparse
 import concurrent.futures
 from collections.abc import Callable
 import json
+import math
 import os
 from pathlib import Path
 import shutil
@@ -608,6 +609,24 @@ class AgentContract(unittest.TestCase):
         self.env['SIS_IMPL'] = 'py' if IMPL == 'rs' else 'rs'
         second = self.call('list', limit=2, cursor=first['next_cursor'], fields=['id'])
         self.assertEqual([r['id'] for r in second['items']], ['2','3'])
+
+    def test_cursor_roundtrips_adjacent_sqlite_timestamps_across_runtimes(self):
+        for number in range(5):
+            self.create(str(number))
+        timestamp = 1792769876.1234567
+        for _ in range(16):
+            with sqlite3.connect(self.db) as connection:
+                connection.execute('UPDATE issues SET created_at=?', (timestamp,))
+            for first_impl, second_impl in [('py', 'rs'), ('rs', 'py')]:
+                with self.subTest(timestamp=timestamp, direction=(first_impl, second_impl)):
+                    self.env['SIS_IMPL'] = first_impl
+                    first = self.call('list', limit=2, cursor='', fields=['id'])
+                    self.assertEqual([row['id'] for row in first['items']], ['0', '1'])
+                    self.env['SIS_IMPL'] = second_impl
+                    second = self.call('list', limit=2, cursor=first['next_cursor'], fields=['id'])
+                    self.assertEqual([row['id'] for row in second['items']], ['2', '3'])
+            timestamp = math.nextafter(timestamp, math.inf)
+        self.env['SIS_IMPL'] = IMPL
 
     def test_ready_excludes_planning_rows_and_non_goal_containers(self):
         self.call('create', id='planning', title='No oracle')

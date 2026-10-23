@@ -5,44 +5,44 @@
   "gate_exit": 0,
   "unittest_suites": [
     {
-      "tests": 59,
-      "seconds": 8.955
+      "tests": 60,
+      "seconds": 10.533
     },
     {
       "tests": 24,
-      "seconds": 3.458
+      "seconds": 2.988
     },
     {
       "tests": 20,
-      "seconds": 5.352
+      "seconds": 4.767
     },
     {
       "tests": 7,
-      "seconds": 7.316
+      "seconds": 6.826
     },
     {
       "tests": 6,
-      "seconds": 4.286
+      "seconds": 3.892
     },
     {
-      "tests": 59,
-      "seconds": 24.297
+      "tests": 60,
+      "seconds": 24.538
     },
     {
       "tests": 24,
-      "seconds": 19.724
+      "seconds": 19.085
     },
     {
       "tests": 20,
-      "seconds": 13.644
+      "seconds": 13.32
     },
     {
       "tests": 7,
-      "seconds": 14.202
+      "seconds": 13.738
     },
     {
       "tests": 6,
-      "seconds": 10.085
+      "seconds": 9.892
     }
   ],
   "unittest_skips": [
@@ -59,16 +59,16 @@
     "failed": 0,
     "files": 5
   },
-  "gate_log_sha256": "749be62608e8391c0848dc6a7d87c5e6d558ae4ab715fff5a86ff190503a5f5a",
+  "gate_log_sha256": "c6f4c010f8c4159fc938f293a1ef7ea0afee7c79a8a79683c8b03c0799514ecd",
   "wrapper": {
     "backend": "ps",
-    "elapsed_seconds": 145.503,
-    "peak_tree_mib": 166
+    "elapsed_seconds": 141.93,
+    "peak_tree_mib": 214
   },
   "secret_findings": 0,
   "tested_source_sha256": {
     "Cargo.lock": "7bb1d0cde8f50f099cb791b7d49bd0f43d91932fa601b1d5a11d65f899a871a9",
-    "Cargo.toml": "246b868ca2c27d18627b55afef2514be5222653e6291f415f7a408b9c6c08d7a",
+    "Cargo.toml": "feacdec7a3241146817e91bd3875b766d7f7277a970d9599aba111a84a1f2869",
     "agent.py": "92933a35025223425f25b47397eac7bc5cb902bead2d0d585b013e0e8af7570e",
     "agent.rs": "16d32e7d5ac649282a69ea432106cbe4cf2ee782d30a1b9d52a9c3ca95219510",
     "bin/sis": "f8f57015c4eac1860d70ab836133ac7287bbce2bf833964b533f6472d2dfcab9",
@@ -76,7 +76,7 @@
     "ops.json": "41b831f55573429661e0ecb08343e1ef543f35f06598555fe3403513b864b26c",
     "superiss.py": "ed06bde5b83ae4c96ee5c63371983685af40d05a60717f2bdaaf71e67ed9e959",
     "superiss.rs": "fb607567ebb6de2da47b63f26d51101d8d614689a272e5158e83cf34d079fa41",
-    "tests/agent_suite.py": "780374580335ff1a8fe4ca2ef2f2a8b5dc553b7f42b39a6e13a56093a294b99d",
+    "tests/agent_suite.py": "778eb11d65f621d790461e68fe8d137eda80bb86cd9d4016a014cd7a640f3d9f",
     "tests/budget_suite.py": "8ebb3cf627c63ecbd5f5ed68e8538102117596ed3171ca32bc4305ecdea326b5",
     "tests/contract_suite.py": "90f140eef490e4e311107f38118c967a4b59a16349ca8ab6237fa09788e040ff",
     "tests/controller_suite.py": "2772bac445926b0c9645ad9b49d744cf4eb37361d5d2587e539e9ac1c1fe42de",
@@ -128,5 +128,15 @@
       "passed": true,
       "log_sha256": "d663fcfae769027dd2d8c5b47f6a3ef9e6380d5a84e611c2bc7dca33bcbbf381"
     }
-  ]
+  ],
+  "cursor_regression": {
+    "cross_runtime": true,
+    "adjacent_binary64_timestamps": 16,
+    "directions": [
+      "py→rs",
+      "rs→py"
+    ],
+    "red_failures": 2,
+    "fix": "serde_json float_roundtrip feature; same locked version"
+  }
 }
