@@ -50,7 +50,8 @@ class Integration(unittest.TestCase):
                 self.rpc("stats"); return
             except (OSError, ValueError):
                 time.sleep(0.025)
-        self.fail("Owned Superiss daemon did not become ready")
+        self.fail("Owned Superiss daemon did not become ready:\n" +
+                  (self.work / "serve.log").read_text())
 
     def stop(self):
         if self.proc and self.proc.poll() is None:
