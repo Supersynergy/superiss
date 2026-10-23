@@ -72,6 +72,18 @@ test("task identifiers do not collapse into another task's branch", () => {
   expect(_test.workspaceId("t1")).toBe("t1");
 });
 
+test("two stores in the same directory have distinct adapter state", () => {
+  const f = fixture(), argv = process.argv;
+  try {
+    process.argv = ["bun", "sisf", "health", "--db", join(f.dir, "one.db")];
+    const one = _test.loadCfg();
+    process.argv = ["bun", "sisf", "health", "--db", join(f.dir, "two.db")];
+    expect(_test.loadCfg().state).not.toBe(one.state);
+    _test.bindProject(f.state,"one");
+    expect(() => _test.bindProject(f.state,"two")).toThrow(/different sis project/);
+  } finally { process.argv = argv; f.cleanup(); }
+});
+
 test("advisory policy binds to a locked worktree and immutable base", () => {
   const f = fixture();
   try {
@@ -136,7 +148,7 @@ test("Gitea fixture verifies configured base, PR payload, CI status, failure and
 });
 
 test("prune retains dirty work, then removes only a clean owned tree and retains its branch", async () => {
-  const f = fixture(); const sis: any = { call: async()=>({ok:true,data:{issue:{status:"open"}}}) };
+  const f = fixture(); const sis: any = { project: "fixture", call: async()=>({ok:true,data:{issue:{status:"open"}}}) };
   try {
     const w = _test.ensureWorktree(f.cfg,f.state,"t","a",1);
     f.state.run("UPDATE worktrees SET status='released'");

@@ -5,7 +5,7 @@
   "oracle": "bash tools/verify-forge.sh",
   "passed": true,
   "bun": {
-    "passed": 13,
+    "passed": 14,
     "failed": 0
   },
   "process_oracles": [
@@ -33,18 +33,22 @@
       "parameter count"
     ]
   },
-  "gate_log_sha256": "78f86541aff711d5bed2c09cb248b4966eb5629dc6a7699c7adcfd44d09a3e40",
+  "gate_log_sha256": "2e08c391fb9185d38f94b748d958912e91109d8f731c808694bc2d26be6e844e",
   "tested_source_sha256": {
     "bin/sisf": "563f5e8245cee874ea08880ac66d29cd0cc193d8da106c114a37b0a5f964c184",
-    "sisf/contract.test.ts": "53f5673b7ba57837b43e10f49c90993b8744f0c2b28e5596626c0bf58e5ee716",
+    "sisf/contract.test.ts": "fbfa2e8664403ceddf9a68c9668e6501c810bf67887f7cd851e40a39f3c66954",
     "sisf/package.json": "9e25820b838ff3f9b23037055d2a8b1ff67c953bdcc867ee531dd1b80ea65abe",
-    "sisf/regression.test.ts": "50bdc9ff9596fe706731cf06325a3afcdbee0b3432b6bfee9577609143341e82",
+    "sisf/regression.test.ts": "d92ae75c415c95aa533e40c3780d93711b62d9c81ab7ec1194bbd7dc017484dd",
     "sisf/sisf.test.ts": "487e18a86ecef6b00a0f93cc921f3e0d9e17e46bd74aeb13d3bbdc8b5d057df0",
-    "sisf/sisf.ts": "b2f13b8c9b02b7ccd6709363a81a1608d8c5ac6dba5f9ab4583c877733ab552c",
+    "sisf/sisf.ts": "26811d5f048471993a5c8edfe6e2ad2a7ba9df1dbe6719fca884efe6a8cb3976",
     "sisf/test/board.sh": "13b8cbc914a3140d505919dc17531606de14a3b07369d0c9b23bd1c318141c25",
-    "sisf/test/lifecycle.sh": "fbdb1a2f50a3000e09efdb9344188bf5c798723a6db3a8194d23f0bfddb9a166",
+    "sisf/test/lifecycle.sh": "96416f7dddbdbac9173c6d14199420eb58a2a864be86a7131d9be0454788cc19",
     "sisf/test/p4.sh": "e0d00819bf26e69ba1084232d6d7beff90dbe25c53f9fb212bd11e3a15da095f",
     "sisf/test/race.sh": "27812f5857676220ba28993dcf86e9bac2afc0407a3a7e9d3bb6a65b80b92d6c",
     "tools/verify-forge.sh": "558f8a6d0631df4ca7881ae10f907188c1daca1e2304dcf68fa8720fd36f754d"
+  },
+  "store_isolation": {
+    "state_per_database": true,
+    "project_identity_checked": true
   }
 }

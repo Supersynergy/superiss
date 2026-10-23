@@ -37,7 +37,7 @@ test("failed changes cannot be reported as a successful artifact", async () => {
   const s = _test.openState(cfg);
   s.run("INSERT INTO worktrees(task,path,branch,actor,epoch,base,status) VALUES(?,?,?,?,?,?,?)", ["t", dir, "main", "a", 1, "main", "active"]);
   const calls: string[] = [];
-  const sis: any = { call: async (cmd: string) => {
+  const sis: any = { project: "fixture", call: async (cmd: string) => {
     calls.push(cmd);
     if (cmd === "show") return { ok: true, data: { issue: { id: "t", status: "in_progress", claim_actor: "a", lease_epoch: 1, lease_until: Date.now()/1000 + 60 } } };
     return { ok: cmd !== "changes", error: { code: "changes_failed" } };

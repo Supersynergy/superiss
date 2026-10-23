@@ -38,7 +38,7 @@ function loadCfg(): Cfg {
     sock: arg("sock", process.env.SIS_SOCK) || file.sock || "/tmp/sis-" + createHash("sha256").update(db).digest("hex").slice(0, 20) + ".sock",
     host: "127.0.0.1",
     port: arg("port", process.env.SISF_PORT) || String(file.port ?? 8766),
-    state: join(dirname(db), "sisf.state.db"),
+    state: join(dirname(db), basename(db) + ".sisf.state.db"),
     repos: { default: { path: repoRoot, base: file.base || "main", ...(file.mirror ? { mirror: file.mirror } : {}) }, ...file.repos },
     gitea: file.gitea ?? (process.env.SISF_GITEA_URL ? { url: process.env.SISF_GITEA_URL, token: process.env.SISF_GITEA_TOKEN } : null),
     lanes: file.lanes ?? {},
@@ -153,14 +153,21 @@ function openState(cfg: Cfg): Database {
 const kv = (s: Database, k: string, d = "0") => s.query<{ v: string }, [string]>("SELECT v FROM kv WHERE k=?").get(k)?.v ?? d;
 const kvPut = (s: Database, k: string, v: string) =>
   s.run("INSERT INTO kv(k,v) VALUES(?,?) ON CONFLICT(k) DO UPDATE SET v=excluded.v", [k, v]);
+function bindProject(s: Database, project?: string) {
+  if (!project) throw new Error("sis project identity required");
+  const previous = kv(s, "sis_project", "");
+  if (previous && previous !== project) throw new Error("adapter state belongs to a different sis project");
+  if (!previous) kvPut(s, "sis_project", project);
+}
 
 function git(repo: string, ...a: string[]): string | null {
   const r = spawnSync("git", ["-C", repo, ...a], { encoding: "utf8", timeout: 30000, stdio: ["ignore", "pipe", "pipe"] });
   return r.status === 0 ? r.stdout.trim() : null;
 }
 function taskFrom(r: any) { return r?.ok ? r.data?.issue ?? r.data?.task ?? r.data : null; }
-async function activeClaim(sis: Sis, task: string, actor?: string, epoch?: number) {
+async function activeClaim(sis: Sis, task: string, actor?: string, epoch?: number, state?: Database) {
   const t = taskFrom(await sis.call("show", { id: task }));
+  if (state) bindProject(state, sis.project);
   if (!actor || !Number.isSafeInteger(epoch) || !t || t.status !== "in_progress" || t.claim_actor !== actor || t.lease_epoch !== epoch || !(t.lease_until > Date.now() / 1000))
     throw new Error("active claim ownership/lease epoch required");
   return t;
@@ -325,6 +332,7 @@ const RELEASE_OPS: Record<string, string> = { close: "closed", unclaim: "release
 async function reconcileEvent(cfg: Cfg, sis: Sis, s: Database, e: any) {
   if (!e.issue || (!CLAIM_OPS.has(e.op) && !RELEASE_OPS[e.op])) return;
   const shown = await sis.call("show", { id: e.issue });
+  bindProject(s, sis.project);
   if (!shown?.ok && shown?.error?.code !== "not_found") throw new Error("cannot reconcile lifecycle event: show failed");
   const t = taskFrom(shown);
   if (CLAIM_OPS.has(e.op)) {
@@ -362,7 +370,7 @@ async function watcher(cfg: Cfg, sis: Sis, s: Database) {
 async function commitAttest(cfg: Cfg, sis: Sis, s: Database, id: string, actor?: string, epoch?: number, base?: string) {
   const w = s.query<WorktreeRow, [string]>("SELECT * FROM worktrees WHERE task=?").get(id);
   if (!w) return { ok: false, error: { code: "no_worktree", msg: `no worktree for ${id}` } };
-  await activeClaim(sis, id, actor, epoch);
+  await activeClaim(sis, id, actor, epoch, s);
   ensureWorktree(cfg, s, id, actor, epoch);
   const mirror = basename(cfg.db).replace(/\.db$/, "") + ".issues.jsonl";
   const d = changesFromGit(w.path, base || w.base || "main", mirror);
@@ -391,7 +399,7 @@ async function createPR(cfg: Cfg, sis: Sis, s: Database, b: any) {
   const via = b.via || "gitea";
   if (!["gitea", "github", "mirror"].includes(via)) throw new Error("unknown connector");
   if (via === "gitea" && !cfg.gitea) return { ok: false, error: { code: "no_connector", msg: "gitea not configured" } };
-  await activeClaim(sis, b.id, b.actor, b.epoch);
+  await activeClaim(sis, b.id, b.actor, b.epoch, s);
   const wk = ensureWorktree(cfg, s, b.id, b.actor, b.epoch);
   const pr = via === "mirror" ? mirror(cfg, wk.path, wk.branch) : via === "github" ? github(wk.path, wk.branch, b.id, b.title || b.id) : await gitea(cfg, wk.path, wk.branch, b.id, b.title || b.id);
   const url = "data" in pr && pr.data && "pr_url" in pr.data ? safeURL(pr.data.pr_url) : "";
@@ -404,6 +412,7 @@ async function pruneWorktrees(cfg: Cfg, sis: Sis, s: Database) {
   for (const w of s.query<WorktreeRow, []>("SELECT * FROM worktrees WHERE status!='active'").all()) {
     try {
       const t = taskFrom(await sis.call("show", { id: w.task }));
+      bindProject(s, sis.project);
       if (!t || t.status === "in_progress") throw new Error("task cannot be confirmed inactive");
       const expected = join(realpathSync(cfg.repos.default.path), ".sisf", "wt", workspaceId(w.task));
       if (realpathSync(w.path) !== expected || git(w.path, "branch", "--show-current") !== w.branch) throw new Error("worktree identity changed");
@@ -444,6 +453,7 @@ async function serve(cfg: Cfg) {
   const sis = new Sis(cfg), s = openState(cfg);
   const id = await sis.call("context", {}).catch((e) => fail(`sis daemon not reachable at ${cfg.sock}: ${e.message}`));
   if (!id?.ok) fail(`sis context failed`);
+  bindProject(s, id.data.project_id);
   process.stderr.write(`[sisf] bound to ${cfg.db} (${id.data.project_id}), watch cursor seq=${kv(s, "last_seq")}\n`);
   let watchError: string | null = null;
   watcher(cfg, sis, s).catch((e) => { watchError = e.message; process.stderr.write(`[sisf] watcher stopped: ${e.message}\n`); });
@@ -485,7 +495,7 @@ async function serve(cfg: Cfg) {
         if (!body?.cmd) return Response.json({ ok: false, error: { code: "bad_args", msg: "{cmd,args} required" } }, { status: 400 });
         const { cmd, args = {} } = body;
         if (cmd === "changes" && args.id) {
-          await activeClaim(sis, args.id, args.actor, args.epoch);
+          await activeClaim(sis, args.id, args.actor, args.epoch, s);
           const wk = ensureWorktree(cfg, s, args.id, args.actor, args.epoch);
           if (args.repo && realpathSync(args.repo) !== realpathSync(wk.path)) throw new Error("changes repo differs from bound worktree");
           const row = s.query<{ base: string }, [string]>("SELECT base FROM worktrees WHERE task=?").get(args.id);
@@ -496,7 +506,7 @@ async function serve(cfg: Cfg) {
         // Claim and Git are separate durable operations; report binding failure explicitly.
         if (r?.ok && CLAIM_OPS.has(cmd) && r.data?.id) {
           try {
-            const t = await activeClaim(sis, r.data.id, args.actor, r.data.epoch);
+            const t = await activeClaim(sis, r.data.id, args.actor, r.data.epoch, s);
             const lane = t.lane;
             const wk = ensureWorktree(cfg, s, r.data.id, args.actor, r.data.epoch, lane ?? null);
             const lp = lanePolicy(cfg, lane);
@@ -517,7 +527,7 @@ async function serve(cfg: Cfg) {
   return srv;
 }
 
-export const _test = { safeId, workspaceId, parseRemote, Sis, openState, ensureWorktree, commitAttest, requestAllowed, safeURL, boardHTML, gitea, giteaCi, createPR, pruneWorktrees, lanePolicy };
+export const _test = { loadCfg, bindProject, safeId, workspaceId, parseRemote, Sis, openState, ensureWorktree, commitAttest, requestAllowed, safeURL, boardHTML, gitea, giteaCi, createPR, pruneWorktrees, lanePolicy };
 async function cli() {
 const cmd = process.argv[2];
 const cfg = loadCfg();
@@ -535,7 +545,7 @@ if (cmd === "serve") {
   const id = process.argv[3]; if (!id) fail("usage: sisf wt <task>");
   const s = openState(cfg);
   const sis = new Sis(cfg), actor = arg("actor"), epoch = Number(arg("epoch"));
-  const t = await activeClaim(sis, id, actor, epoch);
+  const t = await activeClaim(sis, id, actor, epoch, s);
   out({ ok: true, data: ensureWorktree(cfg, s, id, actor, epoch, t.lane) });
 } else if (cmd === "commit") {
   const id = process.argv[3]; if (!id) fail("usage: sisf commit <task> [--base X]");

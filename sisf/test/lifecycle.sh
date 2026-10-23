@@ -32,7 +32,7 @@ start_forge
 for i in $(seq 1 100); do [[ ! -f "$TMP/repo/.sisf/wt/direct/f" ]] || break; sleep .05; done
 [[ -f "$TMP/repo/.sisf/wt/direct/f" ]]
 # The cursor must be durable before a restart; no replay creates another tree.
-CURSOR="$(bun -e 'import {Database} from "bun:sqlite"; console.log(new Database(process.argv[1]).query("SELECT v FROM kv WHERE k=?").get("last_seq").v)' "$TMP/sisf.state.db")"
+CURSOR="$(bun -e 'import {Database} from "bun:sqlite"; console.log(new Database(process.argv[1]).query("SELECT v FROM kv WHERE k=?").get("last_seq").v)' "$TMP/sis.db.sisf.state.db")"
 [[ "$CURSOR" -gt 0 ]]
 kill "$SISF_PID"; wait "$SISF_PID" 2>/dev/null || true
 start_forge

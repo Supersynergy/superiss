@@ -29,7 +29,7 @@ A local passing gate does not prove production availability, a completed 24-hour
 
 ## Optional forge adapter 0.1.1
 
-The adapter was integrated with the public 0.9.1 core. Its separate gate, `bash tools/verify-forge.sh`, passes 13 Bun tests and four process oracles: race, board, lane-policy and lifecycle/restart. Regression tests first exposed unsettled socket calls, stale worktree ownership and false artifact success; the fixes passed those same cases. A further reconnect test caught a handshake rejection that did not settle its caller.
+The adapter was integrated with the public 0.9.1 core. Its separate gate, `bash tools/verify-forge.sh`, passes 14 Bun tests and four process oracles: race, board, lane-policy and lifecycle/restart. Regression tests first exposed unsettled socket calls, stale worktree ownership and false artifact success; the fixes passed those same cases. A further reconnect test caught a handshake rejection that did not settle its caller. A store-isolation regression also checks separate state files for databases sharing a directory and rejects a changed project identity.
 
 The browser check confirmed the task/worktree join after reload and rendered task HTML as text. Actual HTTP checks reject cross-origin requests, hostile Host headers, form posts, malformed JSON and oversized bodies. The Gitea connector is checked against a local HTTP fixture, including configured base, PR payload, commit status, errors and redirects. This does not establish production Gitea, GitHub PR or mirror deployment acceptance.
 
