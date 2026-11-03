@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+set -euo pipefail
+SELF="${BASH_SOURCE[0]}"
+while [ -L "$SELF" ]; do
+  LINK="$(readlink "$SELF")"
+  if [[ "$LINK" = /* ]]; then SELF="$LINK"; else SELF="$(dirname "$SELF")/$LINK"; fi
+done
+ROOT="$(cd "$(dirname "$SELF")/.." && pwd)"
+case "${1:-}" in
+  up|down|status) exec "${SIS_BUN:-bun}" "$ROOT/tools/v1-lifecycle.ts" "$ROOT/bin/sis-v1" "$@" ;;
+esac
+exec "${SIS_BUN:-bun}" "$ROOT/packages/superiss/cli.ts" "$@"

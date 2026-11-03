@@ -23,6 +23,23 @@ Superiss hält den Aufgabenstand samt Projektwissen in SQLite. Zum Abschluss fü
 
 **85 registrierte Operationen, Rust-Kern und Python-Referenz.** Der Tracker braucht keinen Modell-API-Key. Die Qualität des Prüfbefehls bestimmt, was ein grüner Beleg nachweist.
 
+## Release 1.0.0
+
+Die neue Bun-/TypeScript-7.1-Laufzeit liegt unter [packages/superiss](packages/superiss/README.md): **87 Operationen**, SQLite als verbindliche Steuerung und DuckDB 2.0 für getrennte Snapshot-Analysen.
+
+```sh
+bin/sis-v1 capabilities --db /absoluter/pfad/test-project.db
+bun packages/superiss/check.ts
+bun tools/check-v1-publication.ts
+bun tools/package-v1.ts /absoluter/pfad/neues-release-verzeichnis
+```
+
+Das gebaute Release enthält `bin/sis` für **1.0.0** und ein SHA-256-Dateimanifest. Analysen benötigen vorhandenes `run-guard` und DuckDB 2.0; nichts wird automatisch installiert. Der Quellcheck verlangt zusätzlich einen installierten TypeScript-7.1-Compiler und Node-Typen. [Änderungen und geprüfte Grenzen](CHANGELOG.md).
+
+Ein Zeigerwechsel ersetzt keinen laufenden Daemon und migriert keine Projekt-DB. Ein 1.0-Client weist ältere Daemons vor Schreibbefehlen ab. Zuerst eine ausdrückliche `migrate_copy` prüfen; den Produktivwechsel übernimmt der Daemon-Besitzer. Die bisherige Installation bleibt für den Rückbau erhalten.
+
+Das bisherige Root-`bin/sis`, Rust/Python, Dienst und Forge-Adapter bleiben die **0.9-Referenz** mit unveränderten Prüfbelegen. Für 1.0 ausdrücklich `bin/sis-v1` oder das Releasepaket verwenden.
+
 ## Git und Forges verbinden
 
 Der optionale Bun-Adapter **sisf** verbindet Claims mit gesperrten Git-Worktrees. Er berechnet Diffs, speichert Artefaktreferenzen, zeigt Aufgaben neben Worktrees und verbindet Gitea- oder GitHub-PRs. Der native Prüfbefehl bleibt für den Abschluss erforderlich.

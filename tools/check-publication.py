@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 import re
 import subprocess
+import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -38,7 +39,7 @@ def main():
     assert social.startswith(b"\xff\xd8") and 10000 < len(social) < 1000000
     for name in ("docs/SISF.md", "docs/FORGE-COMPARISON.md", "bin/sisf"):
         assert (ROOT / name).is_file(), name
-    paths = output("git", "ls-files").splitlines()
+    paths = output("git", "ls-files", "--cached", "--others", "--exclude-standard").splitlines()
     for name in paths:
         assert not name.endswith((".db", ".db-wal", ".db-shm", ".issues.jsonl")), name
         assert not name.startswith((".venv/", ".cache/", ".sis/")), name
@@ -50,13 +51,23 @@ def main():
                 for target in re.findall(r'\]\(([^)]+)\)', text):
                     if not target.startswith(("http:", "https:", "#", "mailto:")):
                         assert (path.parent / target.split("#")[0]).exists(), (name, target)
+    runtime = json.loads((ROOT / "packages/superiss/ops.json").read_text())
+    assert len(runtime["ops"]) == 87
+    assert "export const VERSION = '1.0.0'" in (ROOT / "packages/superiss/runtime.ts").read_text()
+    assert (ROOT / "bin/sis-v1").is_file()
+    # Preparation only: keep the original clean-tree and remote identity gate below
+    # for the final published check. This mode never claims remote publication.
+    if "--local" in sys.argv:
+        print(json.dumps({"passed": True, "stage": "local-content-only", "operations": 87,
+                          "reference_operations": 85, "files": len(paths)}))
+        return
     assert not output("git", "status", "--porcelain"), "publication worktree is dirty"
     repo = json.loads(output("gh", "api", "repos/Supersynergy/superiss"))
     assert repo["private"] is False and repo["default_branch"] == "main"
     remote = output("gh", "api", "repos/Supersynergy/superiss/commits/main", "--jq", ".sha")
     assert remote == output("git", "rev-parse", "HEAD"), "GitHub main differs"
     print(json.dumps({"passed": True, "public": repo["html_url"], "commit": remote,
-                      "operations": 85, "files": len(paths)}))
+                      "operations": 87, "reference_operations": 85, "files": len(paths)}))
 
 
 if __name__ == "__main__":

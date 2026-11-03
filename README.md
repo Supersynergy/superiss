@@ -17,6 +17,32 @@
 
 ---
 
+## 1.0.0: TypeScript runtime
+
+[Release notes](CHANGELOG.md) · [Runtime, safety and verification](packages/superiss/README.md)
+
+The 1.0 runtime uses Bun, TypeScript 7.1, authoritative SQLite and separate DuckDB 2.0 snapshot analytics (**87 operations**). Start from a new, explicit database:
+
+```sh
+bin/sis-v1 capabilities --db /absolute/test-project.db
+bin/sis-v1 serve --db /absolute/test-project.db --sock /tmp/superiss-v1.sock
+# Another terminal:
+bin/sis-v1 ready --db /absolute/test-project.db --sock /tmp/superiss-v1.sock
+```
+
+Bun is required. Analytics additionally needs installed `run-guard` and DuckDB 2.0; native library overrides and version requirements are documented in the runtime guide. Nothing is installed automatically. The complete source gate also needs an installed TypeScript 7.1 compiler and Node type declarations.
+
+```sh
+bun packages/superiss/check.ts
+bun tools/check-v1-publication.ts
+# Build a new relocatable directory; refuses an existing destination:
+bun tools/package-v1.ts /absolute/new-superiss-1.0.0
+```
+
+The release bundle's `bin/sis` runs **1.0.0** and its `manifest.json` hashes every runtime file. Check the downloaded archive against the release's `SHA256SUMS`. Keep the previous installation and switch only a launcher/symlink for rollback. Installation does not migrate project databases or replace running daemons; a 1.0 client rejects an older daemon before mutation. Test a `migrate_copy` first, then let the daemon owner arrange any cutover.
+
+The existing root `bin/sis`, Rust/Python code, service, forge adapter and validation receipts below remain the **0.9 reference**. They are not silently switched to another backend. Use `bin/sis-v1` or the bundle for 1.0.
+
 ## The missing step between work and done
 
 An agent can finish a conversation while leaving a broken feature behind. Superiss gives each task an executable acceptance contract and stores the result against the declared sources. Closing requires a matching proof, a live ownership lease and the current contract revision.
@@ -48,7 +74,7 @@ Changed files? The old proof expires. Stale worker? Its epoch is rejected. Missi
 
 **85 registered operations. Rust core. Python reference. No model API key required for the tracker.**
 
-## Try the proof loop
+## Try the 0.9 reference proof loop
 
 You need Rust/Cargo, system SQLite development libraries and Python 3. Full sandbox/service features require macOS; Bun and Node.js support the service and MCP adapter. [Installation and platform boundaries →](docs/GETTING-STARTED.md)
 

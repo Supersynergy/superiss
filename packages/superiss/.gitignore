@@ -1,0 +1,10 @@
+dist/
+*.db
+*.db-wal
+*.db-shm
+*.duckdb
+*.duckdb.wal
+*.prototype.lock
+*.sock
+*.sock.lock
+__pycache__/

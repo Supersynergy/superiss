@@ -1,0 +1,14 @@
+{
+  "name": "@superiss/v1",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "TypeScript 7.1 Superiss: SQLite authority and isolated DuckDB 2 analytics",
+  "engines": { "bun": ">=1.4.4" },
+  "scripts": {
+    "check": "bun check.ts",
+    "types": "bun check.ts --types",
+    "start": "bun cli.ts",
+    "build": "bun build cli.ts analytics-worker.ts --target=bun --outdir=dist"
+  }
+}

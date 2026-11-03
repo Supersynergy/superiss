@@ -1,0 +1,71 @@
+{
+  "source_commit": "fa3aeec",
+  "typescript_contract": "sis-typescript71-20261029",
+  "scope": "Read-only snapshot of the existing completed TypeScript port plus DuckDB FFI; originals remain untouched",
+  "files": [
+    {
+      "source": "ts/cli.ts",
+      "sha256": "6b04624a5ad6b29a46e0f75ff95551193d27509b27e9aa69de660e4e32e75bc2"
+    },
+    {
+      "source": "ts/engine.ts",
+      "sha256": "aa5ae40b7c617cca8e73cc4d69db3a40b108ff4e30cf90be5277d18436e2d8eb"
+    },
+    {
+      "source": "ts/extension.ts",
+      "sha256": "5e672caaa65710221ef518768a51f7c3f51999236ede82a1f07b8eb6a574effa"
+    },
+    {
+      "source": "ts/git.ts",
+      "sha256": "cf658c8f7911ad1bc6f29380885ff1ea3e894667b3f906ff0ed8bef142975700"
+    },
+    {
+      "source": "ts/http.ts",
+      "sha256": "882725f21d81b848d8b4e6a07430af2144a879b3fe61909db281989198764e90"
+    },
+    {
+      "source": "ts/store.ts",
+      "sha256": "b96b192ec0d1c60fe15877d109419f984864d607cb768e02628aa62bbebb1938"
+    },
+    {
+      "source": "ts/store.test.ts",
+      "sha256": "7b1975f4675385c7b16e96a765e113e8c0307b969f347bf54e4e79f955074e10"
+    },
+    {
+      "source": "ts/util.ts",
+      "sha256": "f0e0426a83d7a8064ea4404b74e31e44649073eb3f4bf05e711293ffbba1a20b"
+    },
+    {
+      "source": "ts/xml.ts",
+      "sha256": "f8c24a13856b8f379e3d3c79eb45a33be49e3e9a72e0d9fe5d681b7f9de1f914"
+    },
+    {
+      "source": "ts/package.json",
+      "sha256": "ad91c9ac9136396f5249a45e093bab863e9a23646620d911af827986f6180283"
+    },
+    {
+      "source": "ts/data/cl100k_base.tiktoken",
+      "sha256": "223921b76ee99bde995b7ff738513eef100fb51d18c93597a113bcffe865b2a7"
+    },
+    {
+      "source": "ts/data/o200k_base.tiktoken",
+      "sha256": "446a9538cb6c348e3516120d7c08b09f57c36495e2acfffe59a5bf8b0cfb1a2d"
+    },
+    {
+      "source": "ops.json",
+      "sha256": "77c840e545dc73fe3021855fd5a32e344d130ded277f0767401d683e68c17c71"
+    },
+    {
+      "source": "tools/verify-typescript.sh",
+      "sha256": "41c4aaba8b25bfa88881e06876a28bd68df318b3b9d7673e875e6831f6d2d840"
+    },
+    {
+      "source": "experiments/duckdb-ts/native.ts",
+      "sha256": "1f04f9cdbc00aa8d60844724d5307569fb2d212fa4717edc1281cfc08758f5f3"
+    },
+    {
+      "source": "tests/contract_suite.py",
+      "sha256": "bc666a0737d380578238bb30d77204cc9771a61ad98a6b35c5771a5f6d246c6a"
+    }
+  ]
+}
