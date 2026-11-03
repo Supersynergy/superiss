@@ -32,7 +32,9 @@ try {
   assert.deepEqual(JSON.parse(readFileSync(join(bundle, 'manifest.json'), 'utf8')) as ReleaseManifest, manifest);
   for (const [path, hash] of Object.entries(manifest.files)) assert.equal(sha(join(bundle, path)), hash, path);
   assert.ok(Object.keys(manifest.files).some(path => path.endsWith('web/board.html')));
-  checks.push('exact-file-manifest-sha256');
+  assert.ok(Object.hasOwn(manifest.files, 'LICENSE'));
+  assert.equal(readFileSync(join(bundle, 'LICENSE'), 'utf8'), readFileSync(join(repository, 'LICENSE'), 'utf8'));
+  checks.push('exact-file-manifest-sha256-and-mit-license');
   const cli = join(bundle, 'bin', 'sis'), db = join(scratch, 'source.db');
   function run(command: string, args: object = {}, database = db, overrides: NodeJS.ProcessEnv = {}) {
     const parameters = ['up', 'down', 'status'].includes(command) ? [] : [JSON.stringify(args)];

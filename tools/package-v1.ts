@@ -49,6 +49,7 @@ export function packageRelease(destination: string): ReleaseManifest {
   function inputs(): string {
     inputHashes = {}; sources(source);
     for (const name of ['package-v1.ts', 'v1-lifecycle.ts']) inputHashes['../../tools/' + name] = sha(readFileSync(join(repository, 'tools', name)));
+    inputHashes['../../LICENSE'] = sha(readFileSync(join(repository, 'LICENSE')));
     return JSON.stringify(inputHashes);
   }
   const frozenInputs = inputs();
@@ -63,6 +64,7 @@ export function packageRelease(destination: string): ReleaseManifest {
     mkdirSync(dirname(join(runtime, file)), { recursive: true });
     copyFileSync(join(source, file), join(runtime, file));
   }
+  copyFileSync(join(repository, 'LICENSE'), join(out, 'LICENSE'));
   assert.equal(inputs(), frozenInputs, 'Source changed during build/copy; release refused');
   mkdirSync(join(out, 'bin'));
   writeFileSync(join(out, 'bin', 'sis'), launcher, { mode: 0o755 });
