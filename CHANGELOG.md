@@ -11,6 +11,8 @@
 
 ## Unreleased
 
+- Preserve optional declared customer outcome in native contract revisions and mandatory compact briefs. Old tasks keep their existing revision input. Added budget/claim, acquire/resume and stale-proof regressions; no installed daemon cutover or customer-confirmation claim.
+
 - Added opt-in source-bound worker capsules with exact local token budgets, mandatory contract/fence retention and explicit drift invalidation. Added a reusable loopback HTTP client with bounded keepalive connections, correlation, deadlines/cancellation, queued-request shutdown and no automatic retries or redirects. Documented controller/worker/reviewer ownership and evidence-based sweetspot decisions; no paid routing, runtime cutover or 1.1 publication.
 
 - Added opt-in 1.1 tracker snapshots with consistent event cursors, bounded filters/paging and blocked/expired/failed-proof views. Compact source-bound loop receipts retain scope/oracle/fence/checkpoints and drift without auto-replaying commands; unknown timing/proof-currency values remain explicit. Restart/reconnect and input/security regressions are covered. This is not a published 1.1 release.

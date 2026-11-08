@@ -44,6 +44,11 @@ export class Engine {
     const deps = this.rows("SELECT d.depends_on,COALESCE(d.type,'blocks') type,b.status,g.state gate_state FROM deps d LEFT JOIN issues b ON b.id=d.depends_on LEFT JOIN gates g ON g.name=d.depends_on WHERE d.issue=? ORDER BY d.depends_on,d.type",id);
     const base: Obj = {id:row.id,title:row.title,desc:row.desc,acceptance:row.acceptance,oracle_cmd:row.oracle_cmd,allowed_paths:paths(row.allowed_paths),owner:row.owner,lane:row.lane,dependencies:deps.map(d => ({depends_on:d.depends_on,type:d.type}))};
     base.budget_eur=row.budget_eur ?? null;base.meta=Object.fromEntries(['local_zero','execution','budget_gate','review_required','attest_required'].map(key=>[key,object(row.meta)[key] ?? null]));
+    // Declared customer intent is contract data, not evidence of delivered value.
+    // Omit absent keys so legacy tasks keep their exact revision and proof binding.
+    if (Object.hasOwn(object(row.meta), 'customer_outcome')) {
+      object(base.meta).customer_outcome = object(row.meta).customer_outcome ?? null;
+    }
     const revision = digest(canonical(base));
     const dependencies = deps.map(d => { const kind = d.type, state = kind === 'gate' ? d.gate_state ?? 'closed' : d.status ?? 'missing'; return {depends_on:d.depends_on,type:kind,state:kind === 'gate' || kind === 'blocks' ? state : null,blocked:kind === 'blocks' && state !== 'closed' || kind === 'gate' && state !== 'open'}; });
     return {...base,status:row.status,type:row.type,dependencies,revision,blocked_by:dependencies.filter(d=>d.blocked).map(d=>d.depends_on ?? null)};
