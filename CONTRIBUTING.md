@@ -1,14 +1,17 @@
 # Contributing
 
-Open an issue describing the concrete failure or proposed behavior. Include reproducible input, expected output and observed output. For a behavior-changing bug, add a failing regression before the fix.
+Develop the current 1.1 runtime in `packages/superiss` and forge in `sisf`. Keep claims, source-bound proofs, bounded commands and explicit project selection intact. Add regression coverage for behavior changes, including failure/partial-success paths.
 
-Keep Rust and Python behavior compatible with `ops.json` and the protocol contract. Preserve lease fencing, source-bound receipts, explicit database selection and bounded retries. Run the relevant narrow check while editing, then the full gate for a release:
-
-```bash
-CARGO_TARGET_DIR=.cache/cargo cargo build --locked -j2
-bash tools/verify-all.sh
+```sh
+# Installed Bun >=1.4.4, TypeScript 7.1 and Node/Bun type declarations required.
+bun tools/check-v11.ts
+# Full hybrid analytics gate additionally requires DuckDB 2 and run-guard:
+bun packages/superiss/check.ts
+bun tools/check-v1-publication.ts
 ```
 
-The full gate requires macOS, Rust/Cargo, Python 3, Bun, Node.js and Python `tiktoken` with its local encoding cache. The optional search workload also needs `fd` and `ripgrep` (`brew install fd ripgrep`). Use Python 3.14 for the pinned tokenizer; its PyO3 dependency rejects Python 3.15. The local sandbox/service tests exercise macOS behavior. Test output must identify skips; a short soak fixture is not a 24-hour availability result.
+`SIS_TSC` pins the installed compiler; `SIS_TYPE_ROOTS` points to installed types. CI exercises current core and forge on Linux/macOS. Tests that cannot execute must be reported as blocked or skipped, never counted as passing. A short recovery test is not a production soak.
 
-Do not commit databases, task mirrors, credentials, caches, private receipts or machine-specific binaries. Include documentation when changing the public operation contract. Generated launch artwork lives in `assets/`; it depicts the workflow conceptually.
+The Rust/Python reference uses the root `ops.json` and explicit `SIS_IMPL=rs|py`; its macOS sandbox/service gate is `tools/verify-all.sh`. Keep historical reference evidence identifiable when changing shared entry points.
+
+Do not commit databases, credentials, task mirrors, caches or machine-specific binaries. Release packages use a new directory and exact file hashes. [Current feature boundaries](docs/FEATURES.md).

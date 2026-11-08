@@ -4,10 +4,11 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { StoreDatabase } from './store.ts';
 import { actor, admin, array, canonical, childWhere, decode, digest, encoding, execute, fail, fingerprint, integer, now, number, object, paths, redact, required, rootDirectory, SisError, text, tokenCount, ttl, uid, type Obj, type Value } from './util.ts';
 import { extension } from './extension.ts';
+import { VERSION } from '../runtime.ts';
 
 export interface Context { actor: string; explicit: boolean; idem: string | null; run_id: string | null; payload_hash: string }
 export const registry = array(object(JSON.parse(readFileSync(join(rootDirectory,'ops.json'),'utf8'))).ops).map(object);
-const mutations = new Set('create q update admin_update dep dep_remove claim claim_next acquire heartbeat unclaim reclaim close reopen delete defer undefer label rename note changes checkpoint handoff cancel cancel_ack remember import batch budget_claim outbox_done outbox_fail compact gate slot_acquire slot_release merge_slot goal sub plan attest cost_add outbox_export sync_import'.split(' '));
+export const mutations = new Set('create q update admin_update dep dep_remove claim claim_next acquire heartbeat unclaim reclaim close reopen delete defer undefer label rename note changes checkpoint handoff cancel cancel_ack remember import batch budget_claim outbox_done outbox_fail compact gate slot_acquire slot_release merge_slot goal sub plan attest cost_add outbox_export sync_import'.split(' '));
 const aliases: Record<string,string> = { q:'create', query:'list', next:'ready', goal_create:'goal', subgoal:'sub', tree:'goal_tree', merge_slot:'slot_acquire', tag:'label', comment:'note', find_duplicates:'dup_scan' };
 const issueFields = 'id title status priority type owner oracle_cmd allowed_paths lane budget_eur acceptance desc lease_until lease_epoch claim_actor created_at closed_at defer_until expires_at'.split(' ');
 const editable = new Set('title priority type owner oracle_cmd allowed_paths lane budget_eur acceptance desc meta_json defer_until expires_at'.split(' '));
@@ -221,7 +222,7 @@ export class Engine {
     const out = {attest_id:id,passed,kind,revision,source_hash:source.source_hash,summary}; this.emit('attest',a.id ?? null,c,out); return out;
   }
   projectRoot(): string { return basename(dirname(this.dbPath)) === '.sis' ? dirname(dirname(this.dbPath)) : dirname(this.dbPath); }
-  private close(a: Obj,c: Context): Value {
+  private checkClose(a: Obj,c: Context): {task: Obj; proof: Obj; who: string; epoch: number} {
     const task = this.issue(required(a,'id')), who = this.who(a,c), epoch = integer(a.epoch,'epoch');
     if (task.status !== 'closed') this.active(a,c);
     else if (task.lease_epoch !== epoch) fail('stale_fence','closed claim differs');
@@ -231,7 +232,7 @@ export class Engine {
     let source: ReturnType<typeof fingerprint>;
     try { source = fingerprint(task,text(proof.cwd),this.dbPath); } catch { return fail('stale_proof','proof source unavailable'); }
     if (proof.actor !== who || proof.epoch !== epoch || proof.revision !== this.revision(a.id) || (proof.source_hash !== source.source_hash && proof.source_hash !== source.legacy_source_hash) || proof.oracle !== task.oracle_cmd) fail('stale_proof','proof does not match current contract/source/claim');
-    if (task.status === 'closed') return {ok:true};
+    if (task.status === 'closed') return {task,proof,who,epoch};
     const meta = object(task.meta);
     if (meta.review_required === true) {
       const r = object(decode(proof.review_receipt));
@@ -250,6 +251,11 @@ export class Engine {
       if (budget > 0 && spent > budget) fail('budget_exceeded',`cost rollup ${spent}c exceeds budget ${budget}c`);
     }
     if ((task.type === 'goal' || task.type === 'epic') && object(this.operation('goal_done',{id:task.id},c)).done !== true) fail('children_open','container children still open');
+    return {task,proof,who,epoch};
+  }
+  private close(a: Obj,c: Context): Value {
+    const {task,proof,who,epoch} = this.checkClose(a,c);
+    if (task.status === 'closed') return {ok:true};
     this.run("UPDATE issues SET status='closed',closed_at=?,claim_actor=NULL,lease_until=NULL WHERE id=?",now(),a.id); this.run('DELETE FROM claims WHERE issue=?',a.id);
     this.emit('close',a.id ?? null,c,{proof_id:proof.proof_id,reason:a.reason ?? null,epoch});
     this.run("INSERT INTO outbox(kind,payload,run_id) VALUES('lesson',?,?)",canonical({issue:a.id,type:task.type,lesson:`closed ${a.id} (${task.type}): ${task.title}`,reason:a.reason ?? null,actor:who,proof_id:proof.proof_id}),c.run_id);
@@ -325,6 +331,10 @@ export class Engine {
       case 'heartbeat': { this.active(a,c,true); const until = now()+ttl(a); this.run('UPDATE issues SET lease_until=? WHERE id=?',until,a.id); this.run('UPDATE claims SET hb_at=? WHERE issue=? AND actor=?',now(),a.id,c.actor); this.emit(cmd,a.id ?? null,c,{epoch:a.epoch}); return {ok:true,lease_until:until,cancel_requested:this.cancelled(a.id)}; }
       case 'unclaim': { this.active(a,c,true); this.run("UPDATE issues SET status='open',claim_actor=NULL,lease_until=NULL,lease_epoch=lease_epoch+1 WHERE id=?",a.id); this.run('DELETE FROM claims WHERE issue=?',a.id); this.emit(cmd,a.id ?? null,c,{}); return {ok:true}; }
       case 'reclaim': { const rows = this.rows("UPDATE issues SET status='open',claim_actor=NULL,lease_until=NULL,lease_epoch=lease_epoch+1 WHERE status='in_progress' AND lease_until<? RETURNING id",now()); for (const row of rows) { this.run('DELETE FROM claims WHERE issue=?',row.id); this.emit(cmd,row.id ?? null,c,{}); } return {reclaimed:rows.map(r=>r.id ?? null)}; }
+      case 'close_check': {
+        const {proof,epoch} = this.checkClose(a,c);
+        return {valid:true,proof_id:proof.proof_id,revision:proof.revision,source_hash:proof.source_hash,cwd:proof.cwd,epoch};
+      }
       case 'close': return this.close(a,c);
       case 'reopen': {
         const task = this.issue(required(a,'id')), who = this.who(a,c); if (who !== task.owner && who !== object(task.meta).controller) admin(a);
@@ -361,7 +371,7 @@ export class Engine {
       case 'contract': { const task = this.contract(required(a,'id')); return {contract_text:JSON.stringify(JSON.parse(canonical(task)),null,2),revision:task.revision,task,structured:task,anchors:[],priors:null}; }
       case 'brief': return this.brief(a);
       case 'tokens': { const input = typeof a.text === 'string' ? a.text : fail('bad_args','text required'), enc = encoding(a); return {tokens:tokenCount(input,enc),encoding:enc,exact:true,algorithm:'tiktoken',billing:false}; }
-      case 'capabilities': return {version:'0.8.0',implementation:'typescript',typescript:'7.1',protocol:2,schema:7,schema_version:Number(this.row('PRAGMA user_version')?.user_version),project_id:this.row("SELECT v FROM kv WHERE k='project_id'")?.v,operations:registry.map(op=>op.name ?? null),encodings:['o200k_base','cl100k_base'],proof_receipts:true,billing:false,token_billing:false,durability:this.row('PRAGMA synchronous')?.synchronous,...(a.schemas === true ? {ops:registry} : {})};
+      case 'capabilities': return {version:VERSION,implementation:'typescript',typescript:'7.1',protocol:2,schema:7,schema_version:Number(this.row('PRAGMA user_version')?.user_version),project_id:this.row("SELECT v FROM kv WHERE k='project_id'")?.v,operations:registry.map(op=>op.name ?? null),encodings:['o200k_base','cl100k_base'],proof_receipts:true,billing:false,token_billing:false,durability:this.row('PRAGMA synchronous')?.synchronous,...(a.schemas === true ? {ops:registry} : {})};
       case 'context': { const caps = object(this.operation('capabilities',a,c)); return {project_id:caps.project_id,pid:process.pid,instance_id:instanceId,db_path:resolve(this.dbPath),capabilities:caps,stats:this.operation('stats',a,c)}; }
       case 'watch': return {events:this.events(undefined,integer(a.after,'after',0),integer(a.limit,'limit',1000,1,1000))};
       case 'lint': return {needs_oracle:this.rows("SELECT id,title FROM issues WHERE status!='closed' AND (oracle_cmd IS NULL OR oracle_cmd='') AND (acceptance IS NULL OR acceptance='') ORDER BY priority").map(r=>({...r,missing:['oracle_cmd','acceptance']}))};

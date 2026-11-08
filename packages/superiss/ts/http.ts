@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import type { Engine } from './engine.ts';
+import { mutations } from './engine.ts';
 import { array, canonical, integer, now, object, rootDirectory, SisError, type Obj } from './util.ts';
 
 export async function startHttp(engine: Engine,port: number,dispatch: (request: Obj)=>Promise<Obj>): Promise<Server> {
@@ -27,10 +28,13 @@ export async function startHttp(engine: Engine,port: number,dispatch: (request: 
       let input: Obj;
       if (req.method==='GET' && url.pathname==='/op') input=object(JSON.parse(url.searchParams.get('q') ?? '{}'));
       else if (req.method==='POST') {
+        if (!/^application\/json(?:;|$)/iu.test(req.headers['content-type'] ?? '')) { send({ok:false,error:{code:'unsupported_media_type',msg:'application/json required'}},415); return; }
         const chunks: Buffer[]=[]; let size=0;
         for await (const chunk of req) { const data=Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk); size+=data.length; if (size>1024*1024) { send({ok:false,error:{code:'frame_too_large',msg:'request exceeds 1 MiB'}},413); req.destroy(); return; } chunks.push(data); }
         input=object(JSON.parse(Buffer.concat(chunks).toString('utf8')));
       } else { send({ok:false,error:{code:'not_found',msg:'unknown HTTP route'}},404); return; }
+      const normalized = typeof input.cmd === 'string' ? input.cmd.replaceAll('-','_') : '';
+      if (req.method==='GET' && (typeof input.cmd !== 'string' || mutations.has(normalized) || ['verify','attest','analytics','migrate_copy','q','goal_create','subgoal','tag','comment','merge_slot'].includes(normalized))) { send({ok:false,error:{code:'read_only_get',msg:'Mutating or executing operations require JSON POST'}},405); return; }
       const result=await dispatch(input); send(result,result.ok ? 200 : 400);
     } catch (error) { send({ok:false,error:{code:error instanceof SisError ? error.code : error instanceof SyntaxError ? 'bad_json' : 'internal',msg:error instanceof Error ? error.message.slice(0,2000) : String(error)}},400); }
   });

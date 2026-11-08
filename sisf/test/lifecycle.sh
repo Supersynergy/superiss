@@ -57,5 +57,5 @@ curl -sf "http://127.0.0.1:$PORT/sisf/worktrees" | python3 -c 'import json,sys;a
 # Unknown actor cannot write artifact evidence.
 curl -s -H 'content-type: application/json' -X POST "http://127.0.0.1:$PORT/sisf/commit" -d '{"id":"direct","actor":"other","epoch":1}' | python3 -c 'import json,sys;assert json.load(sys.stdin)["ok"] is False'
 # Missing connector must not push anything. No origin exists in this fixture.
-curl -sf -H 'content-type: application/json' -X POST "http://127.0.0.1:$PORT/sisf/pr" -d '{"id":"direct"}' | python3 -c 'import json,sys;assert json.load(sys.stdin)["error"]["code"]=="no_connector"'
+curl -sf -H 'content-type: application/json' -X POST "http://127.0.0.1:$PORT/sisf/pr" -d '{"id":"direct","via":"gitea"}' | python3 -c 'import json,sys;assert json.load(sys.stdin)["error"]["code"]=="no_connector"'
 echo "LIFECYCLE ORACLE PASS"

@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Compatibility alias for the current 1.x runtime.
 set -euo pipefail
 SELF="${BASH_SOURCE[0]}"
 while [ -L "$SELF" ]; do
@@ -6,7 +7,4 @@ while [ -L "$SELF" ]; do
   if [[ "$LINK" = /* ]]; then SELF="$LINK"; else SELF="$(dirname "$SELF")/$LINK"; fi
 done
 ROOT="$(cd "$(dirname "$SELF")/.." && pwd)"
-case "${1:-}" in
-  up|down|status) exec "${SIS_BUN:-bun}" "$ROOT/tools/v1-lifecycle.ts" "$ROOT/bin/sis-v1" "$@" ;;
-esac
-exec "${SIS_BUN:-bun}" "$ROOT/packages/superiss/cli.ts" "$@"
+SIS_IMPL=ts exec "$ROOT/bin/sis" "$@"

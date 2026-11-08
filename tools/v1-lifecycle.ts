@@ -4,9 +4,11 @@ import { createHash } from 'node:crypto';
 import { createConnection } from 'node:net';
 import { spawn } from 'node:child_process';
 
+import { VERSION } from '../packages/superiss/runtime.ts';
+
 interface Identity { pid: number; project_id: string; instance_id: string }
 const [launcher, command, ...args] = process.argv.slice(2);
-const expectedVersion = '1.0.0';
+const expectedVersion = VERSION;
 function fail(message: string): never { throw Error(message); }
 function record(value: unknown): Record<string, unknown> { return value !== null && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {}; }
 function code(error: unknown): unknown { return record(error).code; }

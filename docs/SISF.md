@@ -1,102 +1,86 @@
-# sisf — connect accepted work to Git
+# Integrated forge workflow — Superiss 1.1
 
-`sisf` is an optional Bun/TypeScript adapter for Superiss 0.9.1. It links a claimed task to a Git worktree, records its changes and artifact reference, and shows tasks beside worktrees, commits and pull requests. The tracker core still has 85 operations; the adapter does not change its protocol or database schema.
+Forge ships with the current runtime and release bundle. Use `sis forge …` or `sisf …`. It connects active task claims to locked Git worktrees, records evidence, creates real Git commits, pushes explicit branches, finds/creates PRs, reads exact-HEAD CI and performs proof-gated local fast-forward merges.
 
-## What ships
+## Configuration
 
-| Capability | Behavior |
-| --- | --- |
-| 🔗 Claim → worktree | Successful proxied claims return `data.sisf.bound`, `worktree` and `branch`. Claims made through the native socket are reconciled by the event watcher. |
-| 🔒 Ownership checks | Bindings require the current actor, epoch and live lease. A different epoch cannot silently inherit an existing worktree. |
-| 🌿 Git isolation | Each task gets a locked worktree and branch under `.sisf/wt/` and `sis/`. The creation base is stored as a commit SHA. Altered/truncated task identifiers receive a hash suffix. |
-| 🧾 Change records | `changes` through the proxy computes the bound worktree's diff. `commit` requires both the native change record and artifact operation to succeed. |
-| 🖥️ Board | `/forge` joins task state with stored worktree, head and PR references. The board refreshes every five seconds; it is an operational view, not a review UI. |
-| 🔌 Connectors | Gitea PR creation and combined commit status, GitHub PR creation through `gh`, and push to an explicitly configured Git mirror. |
-| 🛤️ Lanes | Configured lane paths are recorded as advisory policy on the binding. The task's native acceptance scope remains authoritative. |
-| ♻️ Restart | SQLite WAL with `synchronous=FULL` stores bindings and the handled event cursor. Failed events are retried; six consecutive failures stop the watcher and make health report an error. |
-| 🧹 Cleanup | `prune` lists inactive bindings. `prune --yes` removes only clean, inactive, correctly located worktrees with a matching sisf lock. Branches remain as recovery references. |
-
-Runtime requirements: Bun, Git and a running project-bound Superiss daemon. GitHub PR creation also needs an authenticated `gh`. There are no third-party runtime packages; `bun:sqlite` provides the local state database.
-
-## Start
-
-From the cloned repository, after building the core:
-
-```bash
-export SIS_DB="$PWD/.sis/project.db"
-mkdir -p .sis
-bin/sis serve --db "$SIS_DB"
-# Keep that terminal running. In another terminal with the same SIS_DB:
-bin/sisf serve --db "$SIS_DB" --repo "$PWD" --port 8766
-# Open http://127.0.0.1:8766/forge
-```
-
-The repository must have a commit and the configured base branch, `main` by default. Include `/.sisf/` in that repository's `.gitignore`. For a shared store, `--actors worker-a,worker-b` (or `SISF_ACTORS`, or a config `actors` array) limits automatic worktree creation to those claim actors. Proxied claims from other actors are rejected before calling sis. An explicit empty list disables all bindings; omitting the setting preserves the project-wide default. This selects adapter work, not native authorization or a filesystem sandbox.
-
-Each store has a separate adapter process and port. Its state is stored beside the task database as `<database-name>.sisf.state.db` and bound to the native project identity. An older unscoped `sisf.state.db` is preserved and is not imported automatically. The current command path uses the `default` repository; a `repos` map is configuration groundwork, not a tested multi-repository dispatcher.
-
-Create a task with an executable oracle and relative source scope, then claim through the proxy:
-
-```bash
-bin/sis create --db "$SIS_DB" id=example title="Implement example" \
-  oracle_cmd="test -f src/example.ts" 'allowed_paths=["src"]'
-curl -sS http://127.0.0.1:8766/ \
-  -H 'content-type: application/json' \
-  -d '{"cmd":"acquire","args":{"id":"example","actor":"worker-a","ttl":600}}'
-```
-
-Create `src` and the required source files inside the returned worktree before recording an artifact or running acceptance. Keep the claim alive with native heartbeats. Use the returned epoch, rather than assuming it is always 1:
-
-```bash
-bin/sisf commit example --db "$SIS_DB" --actor worker-a --epoch 1
-bin/sis verify example --db "$SIS_DB" actor=worker-a epoch=1 \
-  cwd=/absolute/path/to/returned/worktree timeout_secs=120
-# Only after passed:true, close using the returned proof_id.
-```
-
-`commit` records an artifact assertion. It does not execute the oracle, create a Git commit, authenticate a reviewer or authorize task closure. Native `verify` and `close` still enforce the task contract.
-
-## Forge configuration
-
-Place `sisf.config.json` beside the task database. Keep credentials out of Git; use environment variables where possible.
+Place `sisf.config.json` beside the explicit task database. Keep tokens in environment variables, outside Git.
 
 ```json
 {
-  "repo": "/absolute/path/to/repository",
+  "repo": "/absolute/project",
   "base": "main",
-  "port": 8766,
-  "lanes": { "implementation": { "paths": ["src", "tests"] } }
+  "backend": "git",
+  "connector": "github",
+  "actors": ["worker-a", "worker-b"],
+  "repos": {
+    "website": {"path": "/absolute/website", "base": "main"}
+  }
 }
 ```
 
-For Gitea, set `SISF_GITEA_URL` and, when required, `SISF_GITEA_TOKEN` before starting the adapter or CLI. If a `gitea` object exists in the config file, it takes precedence over these variables. Repository owner/name come from `origin`; HTTP, SSH URL forms with ports, and SCP-style remotes are recognized.
+`repo` defines the default repository. `meta.repo_key: "website"` routes a task to that configured repository. Relative configured paths resolve beside the configuration file. `--repo-key` selects the default for tasks without metadata. Actor scope omission allows all project actors; an explicit empty list disables automatic bindings. Lane paths remain advisory; the core acceptance contract is authoritative.
 
-```bash
-# First commit and explicitly push the task branch to the intended forge.
-git -C /absolute/path/to/worktree push -u origin sis/example
-bin/sisf pr example --db "$SIS_DB" --actor worker-a --epoch 1 --via gitea
-bin/sisf ci example --db "$SIS_DB"
-# GitHub: the same PR command with --via github.
+Set `backend: "worktrunk"` or `--backend worktrunk` for an installed Worktrunk exposing `switch --path --format json` and `merge --no-commit --no-rebase --no-remove`. `SISF_WT` selects an explicit executable. Calls use an exact path/base, disable hooks and do not rewrite verified commits. A backend change never silently adopts an existing binding. Superiss owns the binding/lock; do not independently remove its worktrees.
+
+For Gitea/Forgejo, set `connector` accordingly and configure `SISF_GITEA_URL` / `SISF_GITEA_TOKEN` or a `gitea` object with `url` and optional `token`. `SISF_GH` can select the GitHub CLI executable. GitHub uses its normal authenticated `gh` setup. Redirects are rejected for REST calls.
+
+## Commands
+
+All task commands require `--db PATH --actor NAME --epoch N`, or `SIS_DB` for the database. Use the actual claim epoch returned by the core.
+
+| Command | Effect |
+| --- | --- |
+| `serve --repo PATH --port 8766` | Native event watcher, local board and JSON proxy |
+| `status` | Current runtime/project and stored bindings |
+| `bind TASK` | Create/reuse an ownership-checked, locked worktree |
+| `changes TASK` | Compute diff from the immutable creation-base SHA |
+| `record TASK` | Store changes and source-bound artifact evidence; no Git commit |
+| `git-commit TASK --message TEXT` | Commit explicitly staged files, then record evidence |
+| `git-commit TASK --message TEXT --all` | Explicitly stage all changes inside that worktree before committing |
+| `push TASK` | Push that branch to origin, without force or an implicit base push |
+| `verify TASK [--timeout-secs N]` | Execute the task oracle in its bound worktree |
+| `pr TASK [--via github\|gitea\|forgejo]` | Reuse a matching open branch/base PR, or create one; no implicit push |
+| `ci TASK [--via …]` | Query statuses/check runs for the exact current commit |
+| `rebase TASK` | Rebase onto the configured local base; verify again afterwards |
+| `merge TASK --proof-id ID` | Check proof and CI, fast-forward local base, close; retain worktree/branch |
+| `merge TASK --proof-id ID --skip-ci` | Explicit local workflow without CI; proof is still mandatory |
+| `prune` / `prune --yes` | Preview/apply clean inactive owned-worktree removal; retain branches |
+| `mcp` | Expose ten forge tools over stdio MCP |
+
+`wt` aliases `bind`. The old `commit` command and `/sisf/commit` endpoint remain deprecated **record-only** aliases. Use `git-commit` to create a Git commit.
+
+## PR workflow versus local merge
+
+A PR workflow is: work → commit → record/verify → explicit push → PR → CI/review → merge on the forge. Required checks, reviews and protected branches belong to that forge. Task closure still uses the core proof contract. No remote PR merge is performed by `sis forge merge`.
+
+The local workflow requires a clean source and configured repository, with the configured base checked out. It preflights the exact `close` contract, requires successful exact-HEAD CI by default, acquires a repository/base merge slot, rechecks source/claim/proof, fast-forwards without rewriting the source, then closes the task. Missing/pending CI is never success. The introduced diff must fit the task's source scope, and the live lease must have at least 35 seconds remaining. If the base advanced incompatibly, rebase and verify again. No auto-fetch, force-push, source deletion or base push occurs.
+
+Git and task closure are separate writes. If Git succeeded but close failed, the result includes `merged:true, closed:false`; inspect the current task and HEAD and reconcile instead of repeating writes blindly. PR lookup avoids normal duplicate creation, but a timeout after a remote write or concurrent remote creators still requires reconciliation.
+
+## HTTP and MCP
+
+The loopback board is `/forge`; `/forge/board` joins task state and up to 200 bindings. `POST /forge/op` accepts `{"op":"verify","args":{"id":"task","actor":"worker","epoch":1}}`. The equivalent `/sisf/<operation>` paths share the dispatcher. The core proxy remains `POST /` with `cmd` and `args`.
+
+Core and forge can be registered as two MCP servers:
+
+```json
+{
+  "mcpServers": {
+    "superiss": {"command":"/absolute/superiss/bin/sis","args":["mcp","--db","/absolute/project/.sis/project.db"]},
+    "superiss-forge": {"command":"/absolute/superiss/bin/sis","args":["forge","mcp","--db","/absolute/project/.sis/project.db","--repo","/absolute/project"]}
+  }
+}
 ```
 
-PR creation does not implicitly push to `origin`. `--via mirror` is an explicit push operation and requires a configured `mirror` on the default repository. API requests time out after ten seconds and reject redirects. Git operations have thirty-second bounds; `gh pr create` has a sixty-second bound. Failed CLI operations exit nonzero.
+Ten `sis_forge_*` tools use the same workflow and checks. The core worker profile exposes 13 tools. Neither interface grants a paid model provider or authenticates actor names.
 
-## Operational boundaries
+## Recovery and trust boundary
 
-A native claim and a Git worktree creation are separate durable operations. They are not one cross-store transaction. If Git creation fails, the native claim is preserved and the response reports `data.sisf.bound:false` with `claim_preserved:true`. Inspect the failure and reconcile it before continuing work. A crash after Git creation but before the state write can leave an owned locked worktree that requires explicit reconciliation.
+Bindings are scoped to database filename and native project identity, in `<database-name>.sisf.state.db`, using SQLite WAL/FULL and mode 0600. The durable event cursor advances only after a lifecycle event is handled. Current daemons emit a single bounded-watch response; `--runtime reference` explicitly selects the old two-frame protocol. Unknown/current-version mismatches fail before mutation. Reference mode cannot use 1.1 `close_check`/merge.
 
-A new actor/epoch cannot reuse the previous binding automatically. Preserve or commit the old work, release the current claim when appropriate, then inspect `prune`. Cleanup retains branches; rename a retained branch to a recovery name before creating a new binding with the same task identifier. Do not bypass ownership checks by deleting another worker's files or locks.
+Claim and worktree creation are separate operations. A Git failure preserves the claim and reports `bound:false, claim_preserved:true`. A crash between Git creation and state recording can leave a locked tree: inspect it explicitly. A newer actor/epoch cannot inherit it silently.
 
-The adapter listens on loopback. It checks Host/Origin, requires JSON POST requests, limits request bodies to 1 MiB and rejects unsafe PR URL schemes. It is intended for trusted local agents. It has no multiuser authentication and must not be exposed through a public reverse proxy. Local processes with equivalent filesystem/socket access remain inside its trust boundary.
+Cleanup verifies inactive task state, configured repository, current branch/path, cleanliness and the adapter lock. Dirty work and branches remain recoverable. No arbitrary external exactly-once guarantee is made.
 
-The diff collector rejects unreadable Git output, missing bases, oversized untracked files, untracked symlinks and changes exceeding the native 80-file/300-character-path limits. It does not silently turn these failures into empty evidence. Rename detection is disabled: a rename appears as a delete and add. Hunk ranges are best-effort metadata; native source fingerprints govern acceptance.
-
-Merge protection, required CI/reviews and access control belong to the forge configuration. No automatic merge gate, jj/Radicle backend, hosted authentication or multi-store fan-in is implemented here. GitHub and mirror connectors need environment-specific validation before relying on them in production.
-
-## Executed acceptance
-
-Run `bash tools/verify-forge.sh`. It checks socket disconnect settlement, two-frame wait-watch handling, epoch refusal, failed artifact propagation, immutable bases and locks, identifier collisions, binary/untracked diffs, browser request boundaries, safe cleanup and a local Gitea HTTP fixture. Separate process oracles cover simultaneous claims, independent diffs, native artifact records, the board join, lane policies, direct-socket claims, durable cursor restart and actual HTTP rejection paths.
-
-The Gitea fixture checks request URLs, token header, configured PR base, PR response, commit status, HTTP errors and redirect refusal. It is not an end-to-end test against a running Gitea deployment. No current competitor speed or reliability benchmark is claimed.
-
-[Forge comparison](FORGE-COMPARISON.md) · [Core features](FEATURES.md) · [Acceptance contract](../SPEC.md)
+The server checks Host/Origin, requires JSON for writes and bounds bodies. It is for trusted local processes under one Unix user, without multiuser authentication. Keep it on loopback. CI/PR connector fixture coverage does not establish acceptance against your production forge. [Validation](VALIDATION.md).

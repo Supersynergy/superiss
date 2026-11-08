@@ -1,59 +1,46 @@
-# Get started
+# Get started and upgrade — 1.1
 
 ## Requirements
 
-- Rust/Cargo and SQLite development libraries for the native build. macOS provides system SQLite; Linux distributions typically package development headers separately.
-- Python 3 for the demo, reference implementation and runner.
-- Node.js for optional MCP; Bun for lifecycle/service commands and TypeScript tooling.
-- `fd` and `ripgrep` for the optional bundled search/soak workload and its full-gate fixture (`brew install fd ripgrep` on macOS). The tracker itself does not need these tools.
-- macOS for Seatbelt `local_zero` execution and launchd installation. General tracker code is separate from those OS-specific features. This release's full local acceptance runs on macOS.
+Bun >=1.4.4 runs the current source and release bundle. Git is required for forge work. Worktrunk is optional; the selected backend never silently changes. GitHub PR and CI operations require installed/authenticated `gh`. Gitea/Forgejo use the configured REST endpoint. No tracker model API key is needed.
 
-```bash
-git clone https://github.com/Supersynergy/superiss.git
-cd superiss
-CARGO_TARGET_DIR=.cache/cargo cargo build --locked -j2
-python3 examples/quickstart.py
+Analytics additionally requires an existing DuckDB 2 shared library and `run-guard`. Set `SIS_DUCKDB_LIBRARY` for an explicit library path. No extension or dependency is installed automatically. Unix sockets are required for daemon/forge use; Linux and macOS are the supported targets for those paths.
+
+## Start an explicit project
+
+```sh
+mkdir -p /absolute/project/.sis
+export SIS_DB=/absolute/project/.sis/project.db
+/absolute/superiss/bin/sis up
+/absolute/superiss/bin/sis capabilities
+/absolute/superiss/bin/sis forge serve --repo /absolute/project --port 8766
 ```
 
-The demo needs no daemon, model provider or permanent database. It executes a real oracle and confirms close and readback. The launcher defaults to Rust. Set `SIS_IMPL=py` explicitly for Python. Without optional local `tiktoken` and its cache, Python reports a labelled conservative token bound.
+The repository needs an initial commit and the configured base branch (`main` by default). Ignore `/.sis/` and `/.sisf/` in the project. Stop the foreground forge separately with Ctrl-C. `sis down` stops only the matching, owned current core daemon. Starting it with `SIS_HTTP=8765` adds the task board on that port.
 
-## A persistent project
+For a new task, use [the README workflow](../README.md) and keep its claim alive with `heartbeat`. `resume` reads state; it does not acquire a claim. A task without an executable oracle cannot be completed merely by supplying text.
 
-```bash
-export SIS_DB="$PWD/.sis/project.db"
-mkdir -p .sis
-bin/sis serve --db "$SIS_DB" --http 8765
+## Upgrade from 0.9 or 1.0
+
+1. Keep the previous installation and its launcher. Do not overwrite an active database or its owner receipt.
+2. Test copy-only adoption with `bin/sis migrate_copy source=/absolute/old.db --db /absolute/new.db`. The target must not exist. The source remains unchanged; this is not live synchronization.
+3. Stop the old daemon with its own installation/owner before switching. A current client, lifecycle helper or forge refuses a different runtime version.
+4. Start the current daemon on the explicitly selected database, inspect capabilities and perform a task proof/close smoke check before resuming workers.
+
+The source default changes to TypeScript in 1.1. `SIS_IMPL=rs|py` and `sis reference` explicitly retain the reference implementation. Existing references are not erased. The 1.1 release bundle contains only the current runtime and forge; rollback uses the retained installation.
+
+## Build and check
+
+Install TypeScript **7.1** and Node/Bun type declarations explicitly in your development environment. `SIS_TSC` pins a compatible installed compiler; `SIS_TYPE_ROOTS` selects the type-root directory. Then run:
+
+```sh
+bun tools/check-v11.ts
+# Additional full hybrid analytics/source gate, with its native dependencies installed:
+bun packages/superiss/check.ts
+bun tools/check-v1-publication.ts
+bun tools/package-v1.ts /absolute/new-superiss-1.1.0
 ```
 
-The server stays in the foreground. Open [the local board](http://127.0.0.1:8765). In a second terminal, set the same absolute database and create work:
+The package manifest hashes every shipped runtime file, including the forge and MIT license. A package build is not a production installation or a completed soak.
 
-```bash
-export SIS_DB="/absolute/path/project/.sis/project.db"
-/absolute/path/superiss/bin/sis create '{
-  "id":"check-readme", "title":"Check the project README", "owner":"worker-1",
-  "oracle_cmd":"test -s README.md", "acceptance":"README.md contains text",
-  "allowed_paths":["README.md"]
-}' --db "$SIS_DB"
-/absolute/path/superiss/bin/sis acquire actor=worker-1 ttl=300 --db "$SIS_DB"
-```
-
-Use the returned ID and epoch for `verify` with the project's absolute `cwd`. Check `passed:true`, then pass its actual `proof_id` to `close` with the same actor/epoch. [The runnable demo](../examples/quickstart.py) shows every step. Keep the lease alive with `heartbeat`. `resume` reads a checkpoint but does not acquire a claim. Stop the server with Ctrl-C; keep HTTP on loopback.
-
-## Local execution
-
-Task text is not executed automatically. Opt into `sis run` with an explicit local execution contract. Read [ZERO-RECOVERY.md](../ZERO-RECOVERY.md). The tracker database must remain outside the writable job directory. Start supervision with `sis service foreground --config /absolute/path/config.json`; [SERVICE.md](../SERVICE.md) describes configuration, ownership and lifecycle.
-
-## Contributor setup
-
-The tokenizer dependency is pinned with hashes. With [uv](https://docs.astral.sh/uv/) installed:
-
-```bash
-export TIKTOKEN_CACHE_DIR="$PWD/.cache/tiktoken"
-uv venv --python 3.14 .venv
-uv pip install --python .venv/bin/python --require-hashes -r requirements-tokenizer.lock
-.venv/bin/python -c 'import tiktoken; tiktoken.get_encoding("o200k_base"); tiktoken.get_encoding("cl100k_base")'
-export SIS_PYTHON="$PWD/.venv/bin/python"
-bash tools/verify-all.sh
-```
-
-The full gate needs macOS, Rust, Python, Bun and Node.js. Downloading the test tokenizer is setup, not a model call. See [CONTRIBUTING.md](../CONTRIBUTING.md).
+The historical macOS runner/service remains explicit through `sis reference run` / `sis reference service`. Its platform and execution contracts are described in [the reference service guide](../SERVICE.md). [Current validation](VALIDATION.md).

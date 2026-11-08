@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.1.0 — 2026-11-08
+
+- Unified current source CLI, MCP and relocatable bundle; reference runtimes are explicit.
+- Integrated forge CLI/HTTP/MCP, version-bound current watch protocol, Git/Worktrunk backend and repository routing.
+- Added real Git commit/push/rebase, matching-PR reuse and GitHub/Gitea/Forgejo CI connectors.
+- Added read-only `close_check` and a proof/CI/merge-slot-gated local fast-forward-and-close workflow, with explicit partial-success reporting.
+- Packaged forge/MCP with the core and manifest; corrected host-specific SQLite assertions to compare the actual library result.
+- Enforced selected core MCP tools and JSON-only HTTP writes; disallowed mutating/executing HTTP GET operations.
+- Replaced stale entry-point docs and corrected Beads lease/recovery comparison. Preserved historical records separately.
+- No live database migration, daemon replacement or remote PR merge is performed automatically. See [validation](docs/VALIDATION.md).
+
 ## 1.0.0 — 2026-11-03
 
 - Added the TypeScript 7.1/Bun runtime in `packages/superiss`, with 87 operations and a separate `bin/sis-v1` source launcher. The existing `bin/sis`, Rust/Python sources, service and forge adapter remain the 0.9 reference; their recorded validation is unchanged.
