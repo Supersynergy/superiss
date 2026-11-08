@@ -88,7 +88,9 @@ test('HTTP rejects unsafe origins, form posts, rebinding and GET mutations befor
   const f = await fixture();
   try {
     for (const headers of [{ origin: 'https://evil.invalid' }, { 'sec-fetch-site': 'cross-site' }, { host: 'evil.invalid:' + f.port }] as Record<string, string>[]) assert.equal((await f.rpc({ cmd: 'create', args: { id: 'evil', title: 'evil' } }, '/api/v1/rpc', headers)).status, 403);
-    assert.equal((await fetch(f.url + '/op?q=' + encodeURIComponent(JSON.stringify({ cmd: 'create', args: { id: 'unsafe', title: 'unsafe' } })))).status, 405);
+    for (const cmd of ['create', 'verify', 'attest', 'analytics', 'analytics_report', 'migrate_copy', 'goal_create', 'subgoal', 'tag', 'comment', 'merge_slot']) {
+      assert.equal((await fetch(f.url + '/op?q=' + encodeURIComponent(JSON.stringify({ cmd, args: { id: 'unsafe', title: 'unsafe' } })))).status, 405, cmd);
+    }
     assert.equal((await fetch(f.url + '/op?q=' + encodeURIComponent(JSON.stringify({ cmd: 'stats' })))).status, 200);
     assert.equal((await fetch(f.url + '/op', { method: 'POST', headers: { 'content-type': 'text/plain' }, body: '{"cmd":"stats"}' })).status, 415);
     assert.equal((await f.rpc({ cmd: 'stats' }, '/unknown')).status, 404);

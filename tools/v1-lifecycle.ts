@@ -1,9 +1,10 @@
-import { VERSION } from '../packages/superiss/runtime.ts';
 import { existsSync, readFileSync, writeFileSync, openSync, closeSync, realpathSync, renameSync, unlinkSync, mkdirSync, rmdirSync } from 'node:fs';
 import { resolve, dirname, basename, join } from 'node:path';
 import { createHash } from 'node:crypto';
 import { createConnection } from 'node:net';
 import { spawn } from 'node:child_process';
+
+import { VERSION } from '../packages/superiss/runtime.ts';
 
 interface Identity { pid: number; project_id: string; instance_id: string }
 const [launcher, command, ...args] = process.argv.slice(2);

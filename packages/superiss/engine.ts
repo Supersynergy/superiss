@@ -21,7 +21,7 @@ export class Engine extends CoreEngine {
     this.analytics = new Analytics(source, resolve(options.projectionPath ?? source + '.analytics.duckdb'), options.reportTimeoutMs);
   }
   private versioned(value: Value): Obj {
-    return { ...object(value), version: VERSION, typescript: '7.1', sqlite_version: String(this.db.get('SELECT sqlite_version() v')?.v), sqlite_library: sqliteLibrary, analytics_authority: 'sqlite', analytics_isolation: 'process', analytics_consistency: 'snapshot', multiplexing: 'request_id', verify_capacity: this.verifyLimit, verify_running: this.verifyJobs.size, operations: registry.map(op => op.name ?? null) };
+    return { ...object(value), version: VERSION, typescript: '7.1', sqlite_version: String(this.db.get('SELECT sqlite_version() v')?.v), sqlite_library: sqliteLibrary, analytics_authority: 'sqlite', analytics_isolation: 'process', analytics_consistency: 'snapshot', forge: { version: VERSION, command: 'sis forge', backends: ['git', 'worktrunk'], proof_preflight: 'close_check' }, watch_response: 'single', multiplexing: 'request_id', verify_capacity: this.verifyLimit, verify_running: this.verifyJobs.size, operations: registry.map(op => op.name ?? null) };
   }
   override async dispatch(cmd: string, raw: Value = {}, context: Partial<Context> = {}): Promise<Value> {
     if (this.closing && !['capabilities', 'analytics_status'].includes(cmd)) throw new SisError('shutting_down', 'Engine is draining accepted work');

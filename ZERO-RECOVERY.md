@@ -1,3 +1,5 @@
+> Reference-era guide. For Superiss 1.1 entry points and supported features, see [the current feature table](docs/FEATURES.md). Commands for the macOS runner/service use `sis reference` or explicit `SIS_IMPL=rs|py`.
+
 # Lokaler Nullkosten-Ablauf
 
 `sis run` führt genau eine ausdrücklich gewählte lokale Aufgabe vom Claim bis zum belegten Abschluss aus. Die Ausführung ist opt-in. Sie startet keinen dauerhaften Dienst und keinen externen Modellaufruf.

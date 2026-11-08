@@ -29,7 +29,7 @@ test("socket disconnect rejects queued requests and reconnect rejects project dr
     s.on("data", chunk => { buf += chunk; let i;
       while ((i = buf.indexOf("\n")) >= 0) {
         const request = JSON.parse(buf.slice(0, i)); buf = buf.slice(i+1);
-        if (request.cmd === "context") s.write(JSON.stringify({ ok: true, data: { project_id: project, db_path: f.cfg.db } }) + "\n");
+        if (request.cmd === "context") s.write(JSON.stringify({ ok: true, data: { project_id: project, db_path: f.cfg.db, capabilities:{version:"1.2.0",protocol:2,proof_receipts:true} } }) + "\n");
         else s.destroy();
       }
     });
@@ -45,13 +45,13 @@ test("socket disconnect rejects queued requests and reconnect rejects project dr
   } finally { client.close(); await new Promise<void>(r => server.close(() => r())); f.cleanup(); }
 }, 3000);
 
-test("wait-watch consumes snapshot plus later batch before the next command", async () => {
+test("explicit reference wait-watch consumes snapshot plus later batch before the next command", async () => {
   const f = fixture(); writeFileSync(f.cfg.db, "fixture"); f.cfg.sock = join(f.dir, "test.sock");
   const server = createServer(s => { let buf = ""; s.on("data", chunk => {
     buf += chunk; let i;
     while ((i = buf.indexOf("\n")) >= 0) {
       const req = JSON.parse(buf.slice(0,i)); buf = buf.slice(i+1);
-      if (req.cmd === "context") s.write(JSON.stringify({ ok: true, data: { project_id: "p", db_path: f.cfg.db } })+"\n");
+      if (req.cmd === "context") s.write(JSON.stringify({ ok: true, data: { project_id: "p", db_path: f.cfg.db, capabilities:{version:"0.9.1",protocol:2,proof_receipts:true} } })+"\n");
       else if (req.cmd === "watch") {
         s.write(JSON.stringify({ ok: true, data: { events: [{ seq: 1 }] } })+"\n");
         setTimeout(() => s.write(JSON.stringify({ ok: true, data: { events: [{ seq: 2 }] } })+"\n"), 10);
@@ -59,6 +59,7 @@ test("wait-watch consumes snapshot plus later batch before the next command", as
     }
   }); });
   await new Promise<void>(r => server.listen(f.cfg.sock, r));
+  f.cfg.runtime = "reference";
   const client = new _test.Sis(f.cfg);
   try {
     expect((await client.call("watch", { after: 0, wait: 1 })).data.events.map((x: any)=>x.seq)).toEqual([1,2]);
@@ -166,17 +167,18 @@ test("Gitea fixture verifies configured base, PR payload, CI status, failure and
     seen.push({ path:new URL(req.url).pathname, auth:req.headers.get("authorization"), body:req.method === "POST" ? await req.json() : null });
     if (mode === "redirect") return Response.redirect("http://127.0.0.1:1",302);
     if (mode === "error") return Response.json({ message: "fixture denied" }, { status:403 });
-    return req.method === "POST" ? Response.json({ number:1, html_url:"https://forge.example/owner/repo/pulls/1" }) : Response.json({ state:"success", statuses:[{}] });
+    return req.method === "POST" ? Response.json({ number:1, html_url:"https://forge.example/owner/repo/pulls/1" }) : new URL(req.url).pathname.endsWith("/pulls") ? Response.json([]) : Response.json({ state:"success", statuses:[{}] });
   }});
   f.cfg.gitea = { url:`http://127.0.0.1:${server.port}`, token:"fixture-token" }; f.cfg.repos.default.base="release";
   try {
     expect((await _test.gitea(f.cfg,f.repo,"sis/t","t","Title")).ok).toBe(true);
-    expect(seen[0]).toEqual({ path:"/api/v1/repos/owner/repo/pulls", auth:"token fixture-token", body:{ head:"sis/t",base:"release",title:"[t] Title" } });
-    expect((await _test.giteaCi(f.cfg,f.repo,"abc")).data?.state).toBe("success");
-    mode="error"; expect((await _test.giteaCi(f.cfg,f.repo,"abc")).ok).toBe(false);
-    mode="redirect"; await expect(_test.giteaCi(f.cfg,f.repo,"abc")).rejects.toThrow();
+    expect(seen[1]).toEqual({ path:"/api/v1/repos/owner/repo/pulls", auth:"token fixture-token", body:{ head:"sis/t",base:"release",title:"[t] Title" } });
+    expect((await _test.giteaCi(f.cfg,f.repo,f.git("rev-parse","HEAD"))).data?.state).toBe("success");
+    mode="error"; expect((await _test.giteaCi(f.cfg,f.repo,f.git("rev-parse","HEAD"))).ok).toBe(false);
+    mode="redirect"; expect((await _test.giteaCi(f.cfg,f.repo,f.git("rev-parse","HEAD"))).ok).toBe(false);
     f.cfg.gitea=null;
-    expect((await _test.createPR(f.cfg,{} as any,f.state,{id:"t"})).error?.code).toBe("no_connector");
+    const missing = await _test.createPR(f.cfg,{} as any,f.state,{id:"t"});
+    expect("error" in missing ? missing.error?.code : undefined).toBe("no_connector");
     expect(f.git("branch","-r")).toBe("");
   } finally { server.stop(true); f.cleanup(); }
 });
@@ -195,4 +197,14 @@ test("prune retains dirty work, then removes only a clean owned tree and retains
     expect(existsSync(w.path)).toBe(false);
     expect(f.git("rev-parse","sis/t")).toBeTruthy();
   } finally { f.cleanup(); }
+});
+
+test("explicit repository selection overrides config defaults while mirror remains an explicit legacy route", () => {
+  const f = fixture(), argv = process.argv;
+  try {
+    writeFileSync(join(f.dir,"sisf.config.json"),JSON.stringify({repo:f.dir,mirror:"backup",repos:{default:{path:f.dir}}}));
+    process.argv=["bun","sisf","pr","t","--db",f.cfg.db,"--repo",f.repo,"--via","mirror"];
+    const cfg = _test.loadCfg();
+    expect(cfg.repos.default.path).toBe(f.repo);expect(cfg.repos.default.mirror).toBe("backup");expect(cfg.connector).toBe("github");
+  } finally { process.argv=argv;f.cleanup(); }
 });

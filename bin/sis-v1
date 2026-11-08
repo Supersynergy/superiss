@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Compatibility alias for the current 1.x runtime.
 set -euo pipefail
 SELF="${BASH_SOURCE[0]}"
 while [ -L "$SELF" ]; do
@@ -8,9 +9,9 @@ done
 ROOT="$(cd "$(dirname "$SELF")/.." && pwd)"
 if [ "${SIS_IMPL:-ts}" != ts ]; then printf '%s\n' 'sis-v1 requires the TypeScript 1.2 runtime; select reference runtimes explicitly.' >&2; exit 2; fi
 case "${1:-}" in
-  run|runner|service|forge)
+  run|runner|service)
     if [ ! -f "$ROOT/tools/v1-integrations.ts" ]; then printf '%s\n' 'Optional adapters unavailable; package with --with-adapters.' >&2; exit 2; fi
     exec "${SIS_BUN:-bun}" "$ROOT/tools/v1-integrations.ts" "$ROOT/bin/sis-v1" "$@" ;;
   up|down|status) exec "${SIS_BUN:-bun}" "$ROOT/tools/v1-lifecycle.ts" "$ROOT/bin/sis-v1" "$@" ;;
 esac
-exec "${SIS_BUN:-bun}" "$ROOT/packages/superiss/cli.ts" "$@"
+exec "$ROOT/bin/sis" "$@"

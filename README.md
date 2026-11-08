@@ -1,178 +1,80 @@
-<p align="center"><img src="assets/superiss-hero.png" alt="Superiss - no more Issues. Goal Coordination for Agents." width="100%"></p>
+<p align="center"><img src="assets/superiss-hero.png" alt="Superiss — goal coordination for agents" width="100%"></p>
 
-<p align="center">
-  <a href="https://github.com/Supersynergy/superiss/actions/workflows/ci.yml"><img src="https://github.com/Supersynergy/superiss/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-D7FF64?style=flat-square&labelColor=101410" alt="MIT license"></a>
-  <a href="docs/OPERATIONS.md"><img src="https://img.shields.io/badge/operations-85-D7FF64?style=flat-square&labelColor=101410" alt="85 operations"></a>
-  <img src="https://img.shields.io/badge/storage-local_SQLite-D7FF64?style=flat-square&labelColor=101410" alt="Local SQLite">
-</p>
+# Superiss 1.1
 
-<h1 align="center">Superiss - no more Issues.</h1>
+**Local-first agent coordination with source-bound acceptance and an integrated Git/forge workflow.**
 
-<p align="center"><strong>Goal Coordination for Agents.</strong></p>
+Superiss stores tasks, goals, dependencies, project memory, checkpoints and evidence. An agent must hold the current claim and present a passing proof for the current contract and source files before closing a task.
 
-<p align="center">Local-first task coordination and durable memory for AI agents.<br>A Beads alternative with executable acceptance, fenced ownership and recovery.</p>
+Version **1.2.0** uses Bun/TypeScript and authoritative SQLite: **88 core operations plus 10 forge tools**. DuckDB 2 provides optional, separate snapshot analytics. The tracker needs no model API key.
 
-<p align="center"><a href="docs/GETTING-STARTED.md">Get started</a> · <a href="docs/FEATURES.md">All features</a> · <a href="docs/COMPARISON.md">Compare 5 tools</a> · <a href="docs/BEADS-ALTERNATIVE.md">Coming from Beads?</a> · <a href="docs/SISF.md">Git + forges</a> · <a href="README.de.md">Deutsch</a></p>
+[Get started](docs/GETTING-STARTED.md) · [Forge workflow](docs/SISF.md) · [Features](docs/FEATURES.md) · [Comparison](docs/COMPARISON.md) · [Deutsch](README.de.md) · [Validation](docs/VALIDATION.md)
 
----
+Local 1.2 also retains [API/client/capsules and optional workflow/service adapters](docs/V1-INTEGRATIONS.md), durable Forge conflict reconciliation and [fork integration guidance](docs/FORGE-BRIDGES.md). Its source integrates GitHub main `2b200f3`; existing installed daemons are unchanged.
 
-## 1.0.0: TypeScript runtime
+## Start
 
-**Local 1.2.0 candidate:** combines local 1.1 API and Forge work; [tool bridges and fork remigration](docs/FORGE-BRIDGES.md). Public main remains 1.0.0; no installed runtime is switched.
-
-[Release notes](CHANGELOG.md) · [Runtime, safety and verification](packages/superiss/README.md)
-
-The 1.0 runtime uses Bun, TypeScript 7.1, authoritative SQLite and separate DuckDB 2.0 snapshot analytics (**87 operations**). Start from a new, explicit database:
+Install Bun **1.4.4 or newer**. Git is needed for forge operations. No runtime npm packages are required. Worktrunk is optional; GitHub operations additionally use an authenticated `gh`. Analytics requires an installed `run-guard` and DuckDB 2 shared library.
 
 ```sh
-bin/sis-v1 capabilities --db /absolute/test-project.db
-bin/sis-v1 serve --db /absolute/test-project.db --sock /tmp/superiss-v1.sock
-# Another terminal:
-bin/sis-v1 ready --db /absolute/test-project.db --sock /tmp/superiss-v1.sock
-```
-
-Bun is required. Analytics additionally needs installed `run-guard` and DuckDB 2.0; native library overrides and version requirements are documented in the runtime guide. Nothing is installed automatically. The complete source gate also needs an installed TypeScript 7.1 compiler and Node type declarations.
-
-```sh
-bun packages/superiss/check.ts
-bun tools/check-v1-publication.ts
-# Build a new relocatable directory; refuses an existing destination:
-bun tools/package-v1.ts /absolute/new-superiss-1.0.0
-```
-
-The release bundle's `bin/sis` runs **1.0.0** and its `manifest.json` hashes every runtime file. Check the downloaded archive against the release's `SHA256SUMS`. Keep the previous installation and switch only a launcher/symlink for rollback. Installation does not migrate project databases or replace running daemons; a 1.0 client rejects an older daemon before mutation. Test a `migrate_copy` first, then let the daemon owner arrange any cutover.
-
-The existing root `bin/sis`, Rust/Python code, service, forge adapter and validation receipts below remain the **0.9 reference**. They are not silently switched to another backend. Use `bin/sis-v1` or the bundle for 1.0.
-
-## The missing step between work and done
-
-An agent can finish a conversation while leaving a broken feature behind. Superiss gives each task an executable acceptance contract and stores the result against the declared sources. Closing requires a matching proof, a live ownership lease and the current contract revision.
-
-```text
-PLAN → CLAIM → WORK → VERIFY → CLOSE
-        │              │        │
-   actor + epoch   run the    check proof,
-   + live lease    oracle    revision + files
-```
-
-Changed files? The old proof expires. Stale worker? Its epoch is rejected. Missing required evidence? The task stays open. The oracle's quality still determines what a passing check proves.
-
-## Built for work that survives the chat
-
-| | What you get |
-| --- | --- |
-| 🧠 **Persistent memory** | Tasks, goals, dependencies, notes and project knowledge in SQLite. |
-| 🧾 **Checked completion** | Execute the oracle; bind its receipt to sources and contract; require it at close. |
-| 🔒 **Worker ownership** | Atomic claims, epochs, leases, heartbeat, cancellation and fenced handoff. |
-| 🗺️ **Goal trees** | Atomic plans, subtasks, templates, ready queues, approval gates and merge slots. |
-| 🔁 **Recovery** | Checkpoints, resume, leased outbox delivery and explicit replay rules. |
-| 🔬 **Evidence** | JUnit, coverage, command runs and optional review/attestation requirements. |
-| 💸 **Cost visibility** | Recorded usage, goal rollups, close-time budget gates and outcome aggregates. |
-| 🔌 **Agent interfaces** | JSON CLI, Unix socket, MCP, loopback HTTP and a local browser board. |
-| ⚙️ **Local execution** | Opt-in command-to-close workflow and a bounded macOS service. |
-| 🌿 **Forge adapter** | Optional `sisf`: claim-to-worktree binding, Git diffs, artifact records, Gitea/GitHub PR connectors and task × worktree board. |
-| 📦 **Portable state** | JSONL snapshots, conflict-aware sync and explicit Beads-export migration. |
-
-**85 registered operations. Rust core. Python reference. No model API key required for the tracker.**
-
-## Try the 0.9 reference proof loop
-
-You need Rust/Cargo, system SQLite development libraries and Python 3. Full sandbox/service features require macOS; Bun and Node.js support the service and MCP adapter. [Installation and platform boundaries →](docs/GETTING-STARTED.md)
-
-```bash
 git clone https://github.com/Supersynergy/superiss.git
 cd superiss
-CARGO_TARGET_DIR=.cache/cargo cargo build --locked -j2
-python3 examples/quickstart.py
+mkdir -p /absolute/project/.sis
+export SIS_DB=/absolute/project/.sis/project.db
+bin/sis up
+bin/sis capabilities
+# Separate terminal: native Git backend, local forge board and task watcher.
+bin/sis forge serve --repo /absolute/project --port 8766
 ```
 
-The demo uses a private temporary database and a real file. It rejects close without proof, executes the oracle, closes with its `proof_id` and reads back the result:
+The forge board opens at `http://127.0.0.1:8766/forge`. `sis up` owns only the core daemon; the foreground forge process is stopped separately with Ctrl-C. To enable the core task board, set `SIS_HTTP=8765` when starting a new daemon.
 
-```text
-✓ Claimed task with an actor, epoch and lease
-✓ Close without proof rejected
-✓ Oracle passed; source-bound proof stored
-✓ Task closed and read back
+## One checked workflow
+
+```sh
+bin/sis create '{"id":"auth","title":"Implement authentication","oracle_cmd":"bun test tests/auth.test.ts","allowed_paths":["src","tests"]}'
+bin/sis acquire id=auth actor=worker-a ttl=1800
+# Use the returned epoch; do not assume it is always 1.
+bin/sis forge bind auth --actor worker-a --epoch 1
+# Edit and stage files inside the returned worktree.
+bin/sis forge git-commit auth --actor worker-a --epoch 1 --message "Implement authentication"
+bin/sis forge record auth --actor worker-a --epoch 1
+bin/sis forge verify auth --actor worker-a --epoch 1
+# Keep heartbeating throughout the work. Inspect passed:true and the actual proof_id.
+bin/sis forge push auth --actor worker-a --epoch 1
+bin/sis forge pr auth --actor worker-a --epoch 1 --via github
+bin/sis forge ci auth --actor worker-a --epoch 1 --via github
 ```
 
-For a persistent project, choose the database explicitly:
+A PR workflow uses the forge's reviews and protected-branch merge. Separately, `sis forge merge` is an **explicit local fast-forward workflow**: it checks the proof, requires passing CI by default, acquires a merge slot, advances the clean local base and closes the task. It retains the worktree and branch and never pushes the base. `--skip-ci` explicitly permits a local workflow without CI; it never bypasses proof. Rebase and verify again if the base advanced. [Commands, cleanup and failure recovery](docs/SISF.md).
 
-```bash
-export SIS_DB="$PWD/.sis/project.db"
-mkdir -p .sis
-bin/sis serve --db "$SIS_DB" --http 8765
-# Open http://127.0.0.1:8765 for the local board.
+## Worktrunk and multiple repositories
+
+Use `--backend worktrunk` on the forge process or set `backend` in `sisf.config.json`. Superiss remains responsible for task claims and bindings; Worktrunk handles the selected worktree operations. There is no fallback to Git if Worktrunk fails. Automated calls disable Worktrunk hooks and preserve the verified source commit during merge.
+
+Configure a `repos` map and set a task's `meta.repo_key` to route it explicitly. This is routing within one project store; it is not distributed scheduling across machines.
+
+## Agent interfaces
+
+- Core: `bin/sis mcp --db /absolute/project.db`. `SIS_MCP_PROFILE=agent` exposes 13 selected worker tools; selection is enforced on calls.
+- Forge: `bin/sis forge mcp --db /absolute/project.db --repo /absolute/project`. Ten tools share the CLI/HTTP workflow, ownership and proof rules.
+- Compatibility: `mcp/sis-mcp.js` launches the current core MCP through Bun. `bin/sisf` aliases the current forge CLI; `bin/sis-v1` aliases the current core CLI.
+
+## Build and upgrade
+
+```sh
+bun tools/check-v11.ts
+bun tools/package-v1.ts /absolute/new-superiss-1.2.0
 ```
 
-## Compare the approaches
+The relocatable package contains the core, forge CLI, both MCP entry points, tokenizers, task/forge boards, lifecycle helper, license and exact SHA-256 file manifest. The build refuses to overwrite its destination. Type checking requires installed TypeScript 7.1 and Node/Bun types; no dependencies are installed automatically.
 
-Five established alternatives, researched **23 October 2026**. ✅ documented · 🧩 integration/different mechanism · ❌ exact capability not established by the reviewed sources.
+A new installation does not migrate databases or replace daemons. A 1.1 client/forge refuses an older daemon before mutation. Stop the previous daemon using its own installation, retain that installation for rollback, test `migrate_copy` into a new database, then arrange the explicit cutover. [Upgrade and platform details](docs/GETTING-STARTED.md).
 
-| | **Superiss** | **Beads** | **beads_rust** | **Task Master AI** | **Vibe Kanban** | **Taskwarrior** |
-| --- | --- | --- | --- | --- | --- | --- |
-| 🎯 Focus | Verified coordination | Agent memory | Local Rust tracker | AI planning | Visual orchestration | Terminal tasks |
-| 🗃️ Local tasks | ✅ SQLite | ✅ Dolt | ✅ SQLite | ✅ Task files | ✅ Local backend | ✅ Local store |
-| 🔗 Dependencies | ✅ | ✅ | ✅ | ✅ | ❌ | ✅ |
-| 🔌 Agent interface | ✅ CLI/MCP/HTTP | ✅ CLI/setup | ✅ CLI/MCP option | ✅ CLI/MCP | ✅ Agents/MCP | ✅ CLI/hooks |
-| 🧾 Source-bound proof required at close | ✅ | ❌ | ❌ | ❌ | ❌ | 🧩 Hooks |
-| 🔒 Actor + epoch + expiring task lease | ✅ | 🧩 Atomic claim | 🧩 Coordination | ❌ | ❌ | ❌ |
-| 💸 Cost rollup + close budget gate | ✅ | ❌ | ❌ | ❌ | ❌ | 🧩 Custom rules |
-| 🖥️ Browser board | ✅ Local | 🧩 Community | 🧩 Companion | 🧩 Integrations | ✅ | 🧩 Third party |
+## Reference and limits
 
-[Read the sourced comparison, strengths, definitions and limits →](docs/COMPARISON.md)
+The retained Rust/Python **0.9 reference** is explicit: `sis reference …` or `SIS_IMPL=rs|py`. Its 85-operation registry is `ops.json`; the current registry is [packages/superiss/ops.json](packages/superiss/ops.json). macOS local-zero execution and launchd service remain reference-only and are not included in the 1.1 runtime bundle. [Version/support table](docs/FEATURES.md).
 
-This is a curated research comparison, not a performance ranking. ❌ does not mean an extension could never implement the feature. Vibe Kanban's official site currently announces a transition to community maintenance.
+An oracle proves only what it checks. Actor names are not authentication. File scopes are not an OS sandbox. Recorded costs are observations, not invoices or pre-call spending authorization. Git, task state and remote PR writes are separate operations: interrupted or timed-out writes require reconciliation. Passing tests do not establish a production soak, independent security audit or competitor performance ranking.
 
-## Take the proof loop into Git
-
-Add **sisf**, the optional Bun adapter, to bind claimed tasks to locked Git worktrees. Record the actual diff and artifact reference, inspect tasks beside worktrees and connect PRs through Gitea or GitHub. The native proof contract still decides whether a task can close.
-
-```bash
-# With the project daemon already running:
-bin/sisf serve --db "$SIS_DB" --repo "$PWD" --port 8766
-# http://127.0.0.1:8766/forge
-```
-
-[Setup, commands and tested boundaries →](docs/SISF.md) · [Superiss + sisf vs Gitea, Forgejo and GitHub →](docs/FORGE-COMPARISON.md)
-
-## Use it with your agent
-
-Start the project daemon, then add this adapter to a host supporting stdio MCP:
-
-```json
-{
-  "mcpServers": {
-    "superiss": {
-      "command": "node",
-      "args": ["/absolute/path/superiss/mcp/sis-mcp.js"],
-      "env": {
-        "SIS_DB": "/absolute/path/project/.sis/project.db",
-        "SIS_MCP_PROFILE": "agent"
-      }
-    }
-  }
-}
-```
-
-The worker profile offers twelve tools. The host remains responsible for permissions, model access and acceptance quality. Any coding agent with shell access can also use the CLI.
-
-## Read deeper
-
-| Guide | Contents |
-| --- | --- |
-| [Getting started](docs/GETTING-STARTED.md) | Build, demo, persistent projects and requirements |
-| [All features](docs/FEATURES.md) / [85 operations](docs/OPERATIONS.md) | Capabilities and complete registry-derived catalog |
-| [Beads alternative](docs/BEADS-ALTERNATIVE.md) | Workflow mapping and deliberate export migration |
-| [Five-tool comparison](docs/COMPARISON.md) | Emoji matrix, sources and market observations |
-| [Forge adapter](docs/SISF.md) / [forge comparison](docs/FORGE-COMPARISON.md) | Worktree lifecycle, connectors, board and the division of responsibilities |
-| [Protocol](SPEC.md) | Source binding, wire formats and operational limits |
-| [Local execution](ZERO-RECOVERY.md) / [Service](SERVICE.md) | Sandbox, replay policy, lifecycle and watchdog |
-| [Multiworker](MULTIWORKER.md) | Delivery fencing and benchmark methodology |
-| [Release validation](docs/VALIDATION.md) | Executed checks and evidence boundaries |
-
-## Honest boundaries
-
-General `allowed_paths` metadata is not a sandbox. The explicit macOS local workflow adds sandboxing. Cost ledgers are recorded observations, not invoices; close-time gates do not authorize provider spending. Arbitrary external commands do not gain exactly-once semantics. Green local tests do not establish production reliability or a completed 24-hour soak.
-
-The hero is generated conceptual artwork, not a screenshot. [MIT licensed](LICENSE). Built by [Supersynergy](https://github.com/Supersynergy).
+[MIT license](LICENSE). Built by [Supersynergy](https://github.com/Supersynergy). The hero is conceptual artwork.

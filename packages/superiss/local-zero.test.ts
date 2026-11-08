@@ -62,6 +62,25 @@ test('local-zero keeps credentials absent and denies filesystem escapes and netw
   } finally { if (old === undefined) delete process.env.SIS_TEST_CREDENTIAL; else process.env.SIS_TEST_CREDENTIAL = old; server.closeAllConnections(); await new Promise<void>(r => server.close(() => r())); await f.close(); rmSync(outside, { recursive: true, force: true }); }
 });
 
+test('close_check preserves zero-budget and local-zero cost gates without closing the task', async () => {
+  const policies: Obj[] = [{ budget_gate: true }, ...(process.platform === 'darwin' ? [{ local_zero: true }] : [])];
+  for (const meta of policies) {
+    const f = await fixture({ meta });
+    try {
+      const proof = object(await f.engine.dispatch('verify', f.fence));
+      assert.equal(proof.passed, true);
+      const close = { ...f.fence, proof_id: proof.proof_id };
+      assert.equal(object(await f.engine.dispatch('close_check', close)).valid, true);
+      assert.equal(f.engine.issue('job').status, 'in_progress');
+      await f.engine.dispatch('create', { id: 'job.child', title: 'child' });
+      await f.engine.dispatch('cost_add', { issue: 'job.child', cents: 1 });
+      await assert.rejects(f.engine.dispatch('close_check', close), { code: 'budget_exceeded' });
+      await assert.rejects(f.engine.dispatch('close', close), { code: 'budget_exceeded' });
+      assert.equal(f.engine.issue('job').status, 'in_progress');
+    } finally { await f.close(); }
+  }
+});
+
 test('worker cannot raise budget or silently remove execution, controller or review policy', async () => {
   const f = await fixture();
   try {

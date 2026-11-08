@@ -2,7 +2,9 @@
 
 ## 1.2.0 — local source candidate (2026-11-08)
 
-- Combined the local 1.1 API/client/capsule work with fetched public main `17bff9e`; runtime, lifecycle and portable bundle identify as 1.2.0. No remote release or installed runtime switch.
+- Reference builds invoke bounded Cargo directly; the disabled automatic resource wrapper stays disabled.
+
+- Merged GitHub main `2b200f3` into the local 1.2 source. Retained API/client/capsules, local-zero/outbox protections, conflict reconciliation and optional workflow/service adapters alongside integrated Forge/MCP, `close_check`, repository routing and proof-gated local merges. Runtime and bundles remain 1.2.0; this merge does not switch installed daemons or publish a release.
 - Forge stores task binding conflicts across restart and keeps unrelated tasks moving; added read-only reconciliation and a bounded ten-client regression. Existing ownership and infrastructure failure checks remain.
 - Snapshot sync refuses another owner's staged index/unrelated tracked edits and commits only its snapshot path. Active task updates require a live actor/epoch even when omitted by a caller.
 - Documented CLI/MCP/HTTP/client bridges, patch-based upstream remigration and the remaining remote merge boundary in `docs/FORGE-BRIDGES.md`. Historical 1.0 soak evidence remains separately pinned.
@@ -18,6 +20,17 @@
 - Added real isolated workflow/proof/close, interruption recovery, service drain, Forge/TypeScript watch and relocated adapter acceptance; documented usage and a separately scoped 1.1 loop-speed roadmap in `docs/V1-INTEGRATIONS.md`.
 
 - Added a private installed-bundle endurance runner with real 24-hour wall/monotonic gates, native fenced lifecycle proofs, hourly analytics and three owned daemon crash recoveries. A short probe is explicitly not endurance acceptance. Existing production services and databases are not changed; see `docs/V1-FINAL.md`.
+
+## 1.1.0 — 2026-11-08
+
+- Unified current source CLI, MCP and relocatable bundle; reference runtimes are explicit.
+- Integrated forge CLI/HTTP/MCP, version-bound current watch protocol, Git/Worktrunk backend and repository routing.
+- Added real Git commit/push/rebase, matching-PR reuse and GitHub/Gitea/Forgejo CI connectors.
+- Added read-only `close_check` and a proof/CI/merge-slot-gated local fast-forward-and-close workflow, with explicit partial-success reporting.
+- Packaged forge/MCP with the core and manifest; corrected host-specific SQLite assertions to compare the actual library result.
+- Enforced selected core MCP tools and JSON-only HTTP writes; disallowed mutating/executing HTTP GET operations.
+- Replaced stale entry-point docs and corrected Beads lease/recovery comparison. Preserved historical records separately.
+- No live database migration, daemon replacement or remote PR merge is performed automatically. See [validation](docs/VALIDATION.md).
 
 ## 1.0.0 — 2026-11-03
 

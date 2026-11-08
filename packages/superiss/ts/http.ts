@@ -5,7 +5,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 import type { Engine } from './engine.ts';
 import { array, canonical, encoding, fail, fingerprint, integer, number, object, rootDirectory, SisError, text, tokenCount, type Obj } from './util.ts';
 
-const reads = new Set('context capabilities stats list query count ready next show search children contract brief resume tokens watch lint types statuses prime orphans review stale recall comments history dep_list goal_tree tree goal_done gate_list slot_list outbox_list cost_list cost_rollup learn dup_scan find_duplicates analytics analytics_report'.split(' '));
+const reads = new Set('context capabilities stats list query count ready next show search children contract brief resume tokens watch lint types statuses prime orphans review stale recall comments history dep_list goal_tree tree goal_done gate_list slot_list outbox_list cost_list cost_rollup learn dup_scan find_duplicates close_check'.split(' '));
 function envelope(value: unknown): Obj {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) fail('bad_args','request must be an object');
   const input = object(value);

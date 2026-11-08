@@ -30,7 +30,8 @@ if [ "\${SIS_IMPL:-ts}" != ts ]; then
   exit 2
 fi
 case "\${1:-}" in
-  run|runner|service|forge)
+  forge) shift; exec "\${SIS_BUN:-bun}" "$ROOT/packages/superiss/dist/sisf.js" "$@" ;;
+  run|runner|service)
     if [ ! -f "$ROOT/tools/v1-integrations.ts" ]; then printf '%s\\n' 'Optional adapters unavailable; package with --with-adapters.' >&2; exit 2; fi
     exec "\${SIS_BUN:-bun}" "$ROOT/tools/v1-integrations.ts" "$ROOT/bin/sis" "$@" ;;
   up|down|status) exec "\${SIS_BUN:-bun}" "$ROOT/packages/superiss/dist/v1-lifecycle.js" "$ROOT/bin/sis" "$@" ;;
@@ -55,6 +56,8 @@ export function packageRelease(destination: string, options: { adapters?: boolea
   function inputs(): string {
     inputHashes = {}; sources(source);
     for (const name of ['package-v1.ts', 'v1-lifecycle.ts']) inputHashes['../../tools/' + name] = sha(readFileSync(join(repository, 'tools', name)));
+    sources(join(repository, 'sisf'), '../../sisf/');
+    inputHashes['../../mcp/sis-mcp.js'] = sha(readFileSync(join(repository, 'mcp/sis-mcp.js')));
     inputHashes['../../LICENSE'] = sha(readFileSync(join(repository, 'LICENSE')));
     if (options.adapters) for (const name of adapterFiles) inputHashes['../../' + name] = sha(readFileSync(join(repository, name)));
     return JSON.stringify({ adapters: options.adapters === true, files: inputHashes });
@@ -63,7 +66,7 @@ export function packageRelease(destination: string, options: { adapters?: boolea
   mkdirSync(out, { mode: 0o700 });
   const runtime = join(out, 'packages', 'superiss');
   mkdirSync(join(runtime, 'dist'), { recursive: true });
-  for (const entries of [[join(source, 'cli.ts'), join(source, 'analytics-worker.ts')], [join(repository, 'tools', 'v1-lifecycle.ts')]]) {
+  for (const entries of [[join(source, 'cli.ts'), join(source, 'analytics-worker.ts')], [join(repository, 'tools', 'v1-lifecycle.ts')], [join(repository, 'sisf', 'sisf.ts')]]) {
     const build = spawnSync(process.execPath, ['build', ...entries, '--target=bun', '--outdir=' + join(runtime, 'dist')], { cwd: repository, encoding: 'utf8', timeout: 30000 });
     assert.equal(build.status, 0, build.stderr || String(build.error));
   }
@@ -76,10 +79,13 @@ export function packageRelease(destination: string, options: { adapters?: boolea
     mkdirSync(dirname(join(out, name)), { recursive: true });
     copyFileSync(join(repository, name), join(out, name));
   }
+  mkdirSync(join(out, 'mcp'));
+  copyFileSync(join(repository, 'mcp/sis-mcp.js'), join(out, 'mcp/sis-mcp.js'));
   assert.equal(inputs(), frozenInputs, 'Source changed during build/copy; release refused');
   mkdirSync(join(out, 'bin'));
   writeFileSync(join(out, 'bin', 'sis'), launcher, { mode: 0o755 });
   chmodSync(join(out, 'bin', 'sis'), 0o755);
+  writeFileSync(join(out, 'bin', 'sisf'), launcher.slice(0,launcher.indexOf('if [ "')) + 'exec "${SIS_BUN:-bun}" "$ROOT/packages/superiss/dist/sisf.js" "$@"\n', {mode:0o755});
   const files: Record<string, string> = {};
   for (const entry of readdirSync(out, { recursive: true, withFileTypes: true })) {
     if (!entry.isFile()) continue;

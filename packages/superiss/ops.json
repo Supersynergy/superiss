@@ -1,5 +1,5 @@
 {
-  "version": "0.8.0",
+  "version": "1.2.0",
   "protocol": 2,
   "ops": [
     {
@@ -1327,7 +1327,7 @@
     },
     {
       "name": "changes",
-      "description": "Record a compact file-edit summary for a task: path, +adds/-dels and hunk line ranges from the real git worktree (sis changes <id> [--repo P] [--base R] [--patch]). Append-only evidence — no code stored unless --patch snapshots a bounded diff. Identical consecutive diffs dedup unless force:true. sis close records the same automatically.",
+      "description": "Record a compact file-edit summary for a task: path, +adds/-dels and hunk line ranges from the real git worktree (sis changes <id> [--repo P] [--base R] [--patch]). Append-only evidence \u2014 no code stored unless --patch snapshots a bounded diff. Identical consecutive diffs dedup unless force:true. sis close records the same automatically.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -1564,7 +1564,7 @@
     },
     {
       "name": "who",
-      "description": "Dirty-worktree attribution: maps each dirty/untracked path in a git repo to the recorded changes event (claim/actor) that produced it. Orphaned paths with no matching event surface explicitly — answers 'wem gehoert dieser Stand?'.",
+      "description": "Dirty-worktree attribution: maps each dirty/untracked path in a git repo to the recorded changes event (claim/actor) that produced it. Orphaned paths with no matching event surface explicitly \u2014 answers 'wem gehoert dieser Stand?'.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -2829,7 +2829,7 @@
     },
     {
       "name": "attest",
-      "description": "Attach a structured machine-checkable attestation (junit/coverage/smoke/artifact/custom/run) to the active claim, bound to contract revision and source fingerprint. kind:\"run\" executes cmd store-side — the receipt is not forgeable client-side. Required kinds via meta.attest_required are enforced at close.",
+      "description": "Attach a structured machine-checkable attestation (junit/coverage/smoke/artifact/custom/run) to the active claim, bound to contract revision and source fingerprint. kind:\"run\" executes cmd store-side \u2014 the receipt is not forgeable client-side. Required kinds via meta.attest_required are enforced at close.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -3023,7 +3023,7 @@
     },
     {
       "name": "learn",
-      "description": "Honest learning aggregates over the ledger: attest/proof pass rates, cost (cents/tokens) and time-to-accepted grouped by actor|wave|kind|issue — the posterior for bandit/routing decisions, no invented score.",
+      "description": "Honest learning aggregates over the ledger: attest/proof pass rates, cost (cents/tokens) and time-to-accepted grouped by actor|wave|kind|issue \u2014 the posterior for bandit/routing decisions, no invented score.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -3052,7 +3052,7 @@
     },
     {
       "name": "sync_import",
-      "description": "Admin: merge a sis-sync bundle — issue/deps upsert, memory LWW by updated_at, receipts by primary key; live claims are never overwritten and report as conflicts.",
+      "description": "Admin: merge a sis-sync bundle \u2014 issue/deps upsert, memory LWW by updated_at, receipts by primary key; live claims are never overwritten and report as conflicts.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -3131,6 +3131,42 @@
         "type": "object",
         "additionalProperties": false,
         "properties": {}
+      }
+    },
+    {
+      "name": "close_check",
+      "description": "Read-only preflight of the complete close contract: current source, proof, actor, epoch, lease, review, evidence and budget. Does not close or reserve the task.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "actor": {
+            "type": "string"
+          },
+          "epoch": {
+            "type": "integer"
+          },
+          "run_id": {
+            "type": "string"
+          },
+          "idem": {
+            "type": "string"
+          },
+          "proof_id": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "actor",
+          "epoch",
+          "proof_id"
+        ]
       }
     }
   ]

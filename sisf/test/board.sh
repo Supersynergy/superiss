@@ -27,5 +27,5 @@ curl -sf "http://127.0.0.1:$PORT/forge" | grep -q 'SOLL — sis tasks' || { echo
 curl -sf -H 'content-type: application/json' -X POST "http://127.0.0.1:$PORT/" -d '{"cmd":"acquire","args":{"id":"b1","actor":"a","ttl":120}}' >/dev/null
 curl -sf "http://127.0.0.1:$PORT/forge/board" | python3 -c "import json,sys;d=json.load(sys.stdin);w=d['worktrees'];assert w and w[0]['task']=='b1',d;print('board-join ok')"
 # connector without config → clear error, not crash
-curl -sf -H 'content-type: application/json' -X POST "http://127.0.0.1:$PORT/sisf/pr" -d '{"id":"b1"}' | grep -q 'no_connector' || { echo "FAIL connector error path"; exit 1; }
+curl -sf -H 'content-type: application/json' -X POST "http://127.0.0.1:$PORT/sisf/pr" -d '{"id":"b1","via":"gitea"}' | grep -q 'no_connector' || { echo "FAIL connector error path"; exit 1; }
 echo "BOARD ORACLE PASS"

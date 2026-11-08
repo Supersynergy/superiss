@@ -1,44 +1,41 @@
-# Release validation — 23 October 2026
+# Validation — Superiss 1.1.0
 
-The public source was prepared from the installed fixed **0.9.0** source bundle and received the **0.9.1** loopback-startup fix. Original file hashes and publication changes are recorded in [source-snapshot.json](research/source-snapshot.json). The author’s working checkouts, active stores and installed pointer were preserved.
+Current evidence is separate from the [historical 0.9 record](archive/0.9/VALIDATION.md). JSON receipts under `docs/research/` describe their original snapshots; their hashes are not current-file assertions.
 
-## Executed locally
+## Hosted current-runtime and forge gate
 
-- Native build: `CARGO_TARGET_DIR=.cache/cargo cargo build --locked -j2` — passed.
-- Full project gate: `bash tools/verify-all.sh` — passed for both Rust and Python, including ownership, source drift, budget, sandbox, controller, recovery, socket, MCP and HTTP cases.
-- Service suite: **35 passed, 0 failed** across five Bun files, including process kills, restart, pause, concurrency and defaults.
-- Runnable quickstart: real claim, rejected proof-free close, oracle, source-bound close and final readback — passed.
-- Publication secret scan: staged package scanned with Gitleaks; **zero findings**. Local databases, caches, private acceptance notes and machine binaries are excluded.
-- Text checks: `slopcheck` on launch documentation; findings reviewed and German README revised.
+[Passing Linux/macOS and Worktrunk run](https://github.com/Supersynergy/superiss/actions/runs/42485621381), code commit `5d6a8c2a91b38f0b99aa9a949144197bdfc54407`:
 
-The full gate ran under a bounded resource wrapper: exit 0, **145.503 seconds**, **166 MiB** observed process-tree peak. An initial native process-identity probe stopped the earlier run; the successful run used the wrapper's `ps` backend. This is a test-run observation, not a speed benchmark.
+| Check | Result and scope |
+| --- | --- |
+| Current runtime, Linux x64 and macOS arm64 | Strict TypeScript core/forge/release checks; 15 core regressions on each platform |
+| Complete wire contract | 11 PASS, 0 FAIL, 0 MISSING; all 88 registered operations present |
+| Forge unit, transport, connector and package suite | 35 passed on each platform; installed-binary case covered separately |
+| Process oracles | Race/isolation, board join, lane policy and lifecycle/restart/HTTP boundaries passed on both platforms |
+| Actual Worktrunk 0.81.0 | Published-checksum installation; 11 workflow cases passed, including exact-path binding and source-preserving merge |
+| Relocated 1.1 bundle | Exact SHA-256 file manifest, overwrite refusal, CLI/forge launchers, both MCP entry points and selected-tool enforcement |
+| Publication content | Current version/catalog/docs links, JS/shell syntax and whitespace checks |
 
-Machine-readable test summaries and gate-log hash: [validation.json](research/validation.json). The original full logs remain in the local ignored build cache. CI repeats the build, gate and demo on a GitHub macOS runner; its status badge reflects the remote result separately. The first public CI setup selected Python 3.15, which the pinned tokenizer's PyO3 dependency rejects. The follow-up CI configuration selects Python 3.14 explicitly.
+The current hosted gate is `bun tools/check-v11.ts`. It includes real socket/watch/heartbeat handling and HTTP process checks that the local executor cannot run. Repeated suite execution in the forge gate is not counted as additional distinct tests. The installed-Worktrunk case is intentionally skipped in the generic job and executed in its dedicated job.
 
-## Review limits
+The independent reference workflow (`.github/workflows/ci.yml`) additionally builds Rust and runs the retained Rust/Python, macOS local-zero and service checks. It packages `bin/sis-reference` for its native-bundle fixture; the current `bin/sis` belongs to 1.1. Consult [the repository checks](https://github.com/Supersynergy/superiss/actions) for the exact reviewed commit.
 
-Self-review covered public/private file boundaries, the generated operation inventory, documentation links, demo behavior and comparison claims. `grepgod review` and `aislop .` were also run. The generic scanner is **not clean**: it reports inherited style issues, Bun-global lint mismatches, empty catches and conservative query/command warnings in the bundled search workload. Inspected query examples use controlled SQL fragments and bound values. This is not a comprehensive security audit or a claim that every static warning has been resolved.
+## Local checks and boundaries
 
-The 0.9.1 change removes reverse DNS lookup during Python loopback HTTP binding. A new regression first failed when name resolution was unavailable, then passed after binding directly through `TCPServer` and setting the known local server name/port. The full Python integration suite also passed locally. The initial hosted Python daemon timeout is recorded separately; the DNS link is a diagnosis to be checked by hosted execution, not a captured traceback from that first run.
+Bun 1.4.4, TypeScript 7.1.0-dev.20261108.1, Linux x64; bundled SQLite reports 3.53.4. **47 distinct targeted tests passed locally**: 29 forge/connector/package cases, nine core cases and nine hybrid/compiler/SQLite cases. Strict typing, source documentation checks and the runnable claim → rejected proof-free close → oracle → close/readback example also passed.
 
-The bundled search workload replaces embedded author build paths with `import.meta.dir`; its original and public hashes are recorded beside it. The new demo is exercised directly. Existing intentional runtime-specific skips are recorded in the machine summary.
+Local socket creation is denied (`EPERM`), and local Worktrunk binary download returned HTTP 504. Those paths are validated by hosted execution above, not counted as local passes. Connector tests use controlled API/CLI fixtures; they do not establish acceptance against a production GitHub/Gitea/Forgejo account.
 
-## Claims this does not establish
+The complete inherited analytics/publication gates remain separate: `bun packages/superiss/check.ts` and `bun tools/check-v1-publication.ts`, requiring DuckDB 2 and `run-guard`. They have not been rerun in full in the socket-restricted local executor. Historical 1.0 analytics receipts are not relabelled as 1.1 acceptance.
 
-A local passing gate does not prove production availability, a completed 24-hour soak, authenticated reviewer identity, exactly-once external effects, customer demand, billing savings or superiority over competing tools. The included historical benchmark has its own [scope and provenance](../bench/results/PROVENANCE.md).
+## Reproduction
 
-## Optional forge adapter 0.1.2
+```sh
+# Installed Bun, TypeScript 7.1 and Node/Bun types required.
+bun tools/check-v11.ts
+# Additional analytics prerequisites required for these full hybrid gates:
+bun packages/superiss/check.ts
+bun tools/check-v1-publication.ts
+```
 
-The adapter was integrated with the public 0.9.1 core. Its separate gate, `bash tools/verify-forge.sh`, passes 16 Bun tests and four process oracles: race, board, lane-policy and lifecycle/restart. Regression tests first exposed unsettled socket calls, stale worktree ownership and false artifact success; the fixes passed those same cases. A further reconnect test caught a handshake rejection that did not settle its caller. A store-isolation regression also checks separate state files for databases sharing a directory and rejects a changed project identity.
-
-The browser check confirmed the task/worktree join after reload and rendered task HTML as text. Actual HTTP checks reject cross-origin requests, hostile Host headers, form posts, malformed JSON and oversized bodies. The Gitea connector is checked against a local HTTP fixture, including configured base, PR payload, commit status, errors and redirects. This does not establish production Gitea, GitHub PR or mirror deployment acceptance.
-
-Source-scoped Semgrep security-audit and adapter Gitleaks scans reported zero findings. The staged Aislop scan scored 97/100 with file-length and parameter-count notices remaining. These are limited automated checks plus self-review, not an independent security audit. Source hashes and results are recorded in [forge-validation.json](research/forge-validation.json).
-
-The generated hero is also configured as GitHub's Social Preview. Public Open Graph and Twitter image metadata point to the uploaded repository image. The JPEG copy is below GitHub's upload size limit.
-
-The shared-store actor selector was exercised against an Office store and in the process lifecycle oracle. Foreign proxied claims are rejected before native mutation, directly claimed foreign tasks produce no worktree, and the durable watcher cursor still advances. Configuration tests cover the omitted default, an explicit empty scope, environment/flag precedence and the configuration file.
-
-## Cursor correction on main
-
-A later hosted run exposed duplicate rows when a Python cursor was resumed by Rust. A deterministic regression with 16 adjacent SQLite binary64 timestamps reproduced two failures. Enabling the existing serde_json `float_roundtrip` feature preserves the timestamp without changing the locked package version. Both cursor directions now pass. The full core gate passed again: 60 worker-contract tests per runtime and 35 Bun service tests, plus integration, budget, controller, recovery and transport suites. The accepted run took 141.930 seconds with a 214 MiB observed process-tree peak. An earlier concurrent run missed an eight-second recovery-fixture deadline; the complete repeat passed without changing that deadline.
+No production forge deployment, authenticated multiuser operation, remote PR merge, power-loss/disaster test, independent security audit, competitor performance advantage or completed 24-hour production soak is established by these checks.

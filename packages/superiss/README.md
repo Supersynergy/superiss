@@ -1,6 +1,8 @@
 # Superiss v1 — TypeScript 7.1, SQLite und DuckDB 2
 
-Version **1.2.0**, lokaler Integrationskandidat. SQLite ist die verbindliche Aufgabensteuerung; DuckDB erzeugt ausdrücklich datierte, lesende Analyseprojektionen. Releasepakete enthalten CLI, Analyse-Worker, Ops-Register, Tokenizer und Web-Board. Ein Installationswechsel migriert keine Projekt-DB und ersetzt keinen laufenden Daemon: Ein 1.2-Client weist ältere oder unversionierte Daemons vor dem ersten Arbeitsbefehl ab.
+Version **1.2.0**. `bin/sis` is now the current source entry point; `bin/sis-v1` is its alias. The release bundle includes forge CLI/HTTP/MCP, optional Worktrunk and explicit repository routing. See [the current forge guide](../../docs/SISF.md), [feature boundaries](../../docs/FEATURES.md) and [validation](../../docs/VALIDATION.md). `close_check` brings the current core to 88 operations.
+
+The host-specific measurements and research provenance below describe the inherited 1.0 analytics work; they are not fresh 1.1 production acceptance. SQLite ist die verbindliche Aufgabensteuerung; DuckDB erzeugt ausdrücklich datierte, lesende Analyseprojektionen. Releasepakete enthalten CLI, Analyse-Worker, Ops-Register, Tokenizer und Web-Board. Ein Installationswechsel migriert keine Projekt-DB und ersetzt keinen laufenden Daemon: Ein 1.2-Client weist ältere oder unversionierte Daemons vor dem ersten Arbeitsbefehl ab.
 
 ## Start
 

@@ -1,3 +1,5 @@
+> Reference-era guide. For Superiss 1.1 entry points and supported features, see [the current feature table](docs/FEATURES.md). Commands for the macOS runner/service use `sis reference` or explicit `SIS_IMPL=rs|py`.
+
 # Superiss 0.9.1: Vertrag und Protokoll
 
 Diese Spezifikation beschreibt den lokalen Aufgabenstore mit atomaren Claims,

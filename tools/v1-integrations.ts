@@ -23,7 +23,7 @@ async function main(): Promise<void> {
       const config = record(JSON.parse(readFileSync(configPath, 'utf8')));
       if (typeof config.sis !== 'string' || !isAbsolute(config.sis) || realpathSync(config.sis) !== realpathSync(runtime)) fail('Service runtime version mismatch: config.sis must pin this versioned launcher');
     }
-  } else if (command === 'forge') script = join(root, 'sisf/sisf.ts');
+  } else if (command === 'forge') script = existsSync(join(root, 'packages/superiss/dist/sisf.js')) ? join(root, 'packages/superiss/dist/sisf.js') : join(root, 'sisf/sisf.ts');
   else fail('Unknown optional adapter');
   if (!existsSync(script)) fail('Optional adapter missing; package with --with-adapters. Core runtime and existing services are unchanged.');
   const child = spawn(executable, [script, ...forwarded], { stdio: 'inherit', env: process.env });

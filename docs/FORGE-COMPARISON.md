@@ -2,7 +2,7 @@
 
 Superiss is a stronger fit when the decision is **whether an agent may call a task done**: its native close operation checks the actor, epoch, live lease, current contract, declared sources and saved executable proof. `sisf` connects that workflow to Git worktrees and PR references. A forge supplies repository hosting and collaboration around those changes.
 
-Research date: **23 October 2026**. This is a comparison of documented contracts, not an overall product ranking or competitor benchmark. ✅ = shipped/documented; 🧩 = integration or configurable workflow; ❌ = exact native capability not established in the reviewed sources. A red X does not rule out an extension implementing it.
+Forge-hosting comparison snapshot: **23 October 2026**. Current adapter behavior is documented in [the 1.1 forge guide](SISF.md). This is a comparison of documented contracts, not an overall product ranking or competitor benchmark. ✅ = shipped/documented; 🧩 = integration or configurable workflow; ❌ = exact native capability not established in the reviewed sources. A red X does not rule out an extension implementing it.
 
 | Capability | **Superiss + sisf** | **Gitea** | **Forgejo** | **GitHub** |
 | --- | --- | --- | --- | --- |
@@ -33,7 +33,7 @@ This is a specialization claim grounded in the Superiss source and acceptance te
 | Coordinate local agents with leases, durable memory and checked task completion | Superiss core. |
 | Link that coordination to worktrees and Gitea/GitHub PRs | Add sisf. Gitea HTTP behavior has fixture coverage; a production Gitea installation still needs its own end-to-end validation. |
 
-Forgejo API compatibility with a given Gitea endpoint is not treated as a tested sisf connector. Native core acceptance and forge merge protection remain separate gates.
+Version 1.1 exposes Forgejo explicitly through the compatible REST connector; fixture coverage does not establish production Forgejo acceptance. Native core acceptance and forge merge protection remain separate gates.
 
 ## Primary sources
 

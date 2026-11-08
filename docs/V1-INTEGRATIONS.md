@@ -56,7 +56,7 @@ bun tools/package-v1.ts /absolute/new/core-release
 bun tools/package-v1.ts /absolute/new/integrated-release --with-adapters
 ```
 
-Destinations must not exist. Both variants retain Bun plus explicit-database requirements. The core variant deliberately omits optional adapters and fails with an actionable message if one is invoked. The integrated variant copies the existing controller, runner, service lock/soak helpers and Forge into the bundle. `manifest.json` lists adapters and file hashes; adapter source inputs are included in `sourceHash` and checked for drift while building. Relocate the entire directory, then use its `bin/sis`; generated service configs must pin that relocated path. No dependency installation or current-version symlink is changed.
+Destinations must not exist. Both variants retain Bun plus explicit-database requirements. Both variants include the compiled Forge CLI/HTTP/MCP and core MCP bridge. The core variant omits the optional workflow/runner/service adapters and fails with an actionable message if one is invoked. The integrated variant also copies the existing controller, runner, service lock/soak helpers and version-pinned adapter bridge. `manifest.json` lists adapters and file hashes; adapter source inputs are included in `sourceHash` and checked for drift while building. Relocate the entire directory, then use its `bin/sis`; generated service configs must pin that relocated path. No dependency installation or current-version symlink is changed.
 
 ## Acceptance and rollback
 

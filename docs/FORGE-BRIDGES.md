@@ -1,8 +1,8 @@
 # Superiss 1.2: cooperating tools and portable forks
 
 The 1.2 source candidate combines the local 1.1 API/client/capsule work with
-the integrated Forge adapter. The fetched public `main` is `17bff9e` (1.0.0).
-No 1.1 release was found. A candidate bundle is an opt-in executable artifact;
+the integrated Forge adapter. GitHub `main` at `2b200f3` (1.1 source) is merged
+as an ancestor, preserving both local and upstream behavior. A candidate bundle is an opt-in executable artifact;
 it does not change an installed runtime or running service.
 
 ## One project authority, several tools
@@ -27,9 +27,9 @@ token-saving result. Remote review and publication remain explicit actions.
 
 The reusable client remains a source API. It is not an independently installed
 SDK, and the optional bundle does not promise a new external module layout.
-The MCP watch adapter needs a dedicated compatibility check before using
-native two-frame wait-watch. Use bounded API events or the tested Forge client
-for this delivery's event lane.
+Current core and Forge MCP entry points use the version-bound TypeScript
+protocol. The Forge adapter selects the old two-frame watch protocol only with
+explicit `--runtime reference`; it rejects incompatible current versions.
 
 ## A complete task loop
 
@@ -97,18 +97,19 @@ The capsule's exact local token count is not provider billing; measure accepted
 completion time, all failed attempts, review/rework, tokens and actual spend
 before asserting savings.
 
-## Remaining merge boundary
+## Merge boundary
 
-The adapter prepares review; it has no automatic end-to-end merge gate.
-A future merge operation needs the native proof/source hash, reviewer identity,
-expected remote head/base SHAs, required checks, and a named native merge slot.
-Recheck the live fence and exact remote SHAs immediately before an authorized
-compare-and-swap merge. An uncertain acknowledgement requires reconciliation.
+Upstream adds `forge verify` and a proof/CI/merge-slot-gated local fast-forward
+merge with native `close_check` and explicit partial-success reporting. It
+checks the current source, live fence, exact local HEAD and target ancestry.
+Remote push, PR creation and local merge remain separate explicit actions.
+A protected remote PR merge and durable remote-effect reconciliation are not
+automatically performed; uncertain acknowledgements require reconciliation.
 
-Multi-repository dispatch and durable PR-effect reconciliation also remain
-separate work. This candidate improves several tools working in one project;
-it does not silently turn the existing `repos` configuration into multi-repo
-authority or claim cross-store atomicity.
+Configured repositories support explicit task routing through the upstream
+Forge integration. Fleet dispatch, durable remote PR-effect reconciliation and
+cross-store atomicity remain separate work; a repository map alone does not
+transfer native project authority.
 
 ## Local source reconciliation
 
