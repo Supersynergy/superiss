@@ -1,5 +1,6 @@
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
-import { existsSync, lstatSync, readFileSync, readdirSync, realpathSync, statSync } from 'node:fs';
+import { accessSync, constants, existsSync, fstatSync, lstatSync, readFileSync, readdirSync, realpathSync, statSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { spawn, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
@@ -101,15 +102,37 @@ export function git(cwd: string, ...args: string[]): string | null {
   const child = spawnSync('git', ['-C', cwd, ...args], { encoding: 'utf8', timeout: 10000, maxBuffer: 4 * 1024 * 1024 });
   return child.status === 0 ? child.stdout : null;
 }
-export interface Execution { exit_code: number | null; timed_out: boolean; output: string }
-export function execute(command: string, cwd: string, seconds: number): Promise<Execution> {
-  const env = { ...process.env };
-  for (const key of ['SIS_ADMIN_TOKEN','SIS_SOCK','SIS_DIRECT','SIS_DB','SIS_CWD_DB']) delete env[key];
+export function localZeroAvailable(): boolean { try { if (process.platform !== 'darwin') return false; accessSync('/usr/bin/sandbox-exec',constants.X_OK); return true; } catch { return false; } }
+function controllerLock(): number | undefined {
+  const value=process.env.SIS_CONTROLLER_LOCK_FD;if(value===undefined)return;
+  if(!/^\d+$/u.test(value)||!Number.isSafeInteger(Number(value))||Number(value)<3||Number(value)>2147483647)fail('bad_args','SIS_CONTROLLER_LOCK_FD must reference an open regular lock file');
+  const fd=Number(value);
+  try {
+    if(!fstatSync(fd).isFile())fail('bad_args','controller lock must reference a regular file');
+    const ffi=createRequire(import.meta.url)('bun:ffi') as {FFIType:{i32:number};dlopen:(path:string,symbols:Record<string,{args:number[];returns:number}>)=>{symbols:{flock:(fd:number,op:number)=>number};close:()=>void}};
+    const library=ffi.dlopen(process.platform==='darwin'?'/usr/lib/libSystem.B.dylib':'libc.so.6',{flock:{args:[ffi.FFIType.i32,ffi.FFIType.i32],returns:ffi.FFIType.i32}});
+    try{if(library.symbols.flock(fd,2|4)!==0)fail('bad_args','controller lock is held by another process');}finally{library.close();}
+    return fd;
+  }catch(error){if(error instanceof SisError)throw error;return fail('bad_args','controller lock unavailable or invalid');}
+}
+export interface Execution { exit_code: number | null; timed_out: boolean; output: string; execution?: Obj }
+export function execute(command: string, cwd: string, seconds: number, localZero = false): Promise<Execution> {
+  let env = { ...process.env };
+  const fd=controllerLock();
+  for (const key of ['SIS_ADMIN_TOKEN','SIS_SOCK','SIS_DIRECT','SIS_DB','SIS_CWD_DB','SIS_CONTROLLER_LOCK_FD','SIS_SERVICE_LOCK_FD']) delete env[key];
+  let binary='/bin/sh',args=['-c',command];
+  const execution:Obj={mode:'local_zero',sandbox:'macos-seatbelt',network:'denied',ipc:'denied',writes:'cwd',credential_environment:'cleared'};
+  if(localZero){
+    if(!localZeroAvailable())fail('local_zero_unavailable','local_zero requires macOS sandbox-exec');
+    const quoted=JSON.stringify(realpathSync(cwd));
+    const profile='(version 1) (deny default) (allow process-fork process-exec sysctl-read file-read*) (deny syscall-unix (syscall-number 147)) (deny syscall-unix (syscall-number 82)) (deny syscall-unix (syscall-number 244)) (allow file-write* (subpath '+quoted+')) (deny file-read* (require-all (require-any (subpath "/Users") (subpath "/private/var/root")) (require-not (subpath '+quoted+'))))';
+    binary='/usr/bin/sandbox-exec';args=['-p',profile,'/bin/sh','-c',command];env={PATH:'/usr/bin:/bin:/usr/sbin:/sbin',HOME:cwd,TMPDIR:cwd,LANG:'C',LC_ALL:'C'};
+  }
   return new Promise((resolveResult, reject) => {
-    const child = spawn('/bin/sh', ['-c', command], { cwd, env, detached: true, stdio: ['ignore','pipe','pipe'] });
+    const child = spawn(binary, args, { cwd, env, detached: true, stdio: fd===undefined?['ignore','pipe','pipe']:['ignore','pipe','pipe',fd] });
     const chunks: Buffer[] = [];
     let bytes = 0, timed = false;
-    for (const stream of [child.stdout, child.stderr]) stream.on('data', (data: Buffer) => { const keep = data.subarray(0, Math.max(0, 65536 - bytes)); if (keep.length) { chunks.push(keep); bytes += keep.length; } });
+    for (const stream of [child.stdout!, child.stderr!]) stream.on('data', (data: Buffer) => { const keep = data.subarray(0, Math.max(0, 65536 - bytes)); if (keep.length) { chunks.push(keep); bytes += keep.length; } });
     const kill = () => { if (child.pid) { try { process.kill(-child.pid, 'SIGKILL'); } catch (e) { if (object(e).code !== 'ESRCH') child.kill('SIGKILL'); } } };
     const timeout = setTimeout(() => { timed = true; kill(); }, seconds * 1000);
     child.once('error', error => { clearTimeout(timeout); reject(error); });
@@ -119,7 +142,7 @@ export function execute(command: string, cwd: string, seconds: number): Promise<
       let output = Buffer.concat(chunks).toString('utf8');
       const secret = process.env.SIS_ADMIN_TOKEN;
       if (secret) output = output.split(secret).join('[redacted]');
-      resolveResult({ exit_code: code, timed_out: timed, output });
+      resolveResult({ exit_code: code, timed_out: timed, output,...(localZero?{execution}:{}) });
     });
   });
 }

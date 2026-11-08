@@ -1,6 +1,6 @@
 # Superiss v1 — TypeScript 7.1, SQLite und DuckDB 2
 
-Version **1.0.0**. SQLite ist die verbindliche Aufgabensteuerung; DuckDB erzeugt ausdrücklich datierte, lesende Analyseprojektionen. Releasepakete enthalten CLI, Analyse-Worker, Ops-Register, Tokenizer und Web-Board. Ein Installationswechsel migriert keine Projekt-DB und ersetzt keinen laufenden Daemon: Ein 1.0-Client weist ältere oder unversionierte Daemons vor dem ersten Arbeitsbefehl ab.
+Version **1.2.0**, lokaler Integrationskandidat. SQLite ist die verbindliche Aufgabensteuerung; DuckDB erzeugt ausdrücklich datierte, lesende Analyseprojektionen. Releasepakete enthalten CLI, Analyse-Worker, Ops-Register, Tokenizer und Web-Board. Ein Installationswechsel migriert keine Projekt-DB und ersetzt keinen laufenden Daemon: Ein 1.2-Client weist ältere oder unversionierte Daemons vor dem ersten Arbeitsbefehl ab.
 
 ## Start
 
@@ -41,7 +41,7 @@ bun packages/superiss/cli.ts migrate_copy source=/absolute/old-project.db --db /
 
 Die Quelle wird nur lesend geöffnet. SQLite `VACUUM INTO` erzeugt eine konsistente Kopie einschließlich WAL-Inhalt. Integritätsprüfung und Projektidentität werden geprüft, danach wird die Zieldatei atomar ohne Überschreiben angelegt. Existiert das Ziel, schlägt der Befehl fehl; auch Symlink-/Hardlink-Kollisionen dürfen nicht zu einem Überschreiben führen. Es ist keine SQLite-zu-DuckDB-Konvertierung und keine laufende Synchronisierung.
 
-Unterstützt sind die übernommenen Superiss-Schemas 7 und 8; neue Datenbanken verwenden den kompatiblen Schema-7-Kern. Neuere unbekannte Schemas werden abgewiesen. Die Formatnummer ist nicht mit der Produktversion 1.0.0 oder der SQLite-Laufzeitversion zu verwechseln. Für eine Produktivübernahme zuerst eine Kopie prüfen; nicht versuchsweise die echte Projekt-DB migrieren.
+Unterstützt sind die übernommenen Superiss-Schemas 7 und 8; neue Datenbanken verwenden den kompatiblen Schema-7-Kern. Neuere unbekannte Schemas werden abgewiesen. Die Formatnummer ist nicht mit der Produktversion 1.2.0 oder der SQLite-Laufzeitversion zu verwechseln. Für eine Produktivübernahme zuerst eine Kopie prüfen; nicht versuchsweise die echte Projekt-DB migrieren.
 
 ## DuckDB-Analyse
 

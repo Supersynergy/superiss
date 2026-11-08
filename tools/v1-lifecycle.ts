@@ -1,3 +1,4 @@
+import { VERSION } from '../packages/superiss/runtime.ts';
 import { existsSync, readFileSync, writeFileSync, openSync, closeSync, realpathSync, renameSync, unlinkSync, mkdirSync, rmdirSync } from 'node:fs';
 import { resolve, dirname, basename, join } from 'node:path';
 import { createHash } from 'node:crypto';
@@ -6,7 +7,7 @@ import { spawn } from 'node:child_process';
 
 interface Identity { pid: number; project_id: string; instance_id: string }
 const [launcher, command, ...args] = process.argv.slice(2);
-const expectedVersion = '1.0.0';
+const expectedVersion = VERSION;
 function fail(message: string): never { throw Error(message); }
 function record(value: unknown): Record<string, unknown> { return value !== null && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {}; }
 function code(error: unknown): unknown { return record(error).code; }

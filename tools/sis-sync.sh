@@ -36,6 +36,7 @@ while [ $# -gt 0 ]; do
 done
 db="${db:-${SIS_DB:-}}"
 [ -n "$db" ] || { echo "sis-sync: pass --db PATH or set SIS_DB" >&2; exit 2; }
+db="$(python3 -c 'import os,sys;print(os.path.realpath(sys.argv[1]))' "$db")"
 [ -f "$db" ] || { echo "sis-sync: store $db does not exist" >&2; exit 2; }
 
 snap="$(dirname "$db")/$(basename "$db" .db).issues.jsonl"
@@ -43,6 +44,29 @@ gitroot="$(cd "$(dirname "$db")" && git rev-parse --show-toplevel 2>/dev/null)" 
   || { echo "sis-sync: $db is not inside a git worktree" >&2; exit 2; }
 cd "$gitroot"
 rel="$(python3 -c "import os,sys;print(os.path.relpath(sys.argv[1]))" "$snap")"
+
+# Never stash, reset or commit another owner's index. Pull also requires the
+# snapshot itself clean because rebase operates on the entire worktree.
+preflight() {
+  [ ! -L "$snap" ] || { echo "sis-sync: snapshot symlink refused" >&2; return 1; }
+  git diff --cached --quiet -- || { echo "sis-sync: staged work preserved; use a clean index" >&2; return 1; }
+  git diff --quiet -- . ":(exclude,literal)$rel" || { echo "sis-sync: unrelated tracked edits preserved" >&2; return 1; }
+  if [ "$MODE" != push ]; then
+    git diff --quiet -- "$rel" || { echo "sis-sync: uncommitted snapshot preserved before pull" >&2; return 1; }
+  fi
+}
+commit_snapshot() {
+  # Check again after snapshot generation; exact-path commit also excludes any
+  # unrelated entry staged concurrently between this check and commit.
+  git diff --cached --quiet -- || { echo "sis-sync: index changed; staged work preserved" >&2; return 1; }
+  git add -- "$rel"
+  if git diff --cached --quiet -- "$rel"; then
+    echo "sis-sync: snapshot unchanged"
+  else
+    git commit --only -m "sis: task snapshot $(date -u +%Y-%m-%dT%H:%M:%SZ)" -- "$rel"
+    git push
+  fi
+}
 
 import_snap() {
   [ -f "$snap" ] || { echo "sis-sync: no snapshot at $rel, nothing to import"; return 0; }
@@ -59,27 +83,18 @@ case "$MODE" in
     git status --porcelain -- "$rel"
     git log --oneline -3 -- "$rel" || true ;;
   pull)
+    preflight
     git pull --rebase
     import_snap ;;
   push)
+    preflight
     "$SIS" --db "$db" snapshot >/dev/null
-    git add -- "$rel"
-    if git diff --cached --quiet -- "$rel"; then
-      echo "sis-sync: snapshot unchanged"
-    else
-      git commit -m "sis: task snapshot $(date -u +%Y-%m-%dT%H:%M:%SZ)"
-      git push
-    fi ;;
+    commit_snapshot ;;
   sync)
+    preflight
     git pull --rebase
     import_snap
     "$SIS" --db "$db" snapshot >/dev/null
-    git add -- "$rel"
-    if git diff --cached --quiet -- "$rel"; then
-      echo "sis-sync: snapshot unchanged"
-    else
-      git commit -m "sis: task snapshot $(date -u +%Y-%m-%dT%H:%M:%SZ)"
-      git push
-    fi ;;
+    commit_snapshot ;;
   *) echo "usage: sis-sync.sh {status|pull|push|sync} [--db PATH]" >&2; exit 2 ;;
 esac

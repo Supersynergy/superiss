@@ -259,7 +259,7 @@ function mcp(engine: Engine | null,opt: Options,remote?: (cmd:string,args:Value)
     const req=object(input); if (req.id===undefined || typeof req.method!=='string' || req.method.startsWith('notifications/')) return;
     try {
       let result: Value;
-      if (req.method==='initialize') result={protocolVersion:'2024-11-05',capabilities:{tools:{}},serverInfo:{name:'superiss',version:'1.0.0'}};
+      if (req.method==='initialize') result={protocolVersion:'2024-11-05',capabilities:{tools:{}},serverInfo:{name:'superiss',version:VERSION}};
       else if (req.method==='tools/list') result={tools:selected.map(op=>({name:'sis_'+text(op.name),description:op.description ?? '',inputSchema:op.inputSchema ?? {type:'object',additionalProperties:true}}))};
       else if (req.method==='tools/call') { const params=object(req.params), name=required(params,'name').replace(/^sis_/u,''); if (!registry.some(op=>op.name===name)) fail('bad_cmd','unknown tool'); let envelope: Obj; try { envelope=remote ? await remote(name,params.arguments ?? {}) : engine ? {ok:true,data:await engine.dispatch(name,params.arguments ?? {},context(opt))} : fail('internal','MCP backend unavailable'); } catch (error) { envelope=responseError(error); } result={content:[{type:'text',text:canonical(envelope)}],isError:!envelope.ok}; }
       else { output({jsonrpc:'2.0',id:req.id,error:{code:-32601,message:'Method not found'}}); return; }

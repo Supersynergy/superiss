@@ -116,8 +116,20 @@ export function extension(e: Engine,cmd: string,a: Obj,c: Context): Value {
       return {group_by:by,since,groups:[...groups.values()].sort((x,y)=>Number(y.cents ?? 0)-Number(x.cents ?? 0))};
     }
     case 'outbox_export': {
-      const format=text(a.format,'raw'), rows=e.rows("SELECT id,kind,payload,run_id FROM outbox WHERE state='pending' ORDER BY id LIMIT ?",integer(a.limit,'limit',100,1,500));
-      const jobs=rows.map(row=>({outbox_id:row.id,kind:row.kind,payload:decode(row.payload,text(row.payload)),run_id:row.run_id})); let out: Obj;
+      const format=text(a.format,'raw'),runner=a.actor===undefined?null:required(a,'actor'),duration=number(a.ttl,'ttl',120,5,3600),time=now();
+      if(runner!==null)e.db.exec('CREATE TABLE IF NOT EXISTS sis_ts_delivery_leases(outbox_id INTEGER PRIMARY KEY,actor TEXT NOT NULL,epoch INTEGER NOT NULL,lease_until REAL NOT NULL)');
+      const deliveryTable=e.row("SELECT name FROM sqlite_master WHERE type='table' AND name='sis_ts_delivery_leases'")?'sis_ts_delivery_leases':'(SELECT NULL outbox_id,NULL lease_until)';
+      if(runner===null&&a.ttl!==undefined||runner!==null&&a.drain===true)fail('bad_args','delivery ttl needs actor; leased exports require acknowledgement, not drain');
+      if(runner!==null){
+        for(const row of e.rows("SELECT o.id,k.v FROM outbox o JOIN sis_ts_delivery_leases l ON l.outbox_id=o.id JOIN kv k ON k.k='sis:autorun-effect:'||o.id WHERE o.kind='autorun' AND o.state='running' AND l.lease_until<=?",time)){
+          const effect=object(decode(row.v)),receipt=object(effect.receipt),known=effect.state==='complete'&&typeof receipt.passed==='boolean',passed=known&&receipt.passed===true;
+          e.run('UPDATE outbox SET state=? WHERE id=?',passed?'done':'failed',row.id);
+          e.emit(passed?'outbox_done':'outbox_fail',null,c,{id:row.id,recovered:true,attest_id:known?receipt.attest_id??null:null,err:known?(passed?null:'command failed or timed out'):'execution_uncertain: reconcile effect before retry'});
+        }
+        e.run("UPDATE outbox SET state='failed' WHERE state='running' AND attempts>=3 AND id IN(SELECT outbox_id FROM sis_ts_delivery_leases WHERE lease_until<=?)",time);
+      }
+      const rows=e.rows("SELECT o.id,o.kind,o.payload,o.run_id FROM outbox o LEFT JOIN "+deliveryTable+" l ON l.outbox_id=o.id WHERE (o.state='pending' OR (? AND o.state='running' AND l.lease_until<=? AND o.attempts<3)) AND (? IS NULL OR o.kind=?) ORDER BY o.id LIMIT ?",runner!==null,time,a.kind,a.kind,integer(a.limit,'limit',100,1,500));
+      const jobs=rows.map(row=>{const job:Obj={outbox_id:row.id,kind:row.kind,payload:decode(row.payload,text(row.payload)),run_id:row.run_id};if(runner!==null){e.run('INSERT INTO sis_ts_delivery_leases(outbox_id,actor,epoch,lease_until) VALUES(?,?,1,?) ON CONFLICT(outbox_id) DO UPDATE SET actor=excluded.actor,epoch=sis_ts_delivery_leases.epoch+1,lease_until=excluded.lease_until',row.id,runner,time+duration);e.run("UPDATE outbox SET state='running',attempts=attempts+1 WHERE id=?",row.id);const epoch=e.row('SELECT epoch FROM sis_ts_delivery_leases WHERE outbox_id=?',row.id)?.epoch;Object.assign(job,{delivery_actor:runner,delivery_epoch:epoch,lease_until:time+duration,idempotency_key:`outbox-${String(row.id)}-delivery-${String(epoch)}`});}return job;}); let out: Obj;
       if (format==='raw') out={format,jobs};
       else if (format==='pgboss-sql') out={format,sql:jobs.map(job=>"INSERT INTO pgboss.job(name,data) VALUES('sis-event','"+canonical(job).replaceAll("'","''")+"'::jsonb);\n").join('')};
       else if (format==='hatchet') out={format,jobs:jobs.map(job=>({workflow:'sis-event',input:job}))};

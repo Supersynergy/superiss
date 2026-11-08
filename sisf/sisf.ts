@@ -67,6 +67,7 @@ const MAX_FRAME = 1024 * 1024;
 type Job = { cmd: string; args: any; frame: string; resolve: (r: any) => void; reject: (e: Error) => void; timer?: Timer; watchSnapshot?: any };
 class Sis {
   sock?: Socket; inflight?: Job; queue: Job[] = []; rbuf = ""; ready?: Promise<void>; project?: string;
+  private watchFrames = 2;
   constructor(private cfg: Cfg) {}
   private connect(): Promise<void> {
     if (this.ready) return this.ready;
@@ -90,6 +91,7 @@ class Sis {
               if (id.ok !== true || !id.data?.project_id || realpathSync(id.data.db_path) !== this.cfg.db)
                 throw new Error("sis identity mismatch");
               if (this.project && this.project !== id.data.project_id) throw new Error("sis project changed");
+              this.watchFrames = id.data.capabilities?.watch_wait_frames === 1 ? 1 : 2;
               this.project = id.data.project_id; s.setTimeout(0); res();
             } catch (e) { abort(e as Error); return; }
             continue;
@@ -99,7 +101,7 @@ class Sis {
           try {
             let response = JSON.parse(line);
             // Native wait-watch emits the initial snapshot, then one long-poll batch.
-            if (job.cmd === "watch" && job.args.wait > 0 && response.ok) {
+            if (this.watchFrames !== 1 && job.cmd === "watch" && job.args.wait > 0 && response.ok) {
               if (!job.watchSnapshot) { job.watchSnapshot = response; continue; }
               response = { ...response, data: { ...response.data, events: [...(job.watchSnapshot.data?.events ?? []), ...(response.data?.events ?? [])] } };
             }
@@ -171,6 +173,24 @@ function git(repo: string, ...a: string[]): string | null {
 }
 function taskFrom(r: any) { return r?.ok ? r.data?.issue ?? r.data?.task ?? r.data : null; }
 function actorAllowed(cfg: Cfg, actor?: string) { return cfg.actors === undefined || !!actor && cfg.actors.includes(actor); }
+class BindingConflict extends Error {
+  constructor(readonly code: string, message: string) { super(message); }
+}
+function bindingConflict(s: Database, task: string, actor: string, epoch: number, error: BindingConflict, event?: { seq?: number; op?: string }) {
+  const key = "binding_conflict:" + JSON.stringify([task, actor, epoch]);
+  const receipt = { task, actor, epoch, code: error.code, message: error.message,
+    event: event ? { seq: event.seq, op: event.op } : null,
+    binding: s.query<WorktreeRow, [string]>("SELECT * FROM worktrees WHERE task=?").get(task),
+    observed_at: Date.now() / 1000 };
+  // Preserve the first observation across retries/crashes; the binding is never reassigned.
+  s.run("INSERT OR IGNORE INTO kv(k,v) VALUES(?,?)", [key, JSON.stringify(receipt)]);
+}
+function reconcilePreview(s?: Database) {
+  return { ok: true, data: { read_only: true,
+    conflicts: s ? s.query<{ v: string }, []>("SELECT v FROM kv WHERE k LIKE 'binding_conflict:%' ORDER BY k").all().map(row => JSON.parse(row.v)) : [],
+    worktrees: s ? s.query<WorktreeRow, []>("SELECT * FROM worktrees ORDER BY task").all() : [],
+  } };
+}
 async function activeClaim(sis: Sis, task: string, actor?: string, epoch?: number, state?: Database) {
   const t = taskFrom(await sis.call("show", { id: task }));
   if (state) bindProject(state, sis.project);
@@ -183,13 +203,20 @@ function ensureWorktree(cfg: Cfg, s: Database, task: string, actor?: string, epo
   if (!actor || !Number.isSafeInteger(epoch) || epoch! < 1) throw new Error("claim actor and lease epoch required");
   const row = s.query<WorktreeRow, [string]>("SELECT * FROM worktrees WHERE task=?").get(task);
   if (row) {
-    if (row.actor !== actor || row.epoch !== epoch || row.status !== "active") throw new Error("worktree ownership/lease epoch changed; reconcile previous worktree explicitly");
-    if (!existsSync(row.path) || git(row.path, "branch", "--show-current") !== row.branch) throw new Error("bound worktree missing or branch changed");
+    if (row.actor !== actor || row.epoch !== epoch || row.status !== "active") throw new BindingConflict("binding_owner_changed", "worktree ownership/lease epoch changed; reconcile previous worktree explicitly");
+    if (!existsSync(row.path)) throw new BindingConflict("binding_missing", "bound worktree missing; reconcile explicitly");
+    const branch = git(row.path, "branch", "--show-current");
+    if (branch === null) throw new Error("cannot inspect bound worktree branch");
+    if (branch !== row.branch) throw new BindingConflict("binding_branch_changed", "bound worktree branch changed; reconcile explicitly");
     return { path: row.path, branch: row.branch, created: false };
   }
   const repo = cfg.repos.default;
   const branch = "sis/" + workspaceId(task);
   const wt = join(repo.path, ".sisf", "wt", workspaceId(task));
+  if (existsSync(wt)) throw new BindingConflict("workspace_exists", "unbound workspace exists; reconcile explicitly");
+  const refs = git(repo.path, "for-each-ref", "--format=%(refname)", "refs/heads/" + branch);
+  if (refs === null) throw new Error("cannot inspect worktree branch references");
+  if (refs.split("\n").includes("refs/heads/" + branch)) throw new BindingConflict("branch_exists", "unbound branch exists; reconcile explicitly");
   mkdirSync(join(repo.path, ".sisf", "wt"), { recursive: true });
   const base = git(repo.path, "rev-parse", "--verify", "--end-of-options", (repo.base || "main") + "^{commit}");
   if (!base) throw new Error("configured base commit does not exist");
@@ -345,8 +372,14 @@ async function reconcileEvent(cfg: Cfg, sis: Sis, s: Database, e: any) {
   if (CLAIM_OPS.has(e.op)) {
     if (t?.status !== "in_progress" || !(t.lease_until > Date.now() / 1000)) return;
     if (!actorAllowed(cfg, t.claim_actor)) return;
-    const wk = ensureWorktree(cfg, s, e.issue, t.claim_actor, t.lease_epoch, t.lane ?? null);
-    process.stderr.write(`[sisf] worktree ${wk.branch} → ${wk.path}\n`);
+    try {
+      const wk = ensureWorktree(cfg, s, e.issue, t.claim_actor, t.lease_epoch, t.lane ?? null);
+      process.stderr.write(`[sisf] worktree ${wk.branch} → ${wk.path}\n`);
+    } catch (error) {
+      if (!(error instanceof BindingConflict)) throw error;
+      bindingConflict(s, e.issue, t.claim_actor, t.lease_epoch, error, e);
+      process.stderr.write(`[sisf] binding conflict ${e.issue}: ${error.code}; retained for explicit reconciliation\n`);
+    }
   } else if (t?.status !== "in_progress") releaseWorktree(s, e.issue, RELEASE_OPS[e.op]);
 }
 async function watcher(cfg: Cfg, sis: Sis, s: Database) {
@@ -484,6 +517,7 @@ async function serve(cfg: Cfg) {
         return Response.json({ ok: true, tasks, worktrees: wt });
       }
       if (req.method === "GET" && u.pathname === "/sisf/worktrees") return Response.json({ ok: true, data: s.query("SELECT * FROM worktrees ORDER BY updated DESC").all() });
+      if (req.method === "GET" && u.pathname === "/sisf/reconcile") return Response.json(reconcilePreview(s));
       if (req.method === "POST" && u.pathname === "/sisf/commit") {
         const b: any = await req.json();
         return Response.json(await commitAttest(cfg, sis, s, b.id, b.actor, b.epoch, b.base));
@@ -520,7 +554,10 @@ async function serve(cfg: Cfg) {
             const wk = ensureWorktree(cfg, s, r.data.id, args.actor, r.data.epoch, lane ?? null);
             const lp = lanePolicy(cfg, lane);
             r.data.sisf = { bound: true, worktree: wk.path, branch: wk.branch, ...(lp ? { lane_policy: lp } : {}) };
-          } catch (e) { r.data.sisf = { bound: false, claim_preserved: true, error: (e as Error).message }; }
+          } catch (e) {
+            if (e instanceof BindingConflict) bindingConflict(s, r.data.id, args.actor, r.data.epoch, e);
+            r.data.sisf = { bound: false, claim_preserved: true, error: (e as Error).message };
+          }
         }
         if (r?.ok && args?.id && RELEASE_OPS[cmd]) releaseWorktree(s, args.id, RELEASE_OPS[cmd]);
         return Response.json(r);
@@ -536,12 +573,15 @@ async function serve(cfg: Cfg) {
   return srv;
 }
 
-export const _test = { loadCfg, bindProject, safeId, workspaceId, parseRemote, Sis, openState, ensureWorktree, commitAttest, requestAllowed, safeURL, boardHTML, gitea, giteaCi, createPR, pruneWorktrees, lanePolicy };
+export const _test = { loadCfg, bindProject, safeId, workspaceId, parseRemote, Sis, openState, ensureWorktree, commitAttest, requestAllowed, safeURL, boardHTML, gitea, giteaCi, createPR, pruneWorktrees, lanePolicy, reconcileEvent, reconcilePreview };
 async function cli() {
 const cmd = process.argv[2];
 const cfg = loadCfg();
 if (cmd === "serve") {
   await serve(cfg); // never returns — server holds the process
+} else if (cmd === "reconcile") {
+  const s = existsSync(cfg.state) ? new Database(cfg.state, { readonly: true }) : undefined;
+  try { out(reconcilePreview(s)); } finally { s?.close(); }
 } else if (cmd === "health" || cmd === "status") {
   const sis = new Sis(cfg);
   let c: any = null;
@@ -584,6 +624,7 @@ if (cmd === "serve") {
   sisf commit <task> --db X --actor A --epoch N  record changes + artifact
   sisf pr <task> --db X --actor A --epoch N [--via gitea|github|mirror]
   sisf ci <task> --db X             CI status for task head (gitea)
+  sisf reconcile --db X            read-only binding conflict preview; no repairs
   sisf prune [--yes] --db X         remove clean inactive worktrees; retain branches
 
 config: ${join(dirname(cfg.db), "sisf.config.json")} or env SIS_DB SISF_PORT SISF_GITEA_URL SISF_GITEA_TOKEN`);

@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.2.0 — local source candidate (2026-11-08)
+
+- Combined the local 1.1 API/client/capsule work with fetched public main `17bff9e`; runtime, lifecycle and portable bundle identify as 1.2.0. No remote release or installed runtime switch.
+- Forge stores task binding conflicts across restart and keeps unrelated tasks moving; added read-only reconciliation and a bounded ten-client regression. Existing ownership and infrastructure failure checks remain.
+- Snapshot sync refuses another owner's staged index/unrelated tracked edits and commits only its snapshot path. Active task updates require a live actor/epoch even when omitted by a caller.
+- Documented CLI/MCP/HTTP/client bridges, patch-based upstream remigration and the remaining remote merge boundary in `docs/FORGE-BRIDGES.md`. Historical 1.0 soak evidence remains separately pinned.
+
+## Unreleased
+
+- Added opt-in source-bound worker capsules with exact local token budgets, mandatory contract/fence retention and explicit drift invalidation. Added a reusable loopback HTTP client with bounded keepalive connections, correlation, deadlines/cancellation, queued-request shutdown and no automatic retries or redirects. Documented controller/worker/reviewer ownership and evidence-based sweetspot decisions; no paid routing, runtime cutover or 1.1 publication.
+
+- Added opt-in 1.1 tracker snapshots with consistent event cursors, bounded filters/paging and blocked/expired/failed-proof views. Compact source-bound loop receipts retain scope/oracle/fence/checkpoints and drift without auto-replaying commands; unknown timing/proof-currency values remain explicit. Restart/reconnect and input/security regressions are covered. This is not a published 1.1 release.
+
+- Added opt-in versioned local HTTP API discovery/OpenAPI, correlated JSON RPC/named operations, atomic batches, resumable event cursors and browser-origin/body/header guards. The existing board remains a read-only tracker.
+- Integrated version-pinned workflow/runner/service/Forge adapters and optional hash-bound relocatable bundles. Local-zero execution now enforces explicit zero budgets, security metadata/source binding, sandboxed execution and fenced bounded outbox delivery. Durable effect markers reconcile lost acknowledgements without replay; interrupted effects fail closed for manual reconciliation. Unsupported platforms fail closed; reference runtimes and running services are not switched.
+- Added real isolated workflow/proof/close, interruption recovery, service drain, Forge/TypeScript watch and relocated adapter acceptance; documented usage and a separately scoped 1.1 loop-speed roadmap in `docs/V1-INTEGRATIONS.md`.
+
+- Added a private installed-bundle endurance runner with real 24-hour wall/monotonic gates, native fenced lifecycle proofs, hourly analytics and three owned daemon crash recoveries. A short probe is explicitly not endurance acceptance. Existing production services and databases are not changed; see `docs/V1-FINAL.md`.
+
 ## 1.0.0 — 2026-11-03
 
 - Added the TypeScript 7.1/Bun runtime in `packages/superiss`, with 87 operations and a separate `bin/sis-v1` source launcher. The existing `bin/sis`, Rust/Python sources, service and forge adapter remain the 0.9 reference; their recorded validation is unchanged.

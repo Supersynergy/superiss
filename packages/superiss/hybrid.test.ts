@@ -140,11 +140,11 @@ test('runtime loads the installed SQLite release and reports real versions', asy
     const { Engine } = await import('./engine.ts'); const e = new Engine(f.path);
     try {
       const caps = await e.dispatch('capabilities', {}) as Obj;
-      assert.equal(caps.version, '1.0.0'); assert.equal(caps.typescript, '7.1');
+      assert.equal(caps.version, '1.2.0'); assert.equal(caps.typescript, '7.1');
       assert.equal(caps.sqlite_version, '3.54.1'); assert.equal(caps.durability, 2);
       assert.ok((caps.operations as string[]).includes('analytics'));
       assert.ok((caps.operations as string[]).includes('acquire'));
-      assert.equal((await e.dispatch('context', {}) as Obj).capabilities && ((await e.dispatch('context', {}) as Obj).capabilities as Obj).version, '1.0.0');
+      assert.equal((await e.dispatch('context', {}) as Obj).capabilities && ((await e.dispatch('context', {}) as Obj).capabilities as Obj).version, '1.2.0');
     } finally { await e.shutdown(); e.db.close(); }
   } finally { f.cleanup(); }
 });

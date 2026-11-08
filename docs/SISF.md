@@ -1,6 +1,6 @@
 # sisf — connect accepted work to Git
 
-`sisf` is an optional Bun/TypeScript adapter for Superiss 0.9.1. It links a claimed task to a Git worktree, records its changes and artifact reference, and shows tasks beside worktrees, commits and pull requests. The tracker core still has 85 operations; the adapter does not change its protocol or database schema.
+`sisf` is an optional Bun/TypeScript adapter for the retained Superiss 0.9.1 reference and the opt-in TypeScript 1.2 runtime. It links a claimed task to a Git worktree, records its changes and artifact reference, and shows tasks beside worktrees, commits and pull requests. The tracker core still has 85 operations; the adapter does not change its protocol or database schema.
 
 ## What ships
 
@@ -13,7 +13,7 @@
 | 🖥️ Board | `/forge` joins task state with stored worktree, head and PR references. The board refreshes every five seconds; it is an operational view, not a review UI. |
 | 🔌 Connectors | Gitea PR creation and combined commit status, GitHub PR creation through `gh`, and push to an explicitly configured Git mirror. |
 | 🛤️ Lanes | Configured lane paths are recorded as advisory policy on the binding. The task's native acceptance scope remains authoritative. |
-| ♻️ Restart | SQLite WAL with `synchronous=FULL` stores bindings and the handled event cursor. Failed events are retried; six consecutive failures stop the watcher and make health report an error. |
+| ♻️ Restart | SQLite WAL with `synchronous=FULL` stores bindings and the handled event cursor. Deterministic task binding conflicts are persisted and later tasks continue. Infrastructure failures retry; six consecutive failures stop the watcher and make health report an error. |
 | 🧹 Cleanup | `prune` lists inactive bindings. `prune --yes` removes only clean, inactive, correctly located worktrees with a matching sisf lock. Branches remain as recovery references. |
 
 Runtime requirements: Bun, Git and a running project-bound Superiss daemon. GitHub PR creation also needs an authenticated `gh`. There are no third-party runtime packages; `bun:sqlite` provides the local state database.
@@ -92,6 +92,8 @@ The adapter listens on loopback. It checks Host/Origin, requires JSON POST reque
 The diff collector rejects unreadable Git output, missing bases, oversized untracked files, untracked symlinks and changes exceeding the native 80-file/300-character-path limits. It does not silently turn these failures into empty evidence. Rename detection is disabled: a rename appears as a delete and add. Hunk ranges are best-effort metadata; native source fingerprints govern acceptance.
 
 Merge protection, required CI/reviews and access control belong to the forge configuration. No automatic merge gate, jj/Radicle backend, hosted authentication or multi-store fan-in is implemented here. GitHub and mirror connectors need environment-specific validation before relying on them in production.
+
+Read-only conflict preview: `bin/sis-v1 forge reconcile --db /absolute/project/tasks.db` or `GET /sisf/reconcile`. It preserves the old workspace and does not repair or transfer ownership. See [cooperating tools and portable forks](FORGE-BRIDGES.md).
 
 ## Executed acceptance
 

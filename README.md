@@ -19,6 +19,8 @@
 
 ## 1.0.0: TypeScript runtime
 
+**Local 1.2.0 candidate:** combines local 1.1 API and Forge work; [tool bridges and fork remigration](docs/FORGE-BRIDGES.md). Public main remains 1.0.0; no installed runtime is switched.
+
 [Release notes](CHANGELOG.md) · [Runtime, safety and verification](packages/superiss/README.md)
 
 The 1.0 runtime uses Bun, TypeScript 7.1, authoritative SQLite and separate DuckDB 2.0 snapshot analytics (**87 operations**). Start from a new, explicit database:
