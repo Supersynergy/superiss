@@ -1,3 +1,5 @@
+> Current Superiss entry point: `bin/sis` (1.1). Beads also has leases/heartbeats/reclaim; see [the current comparison](COMPARISON.md). The migration below is explicit export/import, not live bidirectional synchronization.
+
 # Superiss as a Beads alternative
 
 Beads established a useful pattern: durable, dependency-aware work that an agent can query after the conversation ends. Superiss shares that goal and adds an explicit acceptance path: **claim → execute oracle → save source-bound proof → close**.

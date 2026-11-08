@@ -35,5 +35,5 @@ curl -sf -H 'content-type: application/json' -X POST "http://127.0.0.1:$PORT/" -
 curl -sf -H 'content-type: application/json' -X POST "http://127.0.0.1:$PORT/" -d '{"cmd":"unclaim","args":{"id":"p2","actor":"b","epoch":1}}' >/dev/null
 bun "$ROOT/sisf/sisf.ts" prune --db "$SIS_DB" | grep -q 'p2' || { echo "FAIL stale list"; exit 1; }
 # ci without gitea → clear error
-(bun "$ROOT/sisf/sisf.ts" ci p1 --db "$SIS_DB" || true) | grep -q 'no_connector' || { echo "FAIL ci error"; exit 1; }
+(bun "$ROOT/sisf/sisf.ts" ci p1 --db "$SIS_DB" --actor a --epoch 1 --via gitea || true) | grep -q 'no_connector' || { echo "FAIL ci error"; exit 1; }
 echo "P4 ORACLE PASS"

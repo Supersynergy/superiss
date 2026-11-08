@@ -1,3 +1,5 @@
+> Reference-era guide. For Superiss 1.1 entry points and supported features, see [the current feature table](docs/FEATURES.md). Commands for the macOS runner/service use `sis reference` or explicit `SIS_IMPL=rs|py`.
+
 # Superiss-Dienst
 
 `sis service` verwaltet einen lokalen Aufgaben-Daemon. Er verwendet den vorhandenen vollständigen `sis run`-Ablauf und öffnet keinen zusätzlichen Netzwerkport. Der RPC-Dienst `sis up` bleibt eine eigene Funktion.

@@ -11,6 +11,6 @@ for IMPL in rs py; do
   python3 tests/recovery_edges.py --impl "$IMPL"
   SIS_IMPL="$IMPL" python3 tests/contract_suite.py --serve-cmd "$ROOT/bin/sis serve"
 done
-bun test tests/service.test.ts tests/service-regression.test.ts tests/service-soak.test.ts tests/service-chaos.test.ts tests/service-defaults.test.ts
+SIS_IMPL=rs bun test tests/service.test.ts tests/service-regression.test.ts tests/service-soak.test.ts tests/service-chaos.test.ts tests/service-defaults.test.ts
 node --check mcp/sis-mcp.js
 bash -n bin/sis

@@ -7,4 +7,4 @@ while [ -L "$SELF" ]; do
   if [[ "$LINK" = /* ]]; then SELF="$LINK"; else SELF="$(dirname "$SELF")/$LINK"; fi
 done
 ROOT="$(cd "$(dirname "$SELF")/.." && pwd)"
-exec bun "$ROOT/sisf/sisf.ts" "$@"
+exec "${SIS_BUN:-bun}" "$ROOT/sisf/sisf.ts" "$@"

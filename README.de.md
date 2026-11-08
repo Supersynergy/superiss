@@ -1,64 +1,31 @@
-# Superiss - no more Issues.
+# Superiss 1.1
 
-![Superiss - no more Issues. Goal Coordination for Agents.](assets/superiss-hero.png)
+**Agenten koordinieren und Ergebnisse vor dem Abschluss prüfen — mit integriertem Git-/Forge-Ablauf.**
 
-**Goal Coordination for Agents.**
+Version **1.1.0**: Bun/TypeScript, SQLite als verbindliche Aufgaben-Datenbank, 88 Kernoperationen und zehn Forge-Tools. DuckDB 2 dient optionalen, getrennten Snapshot-Analysen.
 
-**Lokale Aufgabenkoordination und dauerhaftes Arbeitsgedächtnis für KI-Agenten. Eine Beads-Alternative mit ausführbarer Abnahme, abgesicherten Claims und Wiederaufnahme.**
-
-Superiss hält den Aufgabenstand samt Projektwissen in SQLite. Zum Abschluss führt der Agent den Prüfbefehl seines Vertrags aus. Danach verlangt Superiss einen gespeicherten Beleg. Claim und Lease müssen noch gelten; Vertragsrevision und Quellenhash müssen zum Beleg passen.
-
-| Funktion | Nutzen |
+| Bereich | Aktueller Stand |
 | --- | --- |
-| 🧠 Aufgaben und Arbeitsgedächtnis | Projektwissen überlebt den Chat. |
-| 🧾 Ausgeführte Abnahme | Ohne passenden Proof kein Abschluss. |
-| 🔒 Abgesicherte Ownership | Veraltete Worker können keinen neuen Stand abschließen. |
-| 🗺️ Goals, Pläne und Dependencies | Aus Zielen werden ausführbare Teilaufgaben. |
-| 🚦 Gates und Merge-Slots | Freigaben und gemeinsame Engstellen werden sichtbar. |
-| 🔁 Checkpoints und Recovery | Wiederaufnahme prüft Zustand und Wiederholungsfreigaben. |
-| 🔬 JUnit, Coverage und Reviewbelege | Zusätzliche Evidenz kann beim Abschluss Pflicht sein. |
-| 💸 Kostenjournal und Rollups | Gemeldeter Verbrauch lässt sich je Goal auswerten. |
-| 🔌 CLI, MCP, Socket und HTTP | Zugriff aus Terminal, Agent oder lokalem Browserboard. |
-| ⚙️ Runner und Dienst | Begrenzter Command-to-Close-Ablauf mit macOS-Sandbox. |
-
-**85 registrierte Operationen, Rust-Kern und Python-Referenz.** Der Tracker braucht keinen Modell-API-Key. Die Qualität des Prüfbefehls bestimmt, was ein grüner Beleg nachweist.
-
-## Release 1.0.0
-
-Die neue Bun-/TypeScript-7.1-Laufzeit liegt unter [packages/superiss](packages/superiss/README.md): **87 Operationen**, SQLite als verbindliche Steuerung und DuckDB 2.0 für getrennte Snapshot-Analysen.
+| Aufgaben und Gedächtnis | Ziele, Abhängigkeiten, Ready-Queue, Notizen, Remember/Recall |
+| Zuständigkeit | Atomare Claims, Actor, Epoch, Ablaufzeit und Heartbeats |
+| Abnahme | Prüfbefehl ausführen; Abschluss an Vertrag, Quellen und Proof binden |
+| Git/Forge | Worktree, Änderungen, Artefakte, echter Git-Commit, Push, PR, CI, Rebase, lokaler Merge |
+| Worktrunk | Optionaler Backend; kein stiller Rückfall auf Git |
+| Anbieter | GitHub über `gh`; Gitea/Forgejo über REST |
+| Mehrere Repositories | Konfigurierte `repos` und ausdrückliches `meta.repo_key` |
+| Schnittstellen | CLI, Socket, MCP, lokales HTTP und Boards |
 
 ```sh
-bin/sis-v1 capabilities --db /absoluter/pfad/test-project.db
-bun packages/superiss/check.ts
-bun tools/check-v1-publication.ts
-bun tools/package-v1.ts /absoluter/pfad/neues-release-verzeichnis
+mkdir -p /absolute/project/.sis
+export SIS_DB=/absolute/project/.sis/project.db
+bin/sis up
+bin/sis forge serve --repo /absolute/project --port 8766
 ```
 
-Das gebaute Release enthält `bin/sis` für **1.0.0** und ein SHA-256-Dateimanifest. Analysen benötigen vorhandenes `run-guard` und DuckDB 2.0; nichts wird automatisch installiert. Der Quellcheck verlangt zusätzlich einen installierten TypeScript-7.1-Compiler und Node-Typen. [Änderungen und geprüfte Grenzen](CHANGELOG.md).
+Bun ab 1.4.4 ist erforderlich, für Forge Git. Worktrunk und `gh` werden nur für die entsprechenden Funktionen benötigt. Analysen brauchen zusätzlich DuckDB 2 und `run-guard`. Es wird nichts automatisch installiert.
 
-Ein Zeigerwechsel ersetzt keinen laufenden Daemon und migriert keine Projekt-DB. Ein 1.0-Client weist ältere Daemons vor Schreibbefehlen ab. Zuerst eine ausdrückliche `migrate_copy` prüfen; den Produktivwechsel übernimmt der Daemon-Besitzer. Die bisherige Installation bleibt für den Rückbau erhalten.
+`bin/sis` startet jetzt die aktuelle 1.1-Laufzeit. `bin/sis-v1` und `bin/sisf` bleiben passende Aliase. Bestehende Datenbanken und laufende Daemons werden nicht automatisch umgestellt. Ein 1.1-Client weist ältere Daemons vor Schreiboperationen zurück; vorher die alte Installation behalten und eine Datenbankkopie prüfen.
 
-Das bisherige Root-`bin/sis`, Rust/Python, Dienst und Forge-Adapter bleiben die **0.9-Referenz** mit unveränderten Prüfbelegen. Für 1.0 ausdrücklich `bin/sis-v1` oder das Releasepaket verwenden.
+Die Rust-/Python-0.9-Referenz bleibt über `sis reference …` bzw. `SIS_IMPL=rs|py` erreichbar. macOS-Sandbox und launchd-Dienst gehören weiterhin zu dieser Referenz. Historische Prüfbelege sind entsprechend gekennzeichnet.
 
-## Git und Forges verbinden
-
-Der optionale Bun-Adapter **sisf** verbindet Claims mit gesperrten Git-Worktrees. Er berechnet Diffs, speichert Artefaktreferenzen, zeigt Aufgaben neben Worktrees und verbindet Gitea- oder GitHub-PRs. Der native Prüfbefehl bleibt für den Abschluss erforderlich.
-
-[Einrichtung und geprüfte Grenzen](docs/SISF.md) · [Vergleich mit Gitea, Forgejo und GitHub](docs/FORGE-COMPARISON.md). Superiss ist auf Agenten-Ownership und belegten Aufgabenabschluss spezialisiert. Die Forge übernimmt Hosting, Konten, Reviews und CI.
-
-## Ausprobieren
-
-```bash
-git clone https://github.com/Supersynergy/superiss.git
-cd superiss
-CARGO_TARGET_DIR=.cache/cargo cargo build --locked -j2
-python3 examples/quickstart.py
-```
-
-Das Beispiel nutzt eine private temporäre Datenbank. Es zeigt zuerst den abgelehnten Abschluss ohne Proof. Anschließend führt es die Prüfung aus und liest den belegten Abschluss zurück. [Voraussetzungen](docs/GETTING-STARTED.md).
-
-Der [Vergleich mit fünf etablierten Tools](docs/COMPARISON.md) enthält eine Emoji-Tabelle für **Beads, beads_rust, Task Master AI, Vibe Kanban und Taskwarrior**, Primärquellen und deren Stärken. Stand: 23.10.2026. Offene Recherchepunkte sind markiert; es wurde kein Geschwindigkeitsvergleich gegen diese Tools ausgeführt.
-
-[Alle Features](docs/FEATURES.md) · [Alle Operationen](docs/OPERATIONS.md) · [Beads-Migration](docs/BEADS-ALTERNATIVE.md) · [Protokoll](SPEC.md) · [Lokaler Ablauf](ZERO-RECOVERY.md) · [Dienst](SERVICE.md) · [Prüfbelege](docs/VALIDATION.md) · [English](README.md)
-
-Pfadmetadaten sind keine Sandbox. Der explizite lokale macOS-Ablauf fügt eine Sandbox hinzu. Kostenjournal und Tokenzählung sind keine Providerrechnung. Lokale Tests belegen weder Produktionszuverlässigkeit noch 24 Stunden Verfügbarkeit. [MIT-Lizenz](LICENSE).
+[Start und Upgrade](docs/GETTING-STARTED.md) · [Forge-Befehle](docs/SISF.md) · [Features und Versionsgrenzen](docs/FEATURES.md) · [Vergleich mit Worktrunk und Beads](docs/COMPARISON.md) · [Prüfstand](docs/VALIDATION.md) · [English](README.md)

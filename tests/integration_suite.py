@@ -146,7 +146,7 @@ with patch('socket.getfqdn', side_effect=AssertionError('loopback HTTP must not 
     def test_multiworker_bundled_native_needs_no_cargo(self) -> None:
         bundled = self.work / 'installed' / 'bin'
         bundled.mkdir(parents=True)
-        shutil.copy2(ROOT / 'bin/sis', bundled / 'sis')
+        shutil.copy2(ROOT / 'bin/sis-reference', bundled / 'sis')
         shutil.copy2(ROOT / '.cache/cargo/debug/superiss', bundled / 'superiss-native')
         environment = dict(self.env, SIS_IMPL='rs', PATH='/usr/bin:/bin')
         environment.pop('SIS_SOCK', None)

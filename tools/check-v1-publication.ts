@@ -20,12 +20,12 @@ for (const name of Object.keys(env)) if (name.startsWith('SIS_') && !['SIS_BUN',
 try {
   const compiler = resolveTypeScript(process.env, repository);
   const typeRoots = process.env.SIS_TYPE_ROOTS ?? dirname(dirname(createRequire(import.meta.url).resolve('@types/node/package.json')));
-  const types = spawnSync(compiler.command, ['--strict', '--skipLibCheck', '--noEmit', '--allowImportingTsExtensions', '--module', 'ESNext', '--moduleResolution', 'Bundler', '--target', 'ES2023', '--types', 'node', '--typeRoots', typeRoots, 'tools/package-v1.ts', 'tools/check-v1-publication.ts', 'tools/v1-lifecycle.ts'], { cwd: repository, encoding: 'utf8', timeout: 30000 });
+  const types = spawnSync(compiler.command, ['--strict', '--skipLibCheck', '--noEmit', '--allowImportingTsExtensions', '--module', 'ESNext', '--moduleResolution', 'Bundler', '--target', 'ES2023', '--types', 'node,bun', '--typeRoots', typeRoots, 'tools/package-v1.ts', 'tools/check-v1-publication.ts', 'tools/v1-lifecycle.ts', 'sisf/sisf.ts'], { cwd: repository, encoding: 'utf8', timeout: 30000 });
   assert.equal(types.status, 0, types.stdout + types.stderr);
   checks.push('strict-typescript-7.1-packaging-tools');
   const bundle = join(scratch, 'bundle');
   const manifest = packageRelease(bundle);
-  assert.equal(manifest.version, '1.0.0');
+  assert.equal(manifest.version, '1.1.0');
   assert.equal(manifest.sourceHash.length, 64);
   const files = readdirSync(bundle, { recursive: true, withFileTypes: true }).filter(entry => entry.isFile()).map(entry => join(entry.parentPath, entry.name).slice(bundle.length + 1)).sort();
   assert.deepEqual(files, ['manifest.json', ...Object.keys(manifest.files)].sort());
@@ -43,16 +43,22 @@ try {
     return object(JSON.parse(result.stdout));
   }
   const caps = run('capabilities');
-  assert.equal(caps.version, '1.0.0'); assert.equal(caps.protocol, 2); assert.equal(caps.proof_receipts, true);
-  assert.ok(Array.isArray(caps.operations)); assert.equal(caps.operations.length, 87);
+  assert.equal(caps.version, '1.1.0'); assert.equal(caps.protocol, 2); assert.equal(caps.proof_receipts, true);
+  assert.ok(Array.isArray(caps.operations)); assert.equal(caps.operations.length, 88);
   checks.push('relocated-launcher-version-and-contract');
+  assert.ok(Object.hasOwn(manifest.files, 'packages/superiss/dist/sisf.js'));
+  assert.ok(Object.hasOwn(manifest.files, 'bin/sisf'));
+  assert.ok(Object.hasOwn(manifest.files, 'mcp/sis-mcp.js'));
+  const forgeHelp = spawnSync('/bin/bash', [cli, 'forge', '--help'], {cwd:scratch,env,encoding:'utf8',timeout:10000});
+  assert.equal(forgeHelp.status,0,forgeHelp.stderr); assert.match(forgeHelp.stdout,/1\.1\.0 forge/);
+  checks.push('relocated-forge-launcher-and-mcp-packaged');
   const portProbe = createServer();
   await new Promise<void>((resolve, reject) => { portProbe.once('error', reject); portProbe.listen(0, '127.0.0.1', resolve); });
   const address = portProbe.address(); assert.ok(address && typeof address !== 'string');
   const port = address.port;
   await new Promise<void>(resolve => portProbe.close(() => resolve()));
   const up = run('up', {}, db, { SIS_HTTP: String(port) });
-  assert.equal(up.up, true); assert.equal(up.version, '1.0.0');
+  assert.equal(up.up, true); assert.equal(up.version, '1.1.0');
   try {
     const status = run('status'); assert.equal(status.pid, up.pid); assert.equal(status.up, true);
     const page = await fetch('http://127.0.0.1:' + port + '/', { signal: AbortSignal.timeout(5000) });

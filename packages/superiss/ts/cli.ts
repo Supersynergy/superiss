@@ -23,6 +23,7 @@ function options(): Options {
     else if (part==='--json') continue;
     else if (part==='--http') { if (!args[i+1]) fail('bad_args','--http requires port'); process.env.SIS_HTTP=args[++i]; }
     else if (part.startsWith('--http=')) process.env.SIS_HTTP=part.slice(7);
+    else if (part==='--version') { console.log(VERSION); process.exit(0); }
     else if (part==='--help' || part==='-h') { console.log('sis <operation> [JSON | key=value ...] --db PATH [--actor NAME] [--idem KEY]\nsis serve --db PATH --sock PATH\nsis mcp --db PATH [--tool NAME] [--mcp-headers]\nTypeScript 7.1 / Bun; Rust and Python are explicit reference runtimes.'); process.exit(0); }
     else if (!selected) { result.cmd=part; selected=true; }
     else result.payload.push(part);
@@ -52,7 +53,7 @@ function payload(opt: Options): Value {
     if (value.startsWith('@')) return JSON.parse(readFileSync(value.slice(1),'utf8')) as Value;
     if (value.startsWith('{') || value.startsWith('[')) return JSON.parse(value) as Value;
   }
-  const shortcuts: Record<string,string[]>={acquire:['actor'],tokens:['text'],verify:['id','actor','epoch','cwd'],checkpoint:['id','actor','epoch','text','next_step'],handoff:['id','actor','epoch','text','next_step'],claim:['id','actor','epoch'],heartbeat:['id','actor','epoch'],close:['id','actor','epoch'],unclaim:['id','actor','epoch'],claim_next:['actor'],dep:['issue','depends_on'],dep_remove:['issue','depends_on'],rename:['from','to'],gate:['name','state'],slot_acquire:['name','actor'],slot_release:['name','actor','epoch'],q:['title'],create:['title'],goal:['name','objective'],sub:['parent','title'],plan:['name'],next:['goal'],note:['id','text'],defer:['id','until'],label:['id','add'],recall:['key'],search:['q'],import:['path'],sync_import:['path'],attest:['id','actor','epoch','kind','path'],cost_add:['issue'],learn:['group_by','since'],outbox_export:['format'],remember:['key','value'],budget_claim:['issue','eur'],outbox_done:['id','err'],outbox_fail:['id','err'],ready:['lane']};
+  const shortcuts: Record<string,string[]>={acquire:['actor'],tokens:['text'],verify:['id','actor','epoch','cwd'],checkpoint:['id','actor','epoch','text','next_step'],handoff:['id','actor','epoch','text','next_step'],claim:['id','actor','epoch'],heartbeat:['id','actor','epoch'],close_check:['id','actor','epoch'],close:['id','actor','epoch'],unclaim:['id','actor','epoch'],claim_next:['actor'],dep:['issue','depends_on'],dep_remove:['issue','depends_on'],rename:['from','to'],gate:['name','state'],slot_acquire:['name','actor'],slot_release:['name','actor','epoch'],q:['title'],create:['title'],goal:['name','objective'],sub:['parent','title'],plan:['name'],next:['goal'],note:['id','text'],defer:['id','until'],label:['id','add'],recall:['key'],search:['q'],import:['path'],sync_import:['path'],attest:['id','actor','epoch','kind','path'],cost_add:['issue'],learn:['group_by','since'],outbox_export:['format'],remember:['key','value'],budget_claim:['issue','eur'],outbox_done:['id','err'],outbox_fail:['id','err'],ready:['lane']};
   const result: Obj={}, positionals: string[]=[]; let noFlags=false;
   const parse=(value: string): Value=>{try{return JSON.parse(value) as Value;}catch{return value;}};
   for (let i=0;i<opt.payload.length;i++) {
@@ -233,24 +234,26 @@ async function serve(engine: Engine,path: string): Promise<void> {
     const bound = lstatSync(path); socketIdentity = {dev:bound.dev,ino:bound.ino};
     const { chmodSync } = await import('node:fs'); chmodSync(path,0o600);
     if (process.env.SIS_HTTP) await startHttp(engine,Number(process.env.SIS_HTTP),input => tracked(input));
-    process.stderr.write(`serving ${path}\n`);
     for (const signal of ['SIGTERM','SIGINT'] as const) process.once(signal,() => {
-      draining = true; server.close();
+      draining = true;
+      const stopped = new Promise<void>(resolveStopped => server.close(() => resolveStopped()));
       void (async () => {
         await Promise.allSettled([...inFlight]); await engine.shutdown();
         await Promise.all([...sockets].map(socket => new Promise<void>(resolveDone => {
           if (socket.destroyed) { resolveDone(); return; }
           const timeout = setTimeout(() => { socket.destroy(); resolveDone(); },1000);
-          socket.end(() => { clearTimeout(timeout); resolveDone(); });
+          socket.end(() => { clearTimeout(timeout); socket.destroy(); resolveDone(); });
         })));
-        cleanup(); process.exit(0);
+        await stopped; cleanup(); process.exit(0);
       })();
     });
     process.once('exit',cleanup);
+    // Readiness is published only after graceful-stop handlers are installed.
+    process.stderr.write(`serving ${path}\n`);
   } catch (error) { if (server.listening) server.close(); cleanup(); throw error; }
 }
 function mcp(engine: Engine | null,opt: Options,remote?: (cmd:string,args:Value)=>Promise<Obj>): void {
-  const agentNames=new Set('acquire heartbeat checkpoint resume verify close brief context capabilities cancel cancel_ack tokens'.split(' '));
+  const agentNames=new Set('acquire heartbeat checkpoint resume verify close_check close brief context capabilities cancel cancel_ack tokens'.split(' '));
   const selected=registry.filter(op=>(process.env.SIS_MCP_PROFILE!=='agent' || agentNames.has(text(op.name))) && (!opt.tools.length || opt.tools.includes(text(op.name))));
   if (opt.tools.some(name=>!registry.some(op=>op.name===name))) fail('bad_args','unknown selected MCP tool');
   let buffer=Buffer.alloc(0), chain=Promise.resolve();
@@ -259,9 +262,9 @@ function mcp(engine: Engine | null,opt: Options,remote?: (cmd:string,args:Value)
     const req=object(input); if (req.id===undefined || typeof req.method!=='string' || req.method.startsWith('notifications/')) return;
     try {
       let result: Value;
-      if (req.method==='initialize') result={protocolVersion:'2024-11-05',capabilities:{tools:{}},serverInfo:{name:'superiss',version:'1.0.0'}};
+      if (req.method==='initialize') result={protocolVersion:'2024-11-05',capabilities:{tools:{}},serverInfo:{name:'superiss',version:VERSION}};
       else if (req.method==='tools/list') result={tools:selected.map(op=>({name:'sis_'+text(op.name),description:op.description ?? '',inputSchema:op.inputSchema ?? {type:'object',additionalProperties:true}}))};
-      else if (req.method==='tools/call') { const params=object(req.params), name=required(params,'name').replace(/^sis_/u,''); if (!registry.some(op=>op.name===name)) fail('bad_cmd','unknown tool'); let envelope: Obj; try { envelope=remote ? await remote(name,params.arguments ?? {}) : engine ? {ok:true,data:await engine.dispatch(name,params.arguments ?? {},context(opt))} : fail('internal','MCP backend unavailable'); } catch (error) { envelope=responseError(error); } result={content:[{type:'text',text:canonical(envelope)}],isError:!envelope.ok}; }
+      else if (req.method==='tools/call') { const params=object(req.params), name=required(params,'name').replace(/^sis_/u,''); if (!selected.some(op=>op.name===name)) fail('bad_cmd','unknown or unselected tool'); let envelope: Obj; try { envelope=remote ? await remote(name,params.arguments ?? {}) : engine ? {ok:true,data:await engine.dispatch(name,params.arguments ?? {},context(opt))} : fail('internal','MCP backend unavailable'); } catch (error) { envelope=responseError(error); } result={content:[{type:'text',text:canonical(envelope)}],isError:!envelope.ok}; }
       else { output({jsonrpc:'2.0',id:req.id,error:{code:-32601,message:'Method not found'}}); return; }
       output({jsonrpc:'2.0',id:req.id,result});
     } catch (error) { output({jsonrpc:'2.0',id:req.id,error:{code:-32602,message:error instanceof Error ? error.message : String(error)}}); }

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { chmodSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createConnection, createServer, type Socket } from 'node:net';
 import { spawn, spawnSync } from 'node:child_process';
@@ -12,6 +12,8 @@ import { StoreDatabase } from './store.ts';
 import { canonical, digest, fingerprint, object, tokenCount, type Obj } from './util.ts';
 import { Engine } from './engine.ts';
 import { junit } from './xml.ts';
+
+const cliPath = join(dirname(fileURLToPath(import.meta.url)), 'cli.ts');
 
 test('schema, FTS and transactions preserve the existing database contract', () => {
   const root = mkdtempSync(join(tmpdir(), 'sis-ts-store-'));
@@ -168,14 +170,14 @@ test('socket accepts valid NDJSON frames up to the protocol limit', async () => 
   const env = { ...process.env };
   delete env.SIS_HTTP;
   delete env.SIS_ADMIN_TOKEN;
-  const child = spawn(process.execPath, [resolve('ts/cli.ts'), 'serve', '--db', join(root, 'project.db'), '--sock', sock], { env, stdio: ['ignore', 'ignore', 'pipe'] });
+  const child = spawn(process.execPath, [cliPath, 'serve', '--db', join(root, 'project.db'), '--sock', sock], { env, stdio: ['ignore', 'ignore', 'pipe'] });
   const exited = new Promise<void>(resolveExit => child.once('exit', () => resolveExit()));
   try {
     await new Promise<void>((resolveReady, reject) => {
       const timer = setTimeout(() => reject(new Error('daemon startup timed out')), 10000);
       let output = '';
       child.once('error', reject);
-      child.once('exit', () => reject(new Error('daemon exited before readiness')));
+      child.once('exit', () => { clearTimeout(timer); reject(new Error('daemon exited before readiness: ' + output)); });
       child.stderr.on('data', chunk => {
         output += chunk.toString();
         if (output.includes('serving ')) { clearTimeout(timer); resolveReady(); }
@@ -200,8 +202,6 @@ test('socket accepts valid NDJSON frames up to the protocol limit', async () => 
     rmSync(root, { recursive: true, force: true });
   }
 });
-
-const cliPath = join(dirname(fileURLToPath(import.meta.url)), 'cli.ts');
 
 async function runCli(db: string, sock: string, command: string, args: Obj, flags: string[] = [], overrides: NodeJS.ProcessEnv = {}): Promise<{ code: number | null; out: string; err: string }> {
   const env: NodeJS.ProcessEnv = { ...process.env, SIS_SOCK: sock };
@@ -254,7 +254,7 @@ test('incompatible daemon contracts are rejected before mutation on the same con
   const root = mkdtempSync(join(tmpdir(), 'sis-ts-identity-')), db = join(root, 'project.db'), sock = join(root, 'daemon.sock');
   writeFileSync(db, '');
   try {
-    for (const [protocol, receipts, version, expected] of [[1, true, '1.0.0', 'reject'], [2, false, '1.0.0', 'reject'], [2, true, '0.9.0', 'reject'], [2, true, undefined, 'reject'], [2, true, '1.0.0', 'accept'], [2, true, '1.0.0', 'uncertain']] as const) {
+    for (const [protocol, receipts, version, expected] of [[1, true, '1.1.0', 'reject'], [2, false, '1.1.0', 'reject'], [2, true, '0.9.0', 'reject'], [2, true, '1.0.0', 'reject'], [2, true, undefined, 'reject'], [2, true, '1.1.0', 'accept'], [2, true, '1.1.0', 'uncertain']] as const) {
       const commands: string[] = []; let connections = 0;
       const server = createServer(socket => {
         connections++; let identified = false, data = '';
@@ -308,7 +308,7 @@ test('CLI watch --follow streams successive batches and requires a daemon', asyn
       data += chunk.toString(); let end: number;
       while ((end = data.indexOf('\n')) >= 0) {
         const req = object(JSON.parse(data.slice(0, end))); data = data.slice(end + 1);
-        if (req.cmd === 'context') socket.write(JSON.stringify({ ok: true, data: { db_path: realpathSync(db), capabilities: { protocol: 2, proof_receipts: true, version: '1.0.0' } } }) + '\n');
+        if (req.cmd === 'context') socket.write(JSON.stringify({ ok: true, data: { db_path: realpathSync(db), capabilities: { protocol: 2, proof_receipts: true, version: '1.1.0' } } }) + '\n');
         else if (req.cmd === 'watch' && object(req.args).follow === true) socket.end([
           JSON.stringify({ ok: true, data: { events: [] }, more: true }),
           JSON.stringify({ ok: true, data: { events: [{ seq: 7 }] }, more: true }),
@@ -406,7 +406,10 @@ test('legacy lock migration preserves live, unknown and recovered ownership', as
     assert.equal(backups.length, 1);
     assert.equal(JSON.parse(readFileSync(join(root, backups[0], 'owner.json'), 'utf8')).pid, dead);
     const exited = new Promise<void>(resolveExit => daemon?.once('exit', () => resolveExit()));
-    daemon.kill('SIGTERM'); await exited; daemon = undefined;
+    daemon.kill('SIGTERM'); await exited;
+    assert.equal(daemon.exitCode,0,'owned daemon must finish graceful shutdown');
+    assert.equal(existsSync(sock),false,'owned socket must be removed after graceful shutdown');
+    daemon = undefined;
     writeFileSync(sock, 'preserve ordinary file');
     assert.notEqual((await runCli(db, sock, 'serve', {})).code, 0);
     assert.equal(readFileSync(sock, 'utf8'), 'preserve ordinary file');

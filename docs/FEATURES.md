@@ -1,63 +1,36 @@
-# What Superiss can do
+# Features and support — 1.1.0
 
-Superiss 0.9.1 combines a persistent task graph with an executable acceptance contract. The shared [operation registry](../ops.json) contains **85 operations**. The [complete catalog](OPERATIONS.md) lists every one with its required inputs.
-
-| Area | Capabilities | Practical use |
+| Capability | Current 1.1 runtime | Retained 0.9 reference |
 | --- | --- | --- |
-| 🧠 Durable work and memory | Tasks, labels, priorities, search, notes, history, `remember` / `recall` | Recover project facts and unfinished work after a session reset. |
-| 🗺️ Goal planning | Goals, subtasks, atomic plans, templates, dependency validation, subtree progress | Turn an outcome into executable leaves with a separate final acceptance. |
-| 🚦 Readiness | Typed blockers, named gates, deferred work, goal/lane filters | Select eligible work without bypassing dependencies or approval gates. |
-| 🔒 Ownership | Atomic claims, actor + epoch + expiring lease, heartbeat, cancellation | Reject stale workers when a newer claim owns the task. |
-| 🧾 Acceptance | Executed oracle, bounded output/time, contract revision, source fingerprint, stored proof | Refuse close when the proof is missing, stale or bound to different sources. |
-| 🔬 Additional evidence | JUnit, coverage thresholds, command runs, smoke/artifact/custom receipts | Require selected evidence kinds and optional separate-review receipts at close. |
-| 🔁 Recovery | Checkpoint, resume, fenced handoff, replay flags, delivery leases and idempotency | Resume known state and stop when an interrupted effect is uncertain. |
-| 🛤️ Coordination | Merge slots, event cursors, attribution of dirty files, atomic batches | Coordinate workers while keeping ownership and changes visible. |
-| 💸 Cost records | Observed token/currency ledger, subtree rollups, budget checks | Audit recorded consumption; reject close above a configured budget. |
-| 📊 Learning and traces | Pass-rate/cost/time aggregates, time filters, request spans | Inspect observed outcomes without inventing productivity or billing data. |
-| 🔌 Interfaces | JSON CLI, Unix socket, MCP, loopback HTTP, local browser board | Integrate with agent hosts or use scripts and the terminal directly. |
-| 📦 Exchange | JSONL snapshots, export/import, conflict-aware store sync, Beads-format exchange | Keep task state inspectable and migrate an explicitly selected export. |
-| ⚙️ Local execution | Opt-in `sis run`, macOS sandbox, zero-budget contract, bounded service | Execute local jobs through run → verify → close with recovery checkpoints. |
-| 🛡️ Service lifecycle | Foreground mode, pause/resume, owned launchd installation, watchdog, bounded restarts | Supervise local workers and preserve foreign processes. |
+| Default source launcher | `bin/sis`, `bin/sis-v1` alias | `bin/sis-reference`, `sis reference`, explicit `SIS_IMPL=rs|py` |
+| Implementation | Bun / TypeScript 7.1 | Rust / Python |
+| Registry | `packages/superiss/ops.json`, 88 operations | `ops.json`, 85 operations |
+| Persistent tasks and memory | SQLite, FTS, goals, subtasks, notes, Remember/Recall | SQLite |
+| Ownership | Atomic claims, epochs, expiring leases, heartbeat, cancellation | Same core contract |
+| Acceptance | Executed oracle; source fingerprint, contract revision, proof checked at close | Same core contract |
+| Close preflight | `close_check`, read-only complete contract check | Not available |
+| Evidence and cost | JUnit, coverage, command/artifact/custom receipts; recorded costs and close-time budget gate | Available |
+| Recovery and exchange | Checkpoint/resume, handoff, outbox, JSONL, explicit Beads export migration | Available |
+| Interfaces | JSON CLI, Unix socket, multiplexed requests, MCP, local HTTP/task board | CLI/socket/MCP/HTTP |
+| Analytics | Optional isolated DuckDB 2 snapshot worker | Recorded outcome aggregates |
+| Forge | Packaged CLI, HTTP board, ten MCP tools; Git/Worktrunk; repository routing | Explicit adapter `--runtime reference`; no 1.1 proof-gated merge |
+| macOS local-zero runner / launchd service | Reference-only; not silently dispatched | Explicit supported workflow |
 
-## Completion is a checked transition
+## Forge operations
 
-```mermaid
-flowchart LR
-    A[Ready task] --> B[Atomic claim]
-    B --> C[Work + heartbeat]
-    C --> D[Execute oracle]
-    D --> E{Valid proof?}
-    E -->|yes| F[Close + readback]
-    E -->|no| G[Visible failure]
-```
+`bind`, `changes`, `record`, `git-commit`, `push`, `verify`, `pr`, `ci`, `rebase`, `merge`. CLI, HTTP and MCP use one dispatcher. `commit` remains a deprecated adapter alias for `record`; it does not create a Git commit. [Full workflow](SISF.md).
 
-The close operation checks ownership, a live lease, contract revision, source fingerprint and the saved proof. Optional review, attestation and budget requirements add further checks. A changed source invalidates the old proof. Goal containers need final acceptance after their descendants close.
+## Completion contract
 
-## Optional Git and forge adapter
+`close_check` and `close` share the same validation: current claim/lease, proof actor and epoch, contract revision, source fingerprint, oracle, optional review/evidence requirements, budget and child completion. Preflight does not reserve the task or make Git/database changes atomic. A merge checks again after CI and uses a repository/base merge slot.
 
-[sisf](SISF.md) adds claim-to-worktree bindings, a task × worktree board, computed Git changes, artifact records, Gitea PR/status API calls, GitHub PR creation through `gh`, explicit mirror push and conservative cleanup. Bindings check current ownership and preserve the creation base SHA. Claims and Git creation remain separate operations. The adapter adds no core registry operations.
+`merge` advances the local base only by fast-forward, retains source work and closes only after a verified result. It refuses introduced changes outside the proof scope and claims with less than 35 seconds remaining. It does not perform a remote PR merge, enforce forge branch protection on local Git, fetch, force-push, automatically rebase or delete branches. Remote PR review and merge remain forge operations.
 
-[Compare with Gitea, Forgejo and GitHub](FORGE-COMPARISON.md).
+## Boundaries
 
-## Architecture
-
-The Rust implementation and Python reference share the registry, SQLite schema and protocol. SQLite uses WAL with `synchronous=FULL` by default. A deterministic JSONL mirror is written after committed mutations unless explicitly disabled. General CLI use can access SQLite directly; repeated requests can reuse the project-bound Unix socket.
-
-The MCP worker profile exposes twelve operations. The full profile exposes the registry. The local HTTP interface provides a browser board, health and bounded event reads. HTTP is a local interface rather than a hosted collaboration product.
-
-## Execution and service
-
-`sis run` is an explicit local command workflow, not an autonomous coding model. Its macOS mode requires an exactly zero budget and a local-only execution contract, removes inherited credentials, denies networking and confines writes to the job directory. Protected source inputs must remain unchanged; outputs live outside their fingerprint scope.
-
-`sis service` supervises eligible direct children of one goal. Current defaults: one-second polling, four local workers, ten seconds per command, a sixty-second workflow deadline and at most three configured restarts. Worker concurrency is bounded to 1–16. The optional host-quota preview does **not** authorize or dispatch model calls. [Service details](../SERVICE.md) and [recovery boundaries](../ZERO-RECOVERY.md).
-
-## Limits that matter
-
-- A passing oracle proves the behavior it actually checks. It cannot repair a weak acceptance contract.
-- General `allowed_paths` metadata is a source scope, not an OS sandbox. The sandbox belongs to the explicit macOS local workflow.
-- Recorded costs require trustworthy inputs. A close-time budget gate is not a pre-call provider spending control.
-- Delivery fencing and idempotency do not guarantee exactly-once effects for arbitrary external commands.
-- Smoke/artifact observations and reviewer identities are supplied by the host. They are not authenticated external audits.
-- Token counts are local counts or labelled bounds, never a provider invoice.
-- There is no built-in paid model provider, global optimal scheduler or autonomous self-modification.
-- The included soak tooling can require 86,400 elapsed seconds. Shipping that tooling is not evidence of 24-hour availability.
+- General allowed paths are source scope, not an OS sandbox. The local trust boundary is the Unix user.
+- Cost records need trustworthy inputs; a close budget gate does not authorize provider spending.
+- Task state, Git and remote effects are separate durable operations. No arbitrary exactly-once execution is claimed.
+- `meta.repo_key` routes within the configured store. Cross-machine authentication and distributed scheduling are not included.
+- Analytics is optional; SQLite remains authoritative. Reports cannot grant claims or approve closes.
+- [Validation](VALIDATION.md) distinguishes executed tests, environment-blocked tests and historical receipts.

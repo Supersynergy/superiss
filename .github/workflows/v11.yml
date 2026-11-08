@@ -1,0 +1,52 @@
+name: Superiss 1.1
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+permissions:
+  contents: read
+jobs:
+  current-runtime-and-forge:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6
+        with:
+          bun-version: '1.4.4'
+      - name: Install explicit verification dependencies
+        run: |
+          npm install --prefix .cache/v11-tools --no-audit --no-fund typescript@7.1.0-dev.20261108.1 @types/node@24.19.2 @types/bun@1.4.4
+          echo "$GITHUB_WORKSPACE/.cache/v11-tools/node_modules/.bin" >> "$GITHUB_PATH"
+          echo "SIS_TYPE_ROOTS=$GITHUB_WORKSPACE/.cache/v11-tools/node_modules/@types" >> "$GITHUB_ENV"
+      - name: Current core, forge, protocol and relocatable package
+        run: bun tools/check-v11.ts
+  worktrunk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6
+        with:
+          bun-version: '1.4.4'
+      - name: Install Worktrunk 0.81.0 with published checksum
+        run: |
+          mkdir -p .cache/worktrunk
+          cd .cache/worktrunk
+          curl --fail --location --max-time 120 --output worktrunk-x86_64-unknown-linux-musl.tar.xz https://github.com/max-sixty/worktrunk/releases/download/v0.81.0/worktrunk-x86_64-unknown-linux-musl.tar.xz
+          curl --fail --location --max-time 60 --output archive.sha256 https://github.com/max-sixty/worktrunk/releases/download/v0.81.0/worktrunk-x86_64-unknown-linux-musl.tar.xz.sha256
+          sha256sum --check archive.sha256
+          tar -xf worktrunk-x86_64-unknown-linux-musl.tar.xz
+          executable="$(find "$PWD" -type f -name wt -perm -u+x -print -quit)"
+          test -n "$executable"
+          echo "SIS_TEST_WORKTRUNK=$executable" >> "$GITHUB_ENV"
+      - name: Real Worktrunk binding and proof-gated merge
+        run: bun test sisf/workflow.test.ts
