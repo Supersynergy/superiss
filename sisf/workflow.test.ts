@@ -42,6 +42,7 @@ test('staged Git commit, evidence, verification, preflight and merge close one t
     const bound=await f.setup(),path=bound.data.path;writeFileSync(join(path,'f'),'changed\n');
     await expect(forgeAction(f.deps,'git-commit',{...f.fence,message:'change'})).rejects.toThrow(/staged/);
     const committed=await forgeAction(f.deps,'git-commit',{...f.fence,message:'change',all:true});expect(committed.ok).toBe(true);expect(committed.data.git_commit).toBe(true);
+    const artifact=JSON.parse(String(f.engine.db.get("SELECT payload FROM attests ORDER BY rowid DESC LIMIT 1")?.payload));expect(artifact.files).toBe(1);expect(artifact.worktree).toBe(path);
     const proof=await forgeAction(f.deps,'verify',f.fence);expect(proof.data.passed).toBe(true);
     const before=f.engine.db.get('SELECT COUNT(*) AS n FROM events')?.n;
     const check=await f.engine.dispatch('close_check',{...f.fence,proof_id:proof.data.proof_id});expect((check as any).valid).toBe(true);
@@ -113,5 +114,14 @@ test('a task whose lease is close to expiry cannot start a bounded merge',async(
   const f=fixture();try{
     const bound=await f.setup(),path=bound.data.path;writeFileSync(join(path,'f'),'changed\n');await forgeAction(f.deps,'git-commit',{...f.fence,message:'change',all:true});const proof=await forgeAction(f.deps,'verify',f.fence);
     f.engine.db.run('UPDATE issues SET lease_until=? WHERE id=?',Date.now()/1000+10,'task');const main=f.git('rev-parse','HEAD');const result=await forgeAction(f.deps,'merge',{...f.fence,proof_id:proof.data.proof_id,skip_ci:true});expect(result.ok).toBe(false);expect(result.error.msg).toContain('Renew the claim');expect(f.git('rev-parse','HEAD')).toBe(main);
+  }finally{await f.cleanup();}
+});
+
+test('explicit mirror push retains its configured destination without force pushing',async()=>{
+  const f=fixture();try{
+    const bound=await f.setup();const backup=join(f.root,'backup.git');f.git('init','--bare',backup);f.cfg.repos.default.mirror=backup;
+    writeFileSync(join(bound.data.path,'f'),'changed\n');await forgeAction(f.deps,'git-commit',{...f.fence,message:'mirror fixture',all:true});
+    const result=await forgeAction(f.deps,'pr',{...f.fence,via:'mirror'});expect(result.ok).toBe(true);expect(result.data.to).toBe(backup);
+    expect(f.git('--git-dir',backup,'rev-parse','refs/heads/sis/task')).toBe(f.git('-C',bound.data.path,'rev-parse','HEAD'));
   }finally{await f.cleanup();}
 });

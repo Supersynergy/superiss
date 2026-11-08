@@ -41,6 +41,7 @@ All task commands require `--db PATH --actor NAME --epoch N`, or `SIS_DB` for th
 | `push TASK` | Push that branch to origin, without force or an implicit base push |
 | `verify TASK [--timeout-secs N]` | Execute the task oracle in its bound worktree |
 | `pr TASK [--via github\|gitea\|forgejo]` | Reuse a matching open branch/base PR, or create one; no implicit push |
+| `pr TASK --via mirror` | Compatibility route: explicitly push the bound branch to the configured mirror, never force |
 | `ci TASK [--via …]` | Query statuses/check runs for the exact current commit |
 | `rebase TASK` | Rebase onto the configured local base; verify again afterwards |
 | `merge TASK --proof-id ID` | Check proof and CI, fast-forward local base, close; retain worktree/branch |

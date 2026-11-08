@@ -198,3 +198,13 @@ test("prune retains dirty work, then removes only a clean owned tree and retains
     expect(f.git("rev-parse","sis/t")).toBeTruthy();
   } finally { f.cleanup(); }
 });
+
+test("explicit repository selection overrides config defaults while mirror remains an explicit legacy route", () => {
+  const f = fixture(), argv = process.argv;
+  try {
+    writeFileSync(join(f.dir,"sisf.config.json"),JSON.stringify({repo:f.dir,mirror:"backup",repos:{default:{path:f.dir}}}));
+    process.argv=["bun","sisf","pr","t","--db",f.cfg.db,"--repo",f.repo,"--via","mirror"];
+    const cfg = _test.loadCfg();
+    expect(cfg.repos.default.path).toBe(f.repo);expect(cfg.repos.default.mirror).toBe("backup");expect(cfg.connector).toBe("github");
+  } finally { process.argv=argv;f.cleanup(); }
+});

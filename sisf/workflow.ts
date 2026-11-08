@@ -33,7 +33,11 @@ export async function forgeAction(d: ForgeDependencies, action: string, args: an
   if (action === 'changes') return {ok:true,data:d.changes(wk.path,row.base)};
   if (action === 'record') return d.record(args.id,args.actor,args.epoch);
   if (action === 'verify') return sis.call('verify',{...fence,cwd:wk.path,...(args.timeout_secs === undefined ? {} : {timeout_secs:args.timeout_secs})});
-  if (action === 'ci') return {ok:true,data:await ciStatus((args.via || cfg.connector || 'github') as Connector,cfg.gitea,wk.path,head())};
+  if (action === 'ci') {
+    const via = (args.via || cfg.connector || 'github') as Connector;
+    if (['gitea','forgejo'].includes(via) && !cfg.gitea) return {ok:false,error:{code:'no_connector',msg:via + ' not configured'}};
+    return {ok:true,data:await ciStatus(via,cfg.gitea,wk.path,head())};
+  }
   if (action === 'git-commit') {
     if (typeof args.message !== 'string' || !args.message.trim() || Buffer.byteLength(args.message) > 8192) throw Error('Explicit commit message required (max 8 KiB)');
     // Staging is opt-in: never sweep unrelated untracked files into a commit.

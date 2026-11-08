@@ -53,9 +53,10 @@ function loadCfg(): Cfg {
   if (!["git", "worktrunk"].includes(backend)) fail("backend must be git or worktrunk");
   const runtime = arg("runtime", process.env.SISF_RUNTIME) || "current";
   if (!["current", "reference"].includes(runtime)) fail("runtime must be current or reference");
-  const connector = arg("via") || file.connector || (file.gitea || process.env.SISF_GITEA_URL ? "gitea" : "github");
+  const selectedVia = arg("via");
+  const connector = (selectedVia === "mirror" ? undefined : selectedVia) || file.connector || (file.gitea || process.env.SISF_GITEA_URL ? "gitea" : "github");
   if (!["github", "gitea", "forgejo"].includes(connector)) fail("connector must be github, gitea or forgejo");
-  const repos: Record<string, RepoConf> = { default: { path: repoRoot, base: file.base || "main", ...(file.mirror ? { mirror: file.mirror } : {}) }, ...file.repos };
+  const repos: Record<string, RepoConf> = { ...file.repos, default: { path: repoRoot, base: file.base || "main", ...(file.mirror ? { mirror: file.mirror } : {}), ...file.repos?.default, ...(explicitRepo ? {path:repoRoot} : {}) } };
   for (const [key, repo] of Object.entries(repos)) {
     if (!key || !repo || typeof repo.path !== 'string' || !repo.path.trim() || repo.base !== undefined && typeof repo.base !== 'string') fail("invalid repository configuration");
     repo.path = realpathSync(resolve(dirname(cf), repo.path));
@@ -345,11 +346,11 @@ function lanePolicy(cfg: Cfg, lane?: string | null) {
   if (!lane || !cfg.lanes[lane]?.paths?.length) return null;
   return { lane, allowed_paths: cfg.lanes[lane].paths };
 }
-function mirror(cfg: Cfg, repoPath: string, branch: string) {
+async function mirror(cfg: Cfg, repoPath: string, branch: string) {
   const m = cfg.repos.default.mirror;
   if (!m) return { ok: false, error: { code: "no_connector", msg: "no mirror configured" } };
-  const r = git(repoPath, "push", m, branch);
-  return r !== null ? { ok: true, data: { pushed: branch, to: m } } : { ok: false, error: { code: "git", msg: "push failed" } };
+  await command("git", ["push", "--", m, `refs/heads/${branch}:refs/heads/${branch}`], repoPath, 60000);
+  return {ok:true,data:{pushed:branch,to:m}};
 }
 
 const CLAIM_OPS = new Set(["claim", "acquire", "claim_next"]);
@@ -403,7 +404,7 @@ async function commitAttest(cfg: Cfg, sis: Sis, s: Database, id: string, actor?:
   const ctx = { ...(actor ? { actor } : {}), ...(epoch != null ? { epoch } : {}) };
   const chg = await sis.call("changes", { id, ...ctx, ...d });
   if (chg?.ok !== true) return chg;
-  const att = await sis.call("attest", { id, cwd: w.path, kind: "artifact", ref: d.head ?? "", url: `git://${w.branch}@${d.head ?? "none"}`, payload: JSON.stringify({ files: d.files.length, adds: d.files.reduce((a, f) => a + (f.adds ?? 0), 0), dels: d.files.reduce((a, f) => a + (f.dels ?? 0), 0), worktree: w.path }), ...ctx });
+  const att = await sis.call("attest", { id, cwd: w.path, kind: "artifact", ref: d.head ?? "", url: `git://${w.branch}@${d.head ?? "none"}`, payload: { files: d.files.length, adds: d.files.reduce((a, f) => a + (f.adds ?? 0), 0), dels: d.files.reduce((a, f) => a + (f.dels ?? 0), 0), worktree: w.path }, ...ctx });
   if (att?.ok !== true) return att;
   s.run("UPDATE worktrees SET head=?, updated=? WHERE task=?", [d.head, Date.now() / 1000, id]);
   return { ok: true, data: { task: id, worktree: w.path, branch: w.branch, head: d.head, files: d.files.length, changes: true, attest: true } };
