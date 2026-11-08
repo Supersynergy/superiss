@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { chmodSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createConnection, createServer, type Socket } from 'node:net';
 import { spawn, spawnSync } from 'node:child_process';
@@ -12,6 +12,8 @@ import { StoreDatabase } from './store.ts';
 import { canonical, digest, fingerprint, object, tokenCount, type Obj } from './util.ts';
 import { Engine } from './engine.ts';
 import { junit } from './xml.ts';
+
+const cliPath = join(dirname(fileURLToPath(import.meta.url)), 'cli.ts');
 
 test('schema, FTS and transactions preserve the existing database contract', () => {
   const root = mkdtempSync(join(tmpdir(), 'sis-ts-store-'));
@@ -168,14 +170,14 @@ test('socket accepts valid NDJSON frames up to the protocol limit', async () => 
   const env = { ...process.env };
   delete env.SIS_HTTP;
   delete env.SIS_ADMIN_TOKEN;
-  const child = spawn(process.execPath, [resolve('ts/cli.ts'), 'serve', '--db', join(root, 'project.db'), '--sock', sock], { env, stdio: ['ignore', 'ignore', 'pipe'] });
+  const child = spawn(process.execPath, [cliPath, 'serve', '--db', join(root, 'project.db'), '--sock', sock], { env, stdio: ['ignore', 'ignore', 'pipe'] });
   const exited = new Promise<void>(resolveExit => child.once('exit', () => resolveExit()));
   try {
     await new Promise<void>((resolveReady, reject) => {
       const timer = setTimeout(() => reject(new Error('daemon startup timed out')), 10000);
       let output = '';
       child.once('error', reject);
-      child.once('exit', () => reject(new Error('daemon exited before readiness')));
+      child.once('exit', () => { clearTimeout(timer); reject(new Error('daemon exited before readiness: ' + output)); });
       child.stderr.on('data', chunk => {
         output += chunk.toString();
         if (output.includes('serving ')) { clearTimeout(timer); resolveReady(); }
@@ -200,8 +202,6 @@ test('socket accepts valid NDJSON frames up to the protocol limit', async () => 
     rmSync(root, { recursive: true, force: true });
   }
 });
-
-const cliPath = join(dirname(fileURLToPath(import.meta.url)), 'cli.ts');
 
 async function runCli(db: string, sock: string, command: string, args: Obj, flags: string[] = [], overrides: NodeJS.ProcessEnv = {}): Promise<{ code: number | null; out: string; err: string }> {
   const env: NodeJS.ProcessEnv = { ...process.env, SIS_SOCK: sock };
