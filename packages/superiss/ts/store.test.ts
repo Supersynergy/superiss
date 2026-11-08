@@ -406,7 +406,10 @@ test('legacy lock migration preserves live, unknown and recovered ownership', as
     assert.equal(backups.length, 1);
     assert.equal(JSON.parse(readFileSync(join(root, backups[0], 'owner.json'), 'utf8')).pid, dead);
     const exited = new Promise<void>(resolveExit => daemon?.once('exit', () => resolveExit()));
-    daemon.kill('SIGTERM'); await exited; daemon = undefined;
+    daemon.kill('SIGTERM'); await exited;
+    assert.equal(daemon.exitCode,0,'owned daemon must finish graceful shutdown');
+    assert.equal(existsSync(sock),false,'owned socket must be removed after graceful shutdown');
+    daemon = undefined;
     writeFileSync(sock, 'preserve ordinary file');
     assert.notEqual((await runCli(db, sock, 'serve', {})).code, 0);
     assert.equal(readFileSync(sock, 'utf8'), 'preserve ordinary file');

@@ -234,20 +234,22 @@ async function serve(engine: Engine,path: string): Promise<void> {
     const bound = lstatSync(path); socketIdentity = {dev:bound.dev,ino:bound.ino};
     const { chmodSync } = await import('node:fs'); chmodSync(path,0o600);
     if (process.env.SIS_HTTP) await startHttp(engine,Number(process.env.SIS_HTTP),input => tracked(input));
-    process.stderr.write(`serving ${path}\n`);
     for (const signal of ['SIGTERM','SIGINT'] as const) process.once(signal,() => {
-      draining = true; server.close();
+      draining = true;
+      const stopped = new Promise<void>(resolveStopped => server.close(() => resolveStopped()));
       void (async () => {
         await Promise.allSettled([...inFlight]); await engine.shutdown();
         await Promise.all([...sockets].map(socket => new Promise<void>(resolveDone => {
           if (socket.destroyed) { resolveDone(); return; }
           const timeout = setTimeout(() => { socket.destroy(); resolveDone(); },1000);
-          socket.end(() => { clearTimeout(timeout); resolveDone(); });
+          socket.end(() => { clearTimeout(timeout); socket.destroy(); resolveDone(); });
         })));
-        cleanup(); process.exit(0);
+        await stopped; cleanup(); process.exit(0);
       })();
     });
     process.once('exit',cleanup);
+    // Readiness is published only after graceful-stop handlers are installed.
+    process.stderr.write(`serving ${path}\n`);
   } catch (error) { if (server.listening) server.close(); cleanup(); throw error; }
 }
 function mcp(engine: Engine | null,opt: Options,remote?: (cmd:string,args:Value)=>Promise<Obj>): void {
