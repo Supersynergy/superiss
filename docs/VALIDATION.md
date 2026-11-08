@@ -1,34 +1,41 @@
 # Validation — Superiss 1.1.0
 
-This page describes current validation separately from the [historical 0.9 record](archive/0.9/VALIDATION.md). JSON receipts under `docs/research/` describe their original source snapshots and are not current-file validation.
+Current evidence is separate from the [historical 0.9 record](archive/0.9/VALIDATION.md). JSON receipts under `docs/research/` describe their original snapshots; their hashes are not current-file assertions.
 
-## Executed in this development environment
+## Hosted current-runtime and forge gate
 
-- Bun 1.4.4, TypeScript 7.1.0-dev.20261108.1, Linux x64; SQLite reported by Bun is 3.53.4.
-- **45 distinct targeted tests passed locally**: 27 forge/connector/package checks, nine core checks and nine hybrid/compiler/SQLite checks. One installed-Worktrunk case was skipped; socket-dependent cases were excluded from these counts.
-- Strict current-core and forge/release TypeScript checks passed with explicit installed Node/Bun types.
-- Core checks executed locally cover schema/FTS/transactions, XML/JUnit, canonical JSON, compiler selection, complete-contract refusal, tokenizers, checkpoint/source drift, legacy fingerprint compatibility and evidence rejection.
-- Forge checks executed locally cover a real Git worktree → staged commit → artifact → oracle → read-only close preflight → local fast-forward → task close; stale claims/proofs, insufficient remaining lease, out-of-scope introduced changes, advanced target refusal, repository routing/configuration drift and missing-backend failure.
-- Connector fixtures cover matching PR reuse, explicit base/repository, Gitea/Forgejo payloads, exact-HEAD GitHub checks/statuses, empty/pending/failed/truncated CI and malformed API receipts. These use controlled responses and executable CLI fixtures, not production accounts.
-- A newly built, relocated 1.1 bundle passed exact-file SHA-256 manifest checking, overwrite refusal, current core CLI, forge aliases, both MCP entry points and selected-tool enforcement.
-- Source documentation links, version/catalog consistency, launcher shell syntax, MCP JS syntax and whitespace checks passed.
+[Passing Linux/macOS and Worktrunk run](https://github.com/Supersynergy/superiss/actions/runs/42485621381), code commit `5d6a8c2a91b38f0b99aa9a949144197bdfc54407`:
 
-## Environment-blocked and separately checked paths
+| Check | Result and scope |
+| --- | --- |
+| Current runtime, Linux x64 and macOS arm64 | Strict TypeScript core/forge/release checks; 15 core regressions on each platform |
+| Complete wire contract | 11 PASS, 0 FAIL, 0 MISSING; all 88 registered operations present |
+| Forge unit, transport, connector and package suite | 35 passed on each platform; installed-binary case covered separately |
+| Process oracles | Race/isolation, board join, lane policy and lifecycle/restart/HTTP boundaries passed on both platforms |
+| Actual Worktrunk 0.81.0 | Published-checksum installation; 11 workflow cases passed, including exact-path binding and source-preserving merge |
+| Relocated 1.1 bundle | Exact SHA-256 file manifest, overwrite refusal, CLI/forge launchers, both MCP entry points and selected-tool enforcement |
+| Publication content | Current version/catalog/docs links, JS/shell syntax and whitespace checks |
 
-This local executor denies Unix socket creation (`EPERM`), including an independent Python/Node probe. Escalated execution was rejected by the environment approval policy. Socket/watch/concurrency/lifecycle/HTTP process tests therefore cannot be counted as passing locally. The complete current gate and the real installed-Worktrunk case are configured in `.github/workflows/v11.yml` on Linux/macOS runners; consult the actual workflow result for the reviewed commit. Publishing this branch was blocked by the automatic approval review, so those hosted checks have not been triggered from this environment.
+The current hosted gate is `bun tools/check-v11.ts`. It includes real socket/watch/heartbeat handling and HTTP process checks that the local executor cannot run. Repeated suite execution in the forge gate is not counted as additional distinct tests. The installed-Worktrunk case is intentionally skipped in the generic job and executed in its dedicated job.
 
-The real Worktrunk binary was unavailable locally because its release download returned HTTP 504. The optional installed-binary test is explicitly skipped locally. Backend command construction is not a substitute for that integration result.
+The independent reference workflow (`.github/workflows/ci.yml`) additionally builds Rust and runs the retained Rust/Python, macOS local-zero and service checks. It packages `bin/sis-reference` for its native-bundle fixture; the current `bin/sis` belongs to 1.1. Consult [the repository checks](https://github.com/Supersynergy/superiss/actions) for the exact reviewed commit.
 
-The complete inherited analytics/publication gates remain separate: `bun packages/superiss/check.ts` and `bun tools/check-v1-publication.ts`, requiring DuckDB 2 and `run-guard`. They have not been rerun in full in this socket-restricted environment. Historical 1.0 platform receipts remain in the changelog; they are not renamed to 1.1 acceptance.
+## Local checks and boundaries
+
+Bun 1.4.4, TypeScript 7.1.0-dev.20261108.1, Linux x64; bundled SQLite reports 3.53.4. **47 distinct targeted tests passed locally**: 29 forge/connector/package cases, nine core cases and nine hybrid/compiler/SQLite cases. Strict typing, source documentation checks and the runnable claim → rejected proof-free close → oracle → close/readback example also passed.
+
+Local socket creation is denied (`EPERM`), and local Worktrunk binary download returned HTTP 504. Those paths are validated by hosted execution above, not counted as local passes. Connector tests use controlled API/CLI fixtures; they do not establish acceptance against a production GitHub/Gitea/Forgejo account.
+
+The complete inherited analytics/publication gates remain separate: `bun packages/superiss/check.ts` and `bun tools/check-v1-publication.ts`, requiring DuckDB 2 and `run-guard`. They have not been rerun in full in the socket-restricted local executor. Historical 1.0 analytics receipts are not relabelled as 1.1 acceptance.
 
 ## Reproduction
 
 ```sh
-# Existing Bun, TypeScript 7.1 and Node/Bun types required.
+# Installed Bun, TypeScript 7.1 and Node/Bun types required.
 bun tools/check-v11.ts
-# Optional additional native analytics requirements:
+# Additional analytics prerequisites required for these full hybrid gates:
 bun packages/superiss/check.ts
 bun tools/check-v1-publication.ts
 ```
 
-No production forge deployment, authenticated multiuser operation, remote PR merge, power-loss/desaster test, independent security audit, comparative performance advantage or 24-hour production soak is established by these checks.
+No production forge deployment, authenticated multiuser operation, remote PR merge, power-loss/disaster test, independent security audit, competitor performance advantage or completed 24-hour production soak is established by these checks.
