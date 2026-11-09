@@ -48,3 +48,13 @@ The historical macOS runner/service remains explicit through `sis reference run`
 ## Upgrade to 1.3
 
 WOOP adds an operation and bounded contract metadata; it adds no tables or dependencies. A 1.3 client requires a 1.3 daemon and refuses a 1.2/unversioned daemon before work, without a silent direct retry. Keep the old installation for existing consumers; use its absolute launcher while its jobs run. Test a database copy, arrange an owned idle cutover, and retain the previous artifact for rollback. Switching a CLI symlink does not upgrade already running processes. [WOOP input and board](WOOP.md).
+
+## Resume an interrupted task
+
+Keep the original runtime while its jobs run. Select the same existing project database and read the saved state first:
+
+```sh
+bin/sis resume id=task-id --db /absolute/project/.sis/tasks.db
+```
+
+Replace `task-id` with the existing task ID. Resume returns its contract and checkpoint; it does not acquire a claim or replay commands. Check the owner, lease/epoch and any cancellation or drift before continuing. Keep another worker's live claim intact. When work is available, use an explicit bounded `acquire` with your actor and the returned contract before writing. Verification and proof-gated close remain separate. [Native operation catalog](OPERATIONS.md).

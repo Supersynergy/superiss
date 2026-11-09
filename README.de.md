@@ -1,33 +1,51 @@
-# Superiss 1.3
+# Superiss
 
-**Agenten koordinieren und Ergebnisse vor dem Abschluss prüfen — mit integriertem Git-/Forge-Ablauf.**
+**Aufgabenkoordination für Coding-Agenten. „Fertig“ braucht einen bestandenen Prüflauf.**
 
-Version **1.3.0**: Bun/TypeScript, SQLite als verbindliche Aufgaben-Datenbank, 89 Kernoperationen und elf Forge-Tools. DuckDB 2 dient optionalen, getrennten Snapshot-Analysen.
+Arbeit zuweisen, den Kontext für die Fortsetzung erhalten und das Ergebnis vor dem Abschluss prüfen. Superiss läuft lokal und verbindet sich über CLI oder MCP mit deinen Agenten.
 
-| Bereich | Aktueller Stand |
-| --- | --- |
-| Aufgaben und Gedächtnis | Ziele, Abhängigkeiten, Ready-Queue, Notizen, Remember/Recall |
-| Zuständigkeit | Atomare Claims, Actor, Epoch, Ablaufzeit und Heartbeats |
-| Abnahme | Prüfbefehl ausführen; Abschluss an Vertrag, Quellen und Proof binden |
-| Git/Forge | Worktree, Änderungen, Artefakte, echter Git-Commit, Push, PR, CI, Rebase, lokaler Merge |
-| Worktrunk | Optionaler Backend; kein stiller Rückfall auf Git |
-| Anbieter | GitHub über `gh`; Gitea/Forgejo über REST |
-| Mehrere Repositories | Konfigurierte `repos` und ausdrückliches `meta.repo_key` |
-| Schnittstellen | CLI, Socket, MCP, lokales HTTP und Boards |
+[Version 1.3 laden](https://github.com/Supersynergy/superiss/releases/latest) · [Einrichten](docs/GETTING-STARTED.md) · [English](README.md)
 
-Neu in 1.3: `sis woop` erzeugt aus Wunsch, Wirkung, Hindernis und Wenn-dann-Vertrag ein natives Ziel mit drei abhängigen Prüfaufgaben. Umsetzung, Auslieferung und Wirkung haben eigene Oracles und Scopes. Das Board zeigt Vorschau und Belege getrennt. Planung startet keine Jobs und bestätigt keine Kundenwirkung. [WOOP-Beispiel und Grenzen](docs/WOOP.md).
+## Wobei es hilft
 
-```sh
-mkdir -p /absolute/project/.sis
-export SIS_DB=/absolute/project/.sis/project.db
-bin/sis up
-bin/sis forge serve --repo /absolute/project --port 8766
+- Parallele Agenten koordinieren. Claims halten fest, wer eine Aufgabe gerade bearbeitet. Lease und Epoch weisen Schreibversuche mit veralteter Zuständigkeit zurück.
+- Abschluss prüfbar machen. Jede Aufgabe hat einen Prüfbefehl und einen Quellenumfang. Schließen geht mit einem bestandenen Beleg für den aktuellen Vertrag und die aktuellen Dateien.
+- Nach Unterbrechungen fortsetzen. Checkpoints bewahren den Arbeitsstand und den nächsten sicheren Schritt. Resume liest den Zustand; der Claim wird ausdrücklich angefordert. [Sicher fortsetzen](docs/GETTING-STARTED.md#resume-an-interrupted-task).
+- Ziele bis zur Wirkung verfolgen. WOOP plant Umsetzung → Auslieferung → Wirkung als getrennte Aufgaben mit eigenen Prüfungen. Planung startet keine Agenten und bestätigt keinen Kundenerfolg.
+
+```text
+Aufgabe → Claim → Arbeit → Prüfen → Abschluss mit Beleg
+                     ↳ Checkpoint → Fortsetzen
 ```
 
-Bun ab 1.4.4 ist erforderlich, für Forge Git. Worktrunk und `gh` werden nur für die entsprechenden Funktionen benötigt. Analysen brauchen zusätzlich DuckDB 2 und `run-guard`. Es wird nichts automatisch installiert.
+## Den vollständigen Ablauf ausprobieren
 
-`bin/sis` startet jetzt die aktuelle 1.3-Laufzeit. `bin/sis-v1` und `bin/sisf` bleiben passende Aliase. Bestehende Datenbanken und laufende Daemons werden nicht automatisch umgestellt. Ein 1.3-Client weist ältere Daemons vor Schreiboperationen zurück; vorher die alte Installation behalten und eine Datenbankkopie prüfen.
+Erforderlich sind **Bun ab 1.4.4** und Git. Die Demo nutzt zusätzlich Python 3.
 
-Die Rust-/Python-0.9-Referenz bleibt über `sis reference …` bzw. `SIS_IMPL=rs|py` erreichbar. macOS-Sandbox und launchd-Dienst gehören weiterhin zu dieser Referenz. Historische Prüfbelege sind entsprechend gekennzeichnet.
+```sh
+git clone https://github.com/Supersynergy/superiss.git
+cd superiss
+python3 examples/quickstart.py
+```
 
-[Start und Upgrade](docs/GETTING-STARTED.md) · [Forge-Befehle](docs/SISF.md) · [Features und Versionsgrenzen](docs/FEATURES.md) · [Vergleich mit Worktrunk und Beads](docs/COMPARISON.md) · [Prüfstand](docs/VALIDATION.md) · [English](README.md)
+Die Demo verwendet eine temporäre Datenbank. Sie claimt eine Aufgabe, zeigt den abgewiesenen Abschluss ohne Beleg, führt den Prüfbefehl aus und liest den abgeschlossenen Zustand zurück. Deine Projekt-Stores bleiben unberührt.
+
+## Mit dem eigenen Agenten verwenden
+
+Den Agenten an eine vorhandene Projekt-Datenbank binden und den MCP-Server starten:
+
+```sh
+bin/sis mcp --db /absolutes/projekt/.sis/tasks.db
+```
+
+Die CLI verwendet dieselben Verträge und Belege. [Einrichtung und Upgrade](docs/GETTING-STARTED.md) erklären die Store-Anlage und Agentenkonfiguration sowie den Erhalt laufender Jobs beim Versionswechsel.
+
+Der optionale Forge-Ablauf verbindet Claims mit Worktrees und PRs auf GitHub, Gitea oder Forgejo. [Forge-Anleitung](docs/SISF.md).
+
+## Wann es passt
+
+Für parallele Coding-Agenten, Aufgaben mit Unterbrechungen und Ergebnisse, die einen wiederholbaren Prüflauf brauchen. Für einfache Erinnerungen ohne Ausführung oder Übergabe genügt weiterhin eine To-do-Liste.
+
+SQLite speichert den Aufgabenstand. Der Tracker braucht keinen Modell-API-Key. Ein Beleg gilt für seinen Prüfumfang; Actor-Namen sind keine Authentifizierung. [Unterstützung und Grenzen](docs/FEATURES.md).
+
+[WOOP-Beispiel](docs/WOOP.md) · [Agentenanbindung](docs/V1-INTEGRATIONS.md) · [Prüfungen](docs/VALIDATION.md) · [Befehlskatalog](docs/OPERATIONS.md) · [MIT-Lizenz](LICENSE)
