@@ -38,6 +38,13 @@ start_forge
 "$ROOT/bin/sis" acquire id=direct actor=socket-worker ttl=120 --db "$SIS_DB" >/dev/null
 for i in $(seq 1 100); do [[ ! -f "$TMP/repo/.sisf/wt/direct/f" ]] || break; sleep .05; done
 [[ -f "$TMP/repo/.sisf/wt/direct/f" ]]
+# Files can exist before the binding transaction commits. Restart only after
+# observing the durable fence, while retaining all post-restart assertions.
+for i in $(seq 1 100); do
+  if curl -sf "http://127.0.0.1:$PORT/sisf/worktrees" | python3 -c 'import json,sys;d=json.load(sys.stdin);assert len(d["data"])==1 and d["data"][0]["actor"]=="socket-worker" and d["data"][0]["epoch"]==1' 2>/dev/null; then break; fi
+  sleep .05
+done
+curl -sf "http://127.0.0.1:$PORT/sisf/worktrees" | python3 -c 'import json,sys;d=json.load(sys.stdin);assert len(d["data"])==1 and d["data"][0]["actor"]=="socket-worker" and d["data"][0]["epoch"]==1'
 # The cursor must be durable before a restart; no replay creates another tree.
 CURSOR="$(bun -e 'import {Database} from "bun:sqlite"; console.log(new Database(process.argv[1]).query("SELECT v FROM kv WHERE k=?").get("last_seq").v)' "$TMP/sis.db.sisf.state.db")"
 [[ "$CURSOR" -gt 0 ]]

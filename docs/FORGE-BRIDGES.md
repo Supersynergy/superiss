@@ -35,7 +35,10 @@ explicit `--runtime reference`; it rejects incompatible current versions.
 
 1. The controller defines acceptance, the executable oracle and exact writable
    paths. Reuse an existing task instead of copying a board.
-2. A worker acquires the native task. Carry the returned actor/epoch and
+2. A worker acquires the native task. For immediately assigned new work,
+   `forge reserve` creates contract and claim atomically before binding Git;
+   it avoids exposing ready work between separate create/claim calls.
+   Carry the returned actor/epoch and
    heartbeat; fetch a source-bound capsule within a measured token budget.
 3. Bind the claim to its locked Forge worktree. Work on disjoint scopes.
    A missing or conflicting binding must be reconciled before writing.
@@ -75,6 +78,12 @@ claim snapshot is not permission to reuse its actor or live lease.
 The isolated ten-client fixture checks distinct bindings and a single winner
 for a contested task. It does not establish sustained ten-tool throughput,
 remote forge availability or production load limits.
+
+Local merge exclusion also spans separate stores using the same Git common
+directory and base. Read-only reconciliation lists abandoned/conflicting
+merge locks; neither process age nor lease expiry triggers reclamation.
+Interrupted Git writes retain an explicit uncertain outcome and observed
+target ref. A changed branch prevents closure even if its commit matches.
 
 ## Keep extensions remigratable
 

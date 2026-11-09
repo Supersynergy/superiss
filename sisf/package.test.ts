@@ -29,7 +29,10 @@ test('relocated 1.1 bundle has an exact manifest and runnable core, forge and bo
     const core=run('node',[join(bundle,'mcp/sis-mcp.js')],input).trim().split('\n').map(line=>JSON.parse(line));
     expect(core[0].result.serverInfo.version).toBe(VERSION);expect(core[1].result.tools).toHaveLength(88);
     const forge=run('bash',[launcher,'forge','mcp'],input).trim().split('\n').map(line=>JSON.parse(line));
-    expect(forge[0].result.serverInfo.version).toBe(VERSION);expect(forge[1].result.tools).toHaveLength(10);
+    expect(forge[0].result.serverInfo.version).toBe(VERSION);expect(forge[1].result.tools).toHaveLength(11);
+    const reservation = forge[1].result.tools.find((tool: { name: string }) => tool.name === 'sis_forge_reserve');
+    expect(reservation.inputSchema.required).toEqual(['id','actor','title','oracle_cmd','allowed_paths']);
+    expect(reservation.inputSchema.required).not.toContain('epoch');
   }finally{rmSync(root,{recursive:true,force:true});}
 },30000);
 

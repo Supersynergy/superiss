@@ -8,7 +8,8 @@ import { existsSync, mkdirSync, realpathSync, readFileSync, lstatSync, chmodSync
 import { createConnection, type Socket } from "node:net";
 import { basename, dirname, join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
-import { git, gitEnvironment, command } from "./process.ts";
+import { git, gitEnvironment, command, failureDetails } from "./process.ts";
+import { previewMergeLocks } from './merge-lock.ts';
 import { parseRemote, safeURL, pullRequest, ciStatus, type Connector } from "./connectors.ts";
 import { VERSION } from "../packages/superiss/runtime.ts";
 export { parseRemote };
@@ -188,7 +189,7 @@ class Sis {
 function openState(cfg: Cfg): Database {
   const s = new Database(cfg.state, { create: true });
   chmodSync(cfg.state, 0o600);
-  s.exec(`PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL;
+  s.exec(`PRAGMA busy_timeout=5000; PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL;
     CREATE TABLE IF NOT EXISTS worktrees(
       task TEXT PRIMARY KEY, repo TEXT, path TEXT, branch TEXT, actor TEXT,
       epoch INTEGER, base TEXT, head TEXT, status TEXT, pr TEXT,
@@ -224,10 +225,11 @@ function bindingConflict(s: Database, task: string, actor: string, epoch: number
   // Preserve the first observation across retries/crashes; the binding is never reassigned.
   s.run("INSERT OR IGNORE INTO kv(k,v) VALUES(?,?)", [key, JSON.stringify(receipt)]);
 }
-function reconcilePreview(s?: Database) {
+function reconcilePreview(s?: Database, cfg?: Cfg) {
   return { ok: true, data: { read_only: true,
     conflicts: s ? s.query<{ v: string }, []>("SELECT v FROM kv WHERE k LIKE 'binding_conflict:%' ORDER BY k").all().map(row => JSON.parse(row.v)) : [],
     worktrees: s ? s.query<WorktreeRow, []>("SELECT * FROM worktrees ORDER BY task").all() : [],
+    merge_locks: cfg ? [...new Set(Object.values(cfg.repos).map(repo => repo.path))].flatMap(previewMergeLocks).filter((lock,index,all) => all.findIndex(item => item.path === lock.path) === index) : [],
   } };
 }
 async function activeClaim(sis: Sis, task: string, actor?: string, epoch?: number, state?: Database) {
@@ -544,8 +546,8 @@ async function serve(cfg: Cfg) {
         return Response.json({ ok: true, tasks, worktrees: wt });
       }
       if (req.method === "GET" && u.pathname === "/sisf/worktrees") return Response.json({ ok: true, data: s.query("SELECT * FROM worktrees ORDER BY updated DESC").all() });
-      if (req.method === "GET" && u.pathname === "/sisf/reconcile") return Response.json(reconcilePreview(s));
-      if (req.method === "POST" && (u.pathname === "/forge/op" || /^\/sisf\/(bind|changes|record|git-commit|push|verify|rebase|merge|ci|pr)$/.test(u.pathname))) {
+      if (req.method === "GET" && u.pathname === "/sisf/reconcile") return Response.json(reconcilePreview(s,cfg));
+      if (req.method === "POST" && (u.pathname === "/forge/op" || /^\/sisf\/(reserve|bind|changes|record|git-commit|push|verify|rebase|merge|ci|pr)$/.test(u.pathname))) {
         const body: any = await req.json();
         const operation = u.pathname === '/forge/op' ? body.op : u.pathname.slice('/sisf/'.length);
         return Response.json(await forgeAction(dependencies(cfg,sis,s),operation,u.pathname === '/forge/op' ? body.args : body));
@@ -586,7 +588,7 @@ async function serve(cfg: Cfg) {
       }
       return Response.json({ ok: false, error: { code: "not_found" } }, { status: 404 });
       } catch (e) {
-        return Response.json({ ok: false, error: { code: "sisf", msg: (e as Error).message } }, { status: e instanceof SyntaxError ? 400 : 502 });
+        return Response.json({ ok: false, error: failureDetails(e,'sisf') }, { status: e instanceof SyntaxError ? 400 : 502 });
       }
     },
   });
@@ -605,6 +607,7 @@ export async function cli() {
   sis forge serve --db PATH --repo PATH [--backend git|worktrunk]
   sis forge status --db PATH
   sis forge reconcile --db PATH     read-only conflict preview; no repairs
+  sis forge reserve TASK --db PATH --actor NAME --title TEXT --oracle COMMAND --paths '["src","tests"]' [--idem KEY]
   sis forge bind|changes|record|git-commit|push|verify|pr|ci|rebase|merge TASK --db PATH --actor NAME --epoch N
   sis forge git-commit TASK ... --message TEXT [--all]
   sis forge merge TASK ... --proof-id ID [--skip-ci]
@@ -618,7 +621,7 @@ The board is local at /forge. Explicit DB, claim fencing and proof rules always 
   const cfg = loadCfg();
   if (cmd === 'reconcile') {
     const state = existsSync(cfg.state) ? new Database(cfg.state, {readonly:true}) : undefined;
-    try { out(reconcilePreview(state)); } finally { state?.close(); }
+    try { out(reconcilePreview(state,cfg)); } finally { state?.close(); }
     return;
   }
   if (cmd === 'serve') { await serve(cfg); return; }
@@ -654,6 +657,12 @@ The board is local at /forge. Explicit DB, claim fencing and proof rules always 
       ...(arg('via') === undefined ? {} : {via:arg('via')}),
       ...(arg('proof-id') === undefined ? {} : {proof_id:arg('proof-id')}),
       ...(arg('timeout-secs') === undefined ? {} : {timeout_secs:Number(arg('timeout-secs'))}),
+      ...(arg('oracle') === undefined ? {} : {oracle_cmd:arg('oracle')}),
+      ...(arg('paths') === undefined ? {} : {allowed_paths:JSON.parse(arg('paths')!)}),
+      ...(arg('acceptance') === undefined ? {} : {acceptance:arg('acceptance')}),
+      ...(arg('owner') === undefined ? {} : {owner:arg('owner')}),
+      ...(arg('ttl') === undefined ? {} : {ttl:Number(arg('ttl'))}),
+      ...(arg('idem') === undefined ? {} : {idem:arg('idem')}),
       all:process.argv.includes('--all'),skip_ci:process.argv.includes('--skip-ci'),
     }));
   } finally { sis.close(); state?.close(); }
@@ -661,6 +670,6 @@ The board is local at /forge. Explicit DB, claim fencing and proof rules always 
 // cli() only returns for one-shot commands (serve never returns) → hard exit
 // releases the persistent sis socket without waiting for linger.
 if (import.meta.main) {
-  try { await cli(); } catch (e) { out({ ok: false, error: { code: "sisf", msg: (e as Error).message } }); }
+  try { await cli(); } catch (e) { out({ ok: false, error: failureDetails(e,'sisf') }); }
   process.exit(process.exitCode || 0);
 }

@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.2.0 — Forge safety integration (2026-11-09)
+
+- Added `forge reserve` across CLI, HTTP and MCP: atomically create the contract and claim, then bind the returned live fence. Native idempotency permits acknowledgement reconciliation without duplicate claims; binding failures preserve the claim and foreign work.
+- Added repository/base merge exclusion shared across linked worktrees and separate project stores. Read-only reconciliation lists locks; changed owner markers, crashes and expired leases do not trigger reclamation.
+- Bind merge path scope to the validated proof's exact contract revision. Preserve whitespace and Unicode BOM in Git paths; reject invalid UTF-8 bytes instead of allowing decoded aliases.
+- Recheck branch and source identity after asynchronous preflight and after Git. Applied merges with lost acknowledgements report uncertainty and the observed target instead of a false no-effect result; native task closure remains fenced.
+- Bound retained command output to 8 MiB, preserve split UTF-8 and distinguish failed spawn from dispatched timeout/overflow/exit. Propagate uncertainty through CLI, HTTP and MCP without automatic retries.
+- Wait at most five seconds for short concurrent Forge-state writes. The restart oracle now observes the committed actor/epoch binding before interruption, while retaining its original recovery assertions.
+- Extend the current hosted gate to API/capsule/customer-outcome and snapshot regressions alongside the existing complete wire/Forge/package gates. Existing installations and live stores are not replaced by source publication.
+
 ## 1.2.0 — local source candidate (2026-11-08)
 
 - Reference builds invoke bounded Cargo directly; the disabled automatic resource wrapper stays disabled.

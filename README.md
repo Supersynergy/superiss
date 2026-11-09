@@ -1,16 +1,16 @@
 <p align="center"><img src="assets/superiss-hero.png" alt="Superiss — goal coordination for agents" width="100%"></p>
 
-# Superiss 1.1
+# Superiss 1.2
 
 **Local-first agent coordination with source-bound acceptance and an integrated Git/forge workflow.**
 
 Superiss stores tasks, goals, dependencies, project memory, checkpoints and evidence. An agent must hold the current claim and present a passing proof for the current contract and source files before closing a task.
 
-Version **1.2.0** uses Bun/TypeScript and authoritative SQLite: **88 core operations plus 10 forge tools**. DuckDB 2 provides optional, separate snapshot analytics. The tracker needs no model API key.
+Version **1.2.0** uses Bun/TypeScript and authoritative SQLite: **88 core operations plus 11 forge tools**. DuckDB 2 provides optional, separate snapshot analytics. The tracker needs no model API key.
 
 [Get started](docs/GETTING-STARTED.md) · [Forge workflow](docs/SISF.md) · [Features](docs/FEATURES.md) · [Comparison](docs/COMPARISON.md) · [Deutsch](README.de.md) · [Validation](docs/VALIDATION.md)
 
-Local 1.2 also retains [API/client/capsules and optional workflow/service adapters](docs/V1-INTEGRATIONS.md), durable Forge conflict reconciliation and [fork integration guidance](docs/FORGE-BRIDGES.md). Its source integrates GitHub main `2b200f3`; existing installed daemons are unchanged.
+Superiss 1.2 includes [API/client/capsules and optional workflow/service adapters](docs/V1-INTEGRATIONS.md), durable Forge conflict reconciliation and [fork integration guidance](docs/FORGE-BRIDGES.md). Forge can reserve new tasks atomically and serializes local merges across stores sharing a Git repository. Running daemons remain pinned to their existing installation.
 
 ## Start
 
@@ -30,6 +30,16 @@ bin/sis forge serve --repo /absolute/project --port 8766
 The forge board opens at `http://127.0.0.1:8766/forge`. `sis up` owns only the core daemon; the foreground forge process is stopped separately with Ctrl-C. To enable the core task board, set `SIS_HTTP=8765` when starting a new daemon.
 
 ## One checked workflow
+
+Reserve a new task and its claim in one native transaction, then bind the returned fence:
+
+```sh
+bin/sis forge reserve auth --db "$SIS_DB" --actor worker-a \
+  --title "Implement authentication" --oracle "bun test tests/auth.test.ts" \
+  --paths '["src","tests"]' --idem auth-reservation
+```
+
+Read `data.claim.epoch`, `data.path` and the current `data.contract` before editing. The claim and Git binding are separate durable effects: a binding failure preserves the reservation and reports `claim_preserved:true`. A lost acknowledgement requires native-state reconciliation; the same explicit idempotency key can deduplicate the native reservation. Existing tasks keep the ordinary flow:
 
 ```sh
 bin/sis create '{"id":"auth","title":"Implement authentication","oracle_cmd":"bun test tests/auth.test.ts","allowed_paths":["src","tests"]}'
@@ -57,7 +67,7 @@ Configure a `repos` map and set a task's `meta.repo_key` to route it explicitly.
 ## Agent interfaces
 
 - Core: `bin/sis mcp --db /absolute/project.db`. `SIS_MCP_PROFILE=agent` exposes 13 selected worker tools; selection is enforced on calls.
-- Forge: `bin/sis forge mcp --db /absolute/project.db --repo /absolute/project`. Ten tools share the CLI/HTTP workflow, ownership and proof rules.
+- Forge: `bin/sis forge mcp --db /absolute/project.db --repo /absolute/project`. Eleven tools share the CLI/HTTP workflow, ownership and proof rules.
 - Compatibility: `mcp/sis-mcp.js` launches the current core MCP through Bun. `bin/sisf` aliases the current forge CLI; `bin/sis-v1` aliases the current core CLI.
 
 ## Build and upgrade
@@ -73,7 +83,7 @@ A new installation does not migrate databases or replace daemons. A 1.1 client/f
 
 ## Reference and limits
 
-The retained Rust/Python **0.9 reference** is explicit: `sis reference …` or `SIS_IMPL=rs|py`. Its 85-operation registry is `ops.json`; the current registry is [packages/superiss/ops.json](packages/superiss/ops.json). macOS local-zero execution and launchd service remain reference-only and are not included in the 1.1 runtime bundle. [Version/support table](docs/FEATURES.md).
+The retained Rust/Python **0.9 reference** is explicit: `sis reference …` or `SIS_IMPL=rs|py`. Its 85-operation registry is `ops.json`; the current registry is [packages/superiss/ops.json](packages/superiss/ops.json). The current core includes explicit macOS local-zero execution; unsupported platforms refuse it. Workflow/foreground-service adapters are optional bundle contents; launchd installation remains an explicit reference workflow. [Version/support table](docs/FEATURES.md).
 
 An oracle proves only what it checks. Actor names are not authentication. File scopes are not an OS sandbox. Recorded costs are observations, not invoices or pre-call spending authorization. Git, task state and remote PR writes are separate operations: interrupted or timed-out writes require reconciliation. Passing tests do not establish a production soak, independent security audit or competitor performance ranking.
 

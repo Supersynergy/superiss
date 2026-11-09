@@ -32,6 +32,6 @@ def main():
     # These records describe original reference snapshots, not current-file hashes.
     for name in ['validation.json','forge-validation.json','source-snapshot.json']:
         json.loads((ROOT / 'docs/research' / name).read_text())
-    print(json.dumps({'passed':True,'stage':'source-content-only','version':'1.2.0','operations':88,'forge_tools':10,'reference_operations':85,'files':len(paths),'remote_publication_checked':False}))
+    print(json.dumps({'passed':True,'stage':'source-content-only','version':'1.2.0','operations':88,'forge_tools':11,'reference_operations':85,'files':len(paths),'remote_publication_checked':False}))
 
 if __name__ == '__main__': main()

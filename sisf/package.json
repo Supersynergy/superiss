@@ -2,7 +2,7 @@
   "name": "sisf",
   "private": true,
   "version": "1.2.0",
-  "description": "Superiss 1.1 integrated forge lifecycle, optional Worktrunk, proof-gated merge and MCP",
+  "description": "Superiss 1.2 integrated forge lifecycle, optional Worktrunk, proof-gated merge and MCP",
   "type": "module",
   "bin": {
     "sisf": "./sisf.ts"
