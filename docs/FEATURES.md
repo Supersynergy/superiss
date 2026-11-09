@@ -1,6 +1,6 @@
-# Features and support — 1.1.0
+# Features and support — 1.2.0
 
-| Capability | Current 1.1 runtime | Retained 0.9 reference |
+| Capability | Current 1.2 runtime | Retained 0.9 reference |
 | --- | --- | --- |
 | Default source launcher | `bin/sis`, `bin/sis-v1` alias | `bin/sis-reference`, `sis reference`, explicit `SIS_IMPL=rs|py` |
 | Implementation | Bun / TypeScript 7.1 | Rust / Python |
@@ -13,12 +13,13 @@
 | Recovery and exchange | Checkpoint/resume, handoff, outbox, JSONL, explicit Beads export migration | Available |
 | Interfaces | JSON CLI, Unix socket, multiplexed requests, MCP, local HTTP/task board | CLI/socket/MCP/HTTP |
 | Analytics | Optional isolated DuckDB 2 snapshot worker | Recorded outcome aggregates |
-| Forge | Packaged CLI, HTTP board, ten MCP tools; Git/Worktrunk; repository routing | Explicit adapter `--runtime reference`; no 1.1 proof-gated merge |
-| macOS local-zero runner / launchd service | Reference-only; not silently dispatched | Explicit supported workflow |
+| Forge | Packaged CLI, HTTP board, eleven MCP tools; atomic reservation, Git/Worktrunk, repository routing and cross-store local merge locks | Explicit adapter `--runtime reference`; no current proof-gated merge |
+| macOS local-zero execution | Explicit zero budget and native sandbox boundary; unsupported platforms refuse it | Explicit supported workflow |
+| Workflow / services | Optional workflow and foreground service adapters; launchd installation remains an explicit reference workflow | Explicit launchd workflow |
 
 ## Forge operations
 
-`bind`, `changes`, `record`, `git-commit`, `push`, `verify`, `pr`, `ci`, `rebase`, `merge`. CLI, HTTP and MCP use one dispatcher. `commit` remains a deprecated adapter alias for `record`; it does not create a Git commit. [Full workflow](SISF.md).
+`reserve`, `bind`, `changes`, `record`, `git-commit`, `push`, `verify`, `pr`, `ci`, `rebase`, `merge`. CLI, HTTP and MCP use one dispatcher. `reserve` atomically creates the contract and claim, then binds the returned live fence. `commit` remains a deprecated adapter alias for `record`; it does not create a Git commit. [Full workflow](SISF.md).
 
 ## Completion contract
 

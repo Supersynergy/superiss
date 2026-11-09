@@ -5,6 +5,14 @@ import {readFileSync,writeFileSync,mkdirSync,existsSync,realpathSync,statSync,fs
 import {homedir} from 'node:os';
 import {dirname,isAbsolute,join,relative,resolve} from 'node:path';
 
+// Match the core's configured SQLite for read-only WAL access, including stores
+// whose last writer has closed and removed the shared-memory sidecar.
+const sqliteLibrary=process.env.SIS_SQLITE_LIBRARY??(process.platform==='darwin'&&existsSync('/opt/homebrew/opt/sqlite/lib/libsqlite3.dylib')?'/opt/homebrew/opt/sqlite/lib/libsqlite3.dylib':undefined);
+if(sqliteLibrary&&sqliteLibrary!=='system'){
+ if(!existsSync(sqliteLibrary))throw Error('Configured SQLite library does not exist: '+sqliteLibrary);
+ Database.setCustomSQLite(sqliteLibrary);
+}
+
 export type ServiceConfig={schema?:1;id:string;db:string;goal:string;actor:string;stateDir:string;sis:string;jobRoot:string;
  zeroCostLock?:1;extraSpendEur?:0;providerMode?:'local-only';pollMs?:number;maxConcurrent?:number;timeoutSecs?:number;deadlineSecs?:number;maxRestarts?:number;watchdogSecs?:number;
  soak?:{startedAt:number;durationSecs:number;intervalSecs:number;maxGapSecs:number;feBin:string;fixtureRoot:string;durationOverrideForTest?:number}};

@@ -1,3 +1,4 @@
+import { VERSION } from '../packages/superiss/runtime.ts';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { chmodSync, copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
@@ -9,11 +10,13 @@ const repository = dirname(dirname(fileURLToPath(import.meta.url)));
 const source = join(repository, 'packages', 'superiss');
 const sha = (data: string | Buffer) => createHash('sha256').update(data).digest('hex');
 export interface ReleaseManifest {
-  version: '1.1.0';
+  version: typeof VERSION;
   sourceHash: string;
   bun: string;
   files: Record<string, string>;
+  adapters: string[];
 }
+const adapterFiles = ['tools/v1-integrations.ts', 'tools/sis_runner.py', 'tools/sis_workflow.py', 'tools/service.ts', 'tools/service-lock.py', 'tools/service-soak.ts', 'sisf/sisf.ts'];
 const launcher = `#!/usr/bin/env bash
 set -euo pipefail
 SELF="\${BASH_SOURCE[0]}"
@@ -23,18 +26,21 @@ while [ -L "$SELF" ]; do
 done
 ROOT="$(cd "$(dirname "$SELF")/.." && pwd)"
 if [ "\${SIS_IMPL:-ts}" != ts ]; then
-  printf '%s\\n' 'This 1.1 bundle contains the TypeScript runtime. Use the retained 0.9 installation for explicit Rust/Python reference commands.' >&2
+  printf '%s\\n' 'This 1.2 bundle contains the TypeScript runtime. Use the retained 0.9 installation for explicit Rust/Python reference commands.' >&2
   exit 2
 fi
 case "\${1:-}" in
   forge) shift; exec "\${SIS_BUN:-bun}" "$ROOT/packages/superiss/dist/sisf.js" "$@" ;;
+  run|runner|service)
+    if [ ! -f "$ROOT/tools/v1-integrations.ts" ]; then printf '%s\\n' 'Optional adapters unavailable; package with --with-adapters.' >&2; exit 2; fi
+    exec "\${SIS_BUN:-bun}" "$ROOT/tools/v1-integrations.ts" "$ROOT/bin/sis" "$@" ;;
   up|down|status) exec "\${SIS_BUN:-bun}" "$ROOT/packages/superiss/dist/v1-lifecycle.js" "$ROOT/bin/sis" "$@" ;;
 esac
 exec "\${SIS_BUN:-bun}" "$ROOT/packages/superiss/dist/cli.js" "$@"
 `;
 
 /** New directory only. Never installs dependencies, modifies a database or switches current. */
-export function packageRelease(destination: string): ReleaseManifest {
+export function packageRelease(destination: string, options: { adapters?: boolean } = {}): ReleaseManifest {
   const out = resolve(destination);
   assert.ok(!existsSync(out), 'Release destination already exists; refusing overwrite');
   let inputHashes: Record<string, string> = {};
@@ -53,7 +59,8 @@ export function packageRelease(destination: string): ReleaseManifest {
     sources(join(repository, 'sisf'), '../../sisf/');
     inputHashes['../../mcp/sis-mcp.js'] = sha(readFileSync(join(repository, 'mcp/sis-mcp.js')));
     inputHashes['../../LICENSE'] = sha(readFileSync(join(repository, 'LICENSE')));
-    return JSON.stringify(inputHashes);
+    if (options.adapters) for (const name of adapterFiles) inputHashes['../../' + name] = sha(readFileSync(join(repository, name)));
+    return JSON.stringify({ adapters: options.adapters === true, files: inputHashes });
   }
   const frozenInputs = inputs();
   mkdirSync(out, { mode: 0o700 });
@@ -68,6 +75,10 @@ export function packageRelease(destination: string): ReleaseManifest {
     copyFileSync(join(source, file), join(runtime, file));
   }
   copyFileSync(join(repository, 'LICENSE'), join(out, 'LICENSE'));
+  if (options.adapters) for (const name of adapterFiles) {
+    mkdirSync(dirname(join(out, name)), { recursive: true });
+    copyFileSync(join(repository, name), join(out, name));
+  }
   mkdirSync(join(out, 'mcp'));
   copyFileSync(join(repository, 'mcp/sis-mcp.js'), join(out, 'mcp/sis-mcp.js'));
   assert.equal(inputs(), frozenInputs, 'Source changed during build/copy; release refused');
@@ -81,11 +92,11 @@ export function packageRelease(destination: string): ReleaseManifest {
     const full = join(entry.parentPath, entry.name);
     files[full.slice(out.length + 1)] = sha(readFileSync(full));
   }
-  const manifest: ReleaseManifest = { version: '1.1.0', sourceHash: sha(frozenInputs), bun: process.versions.bun ?? '', files: Object.fromEntries(Object.entries(files).sort(([a], [b]) => a.localeCompare(b))) };
+  const manifest: ReleaseManifest = { version: VERSION, adapters: options.adapters ? ['workflow', 'service', 'forge'] : [], sourceHash: sha(frozenInputs), bun: process.versions.bun ?? '', files: Object.fromEntries(Object.entries(files).sort(([a], [b]) => a.localeCompare(b))) };
   writeFileSync(join(out, 'manifest.json'), JSON.stringify(manifest, null, 2) + '\n');
   return manifest;
 }
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  assert.equal(process.argv.length, 3, 'Usage: bun tools/package-v1.ts NEW_DESTINATION');
-  console.log(JSON.stringify(packageRelease(process.argv[2])));
+  assert.ok(process.argv.length === 3 || process.argv.length === 4 && process.argv[3] === '--with-adapters', 'Usage: bun tools/package-v1.ts NEW_DESTINATION [--with-adapters]');
+  console.log(JSON.stringify(packageRelease(process.argv[2], { adapters: process.argv[3] === '--with-adapters' })));
 }

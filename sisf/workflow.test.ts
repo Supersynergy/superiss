@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test';
-import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -7,6 +7,7 @@ import { Engine } from '../packages/superiss/engine.ts';
 import { _test, type Cfg } from './sisf.ts';
 import { forgeAction } from './workflow.ts';
 import { VERSION } from '../packages/superiss/runtime.ts';
+import { acquireMergeLock } from './merge-lock.ts';
 
 function fixture() {
   const root = realpathSync(mkdtempSync(join(tmpdir(),'sis-forge-v11-'))), repo = join(root,'repo'); mkdirSync(repo);
@@ -124,4 +125,90 @@ test('explicit mirror push retains its configured destination without force push
     const result=await forgeAction(f.deps,'pr',{...f.fence,via:'mirror'});expect(result.ok).toBe(true);expect(result.data.to).toBe(backup);
     expect(f.git('--git-dir',backup,'rev-parse','refs/heads/sis/task')).toBe(f.git('-C',bound.data.path,'rev-parse','HEAD'));
   }finally{await f.cleanup();}
+});
+
+test('merge refuses branch drift during close preflight without changing the foreign branch', async () => {
+  const f = fixture(); try {
+    const bound = await f.setup(); writeFileSync(join(bound.data.path, 'f'), 'changed\n');
+    await forgeAction(f.deps, 'git-commit', { ...f.fence, message: 'change', all: true });
+    const proof = await forgeAction(f.deps, 'verify', f.fence), original = f.git('rev-parse', 'main');
+    const call = f.sis.call.bind(f.sis); let checks = 0;
+    f.sis.call = async (cmd: string, args: unknown) => {
+      const result = await call(cmd, args);
+      if (cmd === 'close_check' && ++checks === 2) f.git('checkout', '-qb', 'foreign');
+      return result;
+    };
+    const result = await forgeAction(f.deps, 'merge', { ...f.fence, proof_id: proof.data.proof_id, skip_ci: true });
+    expect(result.ok).toBe(false); expect(result.merged).toBe(false);
+    expect(f.git('rev-parse', 'main')).toBe(original); expect(f.git('rev-parse', 'foreign')).toBe(original);
+    expect((await call('show', { id: 'task' })).data.issue.status).toBe('in_progress');
+  } finally { await f.cleanup(); }
+});
+
+test('merge honors a lock held by a different project store and releases only its own native slot', async () => {
+  const f = fixture(); let lock: ReturnType<typeof acquireMergeLock> | undefined;
+  try {
+    const bound = await f.setup(); writeFileSync(join(bound.data.path, 'f'), 'changed\n');
+    await forgeAction(f.deps, 'git-commit', { ...f.fence, message: 'change', all: true });
+    const proof = await forgeAction(f.deps, 'verify', f.fence), before = f.git('rev-parse', 'main');
+    lock = acquireMergeLock(f.repo, 'main', { task: 'foreign', actor: 'foreign-worker', epoch: 2, db: join(f.root, 'other.db') });
+    const result = await forgeAction(f.deps, 'merge', { ...f.fence, proof_id: proof.data.proof_id, skip_ci: true });
+    expect(result.ok).toBe(false); expect(result.error.code).toBe('merge_locked'); expect(f.git('rev-parse', 'main')).toBe(before);
+    expect(f.engine.db.get('SELECT holder FROM slots')?.holder).toBeNull(); expect(lock.release()).toBe(true); lock = undefined;
+  } finally { lock?.release(); await f.cleanup(); }
+});
+
+test('a post-merge branch change cannot close the native task', async () => {
+  const f = fixture(); try {
+    const bound = await f.setup(); writeFileSync(join(bound.data.path, 'f'), 'changed\n');
+    await forgeAction(f.deps, 'git-commit', { ...f.fence, message: 'change', all: true }); const proof = await forgeAction(f.deps, 'verify', f.fence);
+    const hook = join(f.repo, '.git/hooks/post-merge');
+    writeFileSync(hook, '#!/bin/sh\ngit branch foreign HEAD\ngit symbolic-ref HEAD refs/heads/foreign\n'); chmodSync(hook, 0o700);
+    const result = await forgeAction(f.deps, 'merge', { ...f.fence, proof_id: proof.data.proof_id, skip_ci: true });
+    expect(result.ok).toBe(false); expect(result.merged).toBe(true); expect(result.closed).toBe(false); expect(result.error.reconcile).toBe(true);
+    expect(f.git('branch', '--show-current')).toBe('foreign'); expect((await f.sis.call('show', { id: 'task' })).data.issue.status).toBe('in_progress');
+  } finally { await f.cleanup(); }
+});
+
+test('a lost Git acknowledgement after applied merge is uncertain and never falsely reports no effect', async () => {
+  const f = fixture(); try {
+    const bound = await f.setup(); writeFileSync(join(bound.data.path, 'f'), 'changed\n');
+    await forgeAction(f.deps, 'git-commit', { ...f.fence, message: 'change', all: true }); const proof = await forgeAction(f.deps, 'verify', f.fence);
+    const hook = join(f.repo, '.git/hooks/post-merge'); writeFileSync(hook, '#!/bin/sh\nkill -TERM "$PPID"\n'); chmodSync(hook, 0o700);
+    const result = await forgeAction(f.deps, 'merge', { ...f.fence, proof_id: proof.data.proof_id, skip_ci: true });
+    expect(result.ok).toBe(false); expect(result.execution_uncertain).toBe(true); expect(result.merged).toBe(true); expect(result.closed).toBe(false);
+    expect(result.error.reconcile).toBe(true); expect(result.observed_target_head).toBe(f.git('rev-parse', 'main'));
+    expect((await f.sis.call('show', { id: 'task' })).data.issue.status).toBe('in_progress');
+  } finally { await f.cleanup(); }
+});
+
+for (const prefix of [' ', '\t', '\n']) test(`a leading-whitespace path cannot masquerade as an allowed file (${JSON.stringify(prefix)})`, async () => {
+  const f = fixture(); try {
+    const bound = await f.setup(), outside = prefix + 'f'; writeFileSync(join(bound.data.path, 'f'), 'changed\n'); writeFileSync(join(bound.data.path, outside), 'outside proof scope');
+    await forgeAction(f.deps, 'git-commit', { ...f.fence, message: 'scope regression', all: true }); const proof = await forgeAction(f.deps, 'verify', f.fence); expect(proof.data.passed).toBe(true);
+    const before = f.git('rev-parse', 'main'), result = await forgeAction(f.deps, 'merge', { ...f.fence, proof_id: proof.data.proof_id, skip_ci: true });
+    expect(result.ok).toBe(false); expect(result.error.msg).toContain('outside the proof source scope'); expect(f.git('rev-parse', 'main')).toBe(before);
+    expect((await f.sis.call('show', { id: 'task' })).data.issue.status).toBe('in_progress'); expect(readFileSync(join(bound.data.path, outside), 'utf8')).toBe('outside proof scope');
+  } finally { await f.cleanup(); }
+});
+
+test('a restored narrow proof cannot authorize files from an earlier broad task snapshot', async () => {
+  const f = fixture(); try {
+    const bound = await f.setup(); writeFileSync(join(bound.data.path, 'f'), 'changed\n');
+    await forgeAction(f.deps, 'git-commit', { ...f.fence, message: 'proved scope', all: true });
+    const proof = await forgeAction(f.deps, 'verify', f.fence); expect(proof.data.passed).toBe(true);
+    writeFileSync(join(bound.data.path, 'g'), 'outside the narrow proof');
+    await forgeAction(f.deps, 'git-commit', { ...f.fence, message: 'outside change', all: true });
+    await f.engine.dispatch('update', { ...f.fence, allowed_paths: ['f', 'g'] });
+    const call = f.sis.call.bind(f.sis); let restore = true;
+    f.sis.call = async (cmd: string, args: any = {}) => {
+      const result = await call(cmd, args);
+      if (cmd === 'show' && restore) { restore = false; await f.engine.dispatch('update', { ...f.fence, allowed_paths: ['f'] }); }
+      return result;
+    };
+    const before = f.git('rev-parse', 'main'), result = await forgeAction(f.deps, 'merge', { ...f.fence, proof_id: proof.data.proof_id, skip_ci: true });
+    expect(result.ok).toBe(false); expect(result.error.msg).toContain('outside the proof source scope');
+    expect(f.git('rev-parse', 'main')).toBe(before); expect((await call('show', { id: 'task' })).data.issue.status).toBe('in_progress');
+    expect(readFileSync(join(bound.data.path, 'g'), 'utf8')).toBe('outside the narrow proof');
+  } finally { await f.cleanup(); }
 });

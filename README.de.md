@@ -1,8 +1,8 @@
-# Superiss 1.1
+# Superiss 1.2
 
 **Agenten koordinieren und Ergebnisse vor dem Abschluss prüfen — mit integriertem Git-/Forge-Ablauf.**
 
-Version **1.1.0**: Bun/TypeScript, SQLite als verbindliche Aufgaben-Datenbank, 88 Kernoperationen und zehn Forge-Tools. DuckDB 2 dient optionalen, getrennten Snapshot-Analysen.
+Version **1.2.0**: Bun/TypeScript, SQLite als verbindliche Aufgaben-Datenbank, 88 Kernoperationen und elf Forge-Tools. DuckDB 2 dient optionalen, getrennten Snapshot-Analysen.
 
 | Bereich | Aktueller Stand |
 | --- | --- |
@@ -24,7 +24,7 @@ bin/sis forge serve --repo /absolute/project --port 8766
 
 Bun ab 1.4.4 ist erforderlich, für Forge Git. Worktrunk und `gh` werden nur für die entsprechenden Funktionen benötigt. Analysen brauchen zusätzlich DuckDB 2 und `run-guard`. Es wird nichts automatisch installiert.
 
-`bin/sis` startet jetzt die aktuelle 1.1-Laufzeit. `bin/sis-v1` und `bin/sisf` bleiben passende Aliase. Bestehende Datenbanken und laufende Daemons werden nicht automatisch umgestellt. Ein 1.1-Client weist ältere Daemons vor Schreiboperationen zurück; vorher die alte Installation behalten und eine Datenbankkopie prüfen.
+`bin/sis` startet jetzt die aktuelle 1.2-Laufzeit. `bin/sis-v1` und `bin/sisf` bleiben passende Aliase. Bestehende Datenbanken und laufende Daemons werden nicht automatisch umgestellt. Ein 1.2-Client weist ältere Daemons vor Schreiboperationen zurück; vorher die alte Installation behalten und eine Datenbankkopie prüfen.
 
 Die Rust-/Python-0.9-Referenz bleibt über `sis reference …` bzw. `SIS_IMPL=rs|py` erreichbar. macOS-Sandbox und launchd-Dienst gehören weiterhin zu dieser Referenz. Historische Prüfbelege sind entsprechend gekennzeichnet.
 

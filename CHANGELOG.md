@@ -1,5 +1,38 @@
 # Changelog
 
+## 1.2.0 — Forge safety integration (2026-11-09)
+
+- Added `forge reserve` across CLI, HTTP and MCP: atomically create the contract and claim, then bind the returned live fence. Native idempotency permits acknowledgement reconciliation without duplicate claims; binding failures preserve the claim and foreign work.
+- Added repository/base merge exclusion shared across linked worktrees and separate project stores. Read-only reconciliation lists locks; changed owner markers, crashes and expired leases do not trigger reclamation.
+- Bind merge path scope to the validated proof's exact contract revision. Preserve whitespace and Unicode BOM in Git paths; reject invalid UTF-8 bytes instead of allowing decoded aliases.
+- Recheck branch and source identity after asynchronous preflight and after Git. Applied merges with lost acknowledgements report uncertainty and the observed target instead of a false no-effect result; native task closure remains fenced.
+- Bound retained command output to 8 MiB, preserve split UTF-8 and distinguish failed spawn from dispatched timeout/overflow/exit. Propagate uncertainty through CLI, HTTP and MCP without automatic retries.
+- Wait at most five seconds for short concurrent Forge-state writes. The restart oracle now observes the committed actor/epoch binding before interruption, while retaining its original recovery assertions.
+- Extend the current hosted gate to API/capsule/customer-outcome and snapshot regressions alongside the existing complete wire/Forge/package gates. Existing installations and live stores are not replaced by source publication.
+
+## 1.2.0 — local source candidate (2026-11-08)
+
+- Reference builds invoke bounded Cargo directly; the disabled automatic resource wrapper stays disabled.
+
+- Merged GitHub main `2b200f3` into the local 1.2 source. Retained API/client/capsules, local-zero/outbox protections, conflict reconciliation and optional workflow/service adapters alongside integrated Forge/MCP, `close_check`, repository routing and proof-gated local merges. Runtime and bundles remain 1.2.0; this merge does not switch installed daemons or publish a release.
+- Forge stores task binding conflicts across restart and keeps unrelated tasks moving; added read-only reconciliation and a bounded ten-client regression. Existing ownership and infrastructure failure checks remain.
+- Snapshot sync refuses another owner's staged index/unrelated tracked edits and commits only its snapshot path. Active task updates require a live actor/epoch even when omitted by a caller.
+- Documented CLI/MCP/HTTP/client bridges, patch-based upstream remigration and the remaining remote merge boundary in `docs/FORGE-BRIDGES.md`. Historical 1.0 soak evidence remains separately pinned.
+
+## Unreleased
+
+- Preserve optional declared customer outcome in native contract revisions and mandatory compact briefs. Old tasks keep their existing revision input. Added budget/claim, acquire/resume and stale-proof regressions; no installed daemon cutover or customer-confirmation claim.
+
+- Added opt-in source-bound worker capsules with exact local token budgets, mandatory contract/fence retention and explicit drift invalidation. Added a reusable loopback HTTP client with bounded keepalive connections, correlation, deadlines/cancellation, queued-request shutdown and no automatic retries or redirects. Documented controller/worker/reviewer ownership and evidence-based sweetspot decisions; no paid routing, runtime cutover or 1.1 publication.
+
+- Added opt-in 1.1 tracker snapshots with consistent event cursors, bounded filters/paging and blocked/expired/failed-proof views. Compact source-bound loop receipts retain scope/oracle/fence/checkpoints and drift without auto-replaying commands; unknown timing/proof-currency values remain explicit. Restart/reconnect and input/security regressions are covered. This is not a published 1.1 release.
+
+- Added opt-in versioned local HTTP API discovery/OpenAPI, correlated JSON RPC/named operations, atomic batches, resumable event cursors and browser-origin/body/header guards. The existing board remains a read-only tracker.
+- Integrated version-pinned workflow/runner/service/Forge adapters and optional hash-bound relocatable bundles. Local-zero execution now enforces explicit zero budgets, security metadata/source binding, sandboxed execution and fenced bounded outbox delivery. Durable effect markers reconcile lost acknowledgements without replay; interrupted effects fail closed for manual reconciliation. Unsupported platforms fail closed; reference runtimes and running services are not switched.
+- Added real isolated workflow/proof/close, interruption recovery, service drain, Forge/TypeScript watch and relocated adapter acceptance; documented usage and a separately scoped 1.1 loop-speed roadmap in `docs/V1-INTEGRATIONS.md`.
+
+- Added a private installed-bundle endurance runner with real 24-hour wall/monotonic gates, native fenced lifecycle proofs, hourly analytics and three owned daemon crash recoveries. A short probe is explicitly not endurance acceptance. Existing production services and databases are not changed; see `docs/V1-FINAL.md`.
+
 ## 1.1.0 — 2026-11-08
 
 - Unified current source CLI, MCP and relocatable bundle; reference runtimes are explicit.

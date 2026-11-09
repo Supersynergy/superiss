@@ -2,7 +2,7 @@
 
 Primary-source documentation/code review; no competitor performance benchmark. ✅ documented, △ different mechanism/integration, — exact capability not established. Current Superiss means 1.1 source, with the validation limits below.
 
-| Capability | Superiss 1.1 | Worktrunk | Beads |
+| Capability | Superiss 1.2 | Worktrunk | Beads |
 | --- | --- | --- | --- |
 | Main purpose | Verified task coordination and Git integration | Worktree/merge ergonomics | Durable agent memory and issue graph |
 | Tasks, goals and dependencies | ✅ SQLite | — | ✅ Dolt |
@@ -17,7 +17,7 @@ Primary-source documentation/code review; no competitor performance benchmark. �
 | PR and CI | ✅ GitHub/Gitea/Forgejo connectors | ✅ Status/PR UX | ✅ Issue sync and PR/CI gates |
 | Distributed task DB branching/sync | △ Explicit JSONL exchange | — task DB | ✅ Dolt |
 | Recorded costs and close budget gate | ✅ | — | — exact contract not established |
-| MCP | ✅ 88 core operations + ten forge tools | △ Agent CLI plugins | △ Agent setup and ecosystem |
+| MCP | ✅ 88 core operations + eleven forge tools | △ Agent CLI plugins | △ Agent setup and ecosystem |
 
 Beads now documents leases and heartbeat-based reclamation. The older Superiss table's “atomic claim only” wording is stale. Superiss' differentiation is the full source-bound proof/ownership/close contract, not the generic presence of claims or leases.
 

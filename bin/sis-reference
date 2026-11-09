@@ -63,11 +63,7 @@ if stale; then
   if stale; then
     if [ "$OWN_LOCK" -ne 1 ]; then printf '%s\n' 'Superiss build busy after 30s; foreign build preserved.' >&2; exit 2; fi
     trap cleanup EXIT
-    if command -v mac-resource-run >/dev/null 2>&1; then
-      CARGO_TARGET_DIR="$TARGET" mac-resource-run run --memory-gib 4 --io-slots 1 -- cargo build --manifest-path "$ROOT/Cargo.toml" --locked -j2 >&2
-    else
-      CARGO_TARGET_DIR="$TARGET" cargo build --manifest-path "$ROOT/Cargo.toml" --locked -j2 >&2
-    fi
+    CARGO_TARGET_DIR="$TARGET" cargo build --manifest-path "$ROOT/Cargo.toml" --locked -j2 >&2
   fi
   if [ "$OWN_LOCK" -eq 1 ]; then cleanup; trap - EXIT; fi
 fi

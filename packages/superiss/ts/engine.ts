@@ -2,7 +2,7 @@ import { appendFileSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync
 import { basename, dirname, join, resolve } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { StoreDatabase } from './store.ts';
-import { actor, admin, array, canonical, childWhere, decode, digest, encoding, execute, fail, fingerprint, integer, now, number, object, paths, redact, required, rootDirectory, SisError, text, tokenCount, ttl, uid, type Obj, type Value } from './util.ts';
+import { actor, admin, array, canonical, childWhere, decode, digest, encoding, execute, fail, fingerprint, integer, localZeroAvailable, now, number, object, paths, redact, required, rootDirectory, SisError, text, tokenCount, ttl, uid, type Obj, type Value } from './util.ts';
 import { extension } from './extension.ts';
 import { VERSION } from '../runtime.ts';
 
@@ -43,6 +43,12 @@ export class Engine {
     const row = this.issue(id);
     const deps = this.rows("SELECT d.depends_on,COALESCE(d.type,'blocks') type,b.status,g.state gate_state FROM deps d LEFT JOIN issues b ON b.id=d.depends_on LEFT JOIN gates g ON g.name=d.depends_on WHERE d.issue=? ORDER BY d.depends_on,d.type",id);
     const base: Obj = {id:row.id,title:row.title,desc:row.desc,acceptance:row.acceptance,oracle_cmd:row.oracle_cmd,allowed_paths:paths(row.allowed_paths),owner:row.owner,lane:row.lane,dependencies:deps.map(d => ({depends_on:d.depends_on,type:d.type}))};
+    base.budget_eur=row.budget_eur ?? null;base.meta=Object.fromEntries(['local_zero','execution','budget_gate','review_required','attest_required'].map(key=>[key,object(row.meta)[key] ?? null]));
+    // Declared customer intent is contract data, not evidence of delivered value.
+    // Omit absent keys so legacy tasks keep their exact revision and proof binding.
+    if (Object.hasOwn(object(row.meta), 'customer_outcome')) {
+      object(base.meta).customer_outcome = object(row.meta).customer_outcome ?? null;
+    }
     const revision = digest(canonical(base));
     const dependencies = deps.map(d => { const kind = d.type, state = kind === 'gate' ? d.gate_state ?? 'closed' : d.status ?? 'missing'; return {depends_on:d.depends_on,type:kind,state:kind === 'gate' || kind === 'blocks' ? state : null,blocked:kind === 'blocks' && state !== 'closed' || kind === 'gate' && state !== 'open'}; });
     return {...base,status:row.status,type:row.type,dependencies,revision,blocked_by:dependencies.filter(d=>d.blocked).map(d=>d.depends_on ?? null)};
@@ -87,7 +93,7 @@ export class Engine {
   }
   exec(command: string,args: unknown = {},input: Partial<Context> = {}): Value {
     const {cmd,a} = this.normalize(command,args), c = this.context(a,input);
-    if (['verify'].includes(cmd)) fail('bad_args','verify cannot run inside batch');
+    if (cmd==='verify' || cmd==='attest' && a.kind==='run') fail('bad_args','execution cannot run inside batch');
     if (['admin_update','import','sync_import'].includes(cmd)) admin(a);
     if (!mutations.has(cmd) && !mutations.has(aliases[cmd])) return this.operation(aliases[cmd] ?? cmd,a,c);
     return this.db.transaction(() => { const cached = this.cached(cmd,c); if (cached !== undefined) return cached; return this.save(cmd,c,this.operation(aliases[cmd] ?? cmd,a,c)); });
@@ -193,28 +199,67 @@ export class Engine {
     if (cmd === 'claim' || a.id) fail('not_claimable','issue is not a ready executable leaf');
     return {id:null};
   }
+  private recordedCost(id: Value | undefined): number { return Number(this.row("WITH RECURSIVE sub(id) AS (SELECT ? UNION SELECT i.id FROM issues i JOIN sub s ON json_extract(i.meta_json,'$.parent')=s.id OR (i.id LIKE s.id||'.%' AND instr(substr(i.id,length(s.id)+2),'.')=0)) SELECT COALESCE(SUM(CASE WHEN cents>0 THEN cents ELSE 0 END),0) n FROM costs WHERE issue IN(SELECT id FROM sub)",id)?.n ?? 0); }
+  private localZero(task: Obj): boolean {
+    if(object(task.meta).local_zero!==true)return false;
+    if(task.budget_eur!==0)fail('local_zero_budget','local_zero requires budget_eur exactly 0');
+    if(this.recordedCost(task.id)>0)fail('budget_exceeded','local_zero refuses recorded positive costs');
+    if(!localZeroAvailable())fail('local_zero_unavailable','local_zero requires macOS sandbox-exec');
+    return true;
+  }
+  deliveryFence(a: Obj,state?: string): Obj | undefined {
+    if(!this.row("SELECT name FROM sqlite_master WHERE type='table' AND name='sis_ts_delivery_leases'"))return;
+    const lease=this.row('SELECT actor,epoch,lease_until FROM sis_ts_delivery_leases WHERE outbox_id=?',a.id);
+    if(!lease)return;
+    if(a.actor!==lease.actor||a.epoch!==lease.epoch||Number(lease.lease_until)<=now())fail('stale_fence','outbox actor, delivery epoch and live lease required');
+    if(state){const current=this.row('SELECT state FROM outbox WHERE id=?',a.id)?.state;if(current!=='running'&&current!==state)fail('stale_fence','delivery finalized with a different outcome');}
+    return lease;
+  }
+  private autorunDelivery(a: Obj,c: Context,cmd: string,remaining: number): void {
+    if(a.outbox_id===undefined)return;
+    const lease=this.deliveryFence({id:a.outbox_id,actor:a.delivery_actor,epoch:a.delivery_epoch});
+    if(!lease||c.idem!==`outbox-${String(a.outbox_id)}-delivery-${String(a.delivery_epoch)}`||Number(lease.lease_until)<=now()+remaining)fail('stale_fence','matching delivery idempotency key and sufficient lease required');
+    const payload=object(decode(this.row("SELECT payload FROM outbox WHERE id=? AND kind='autorun' AND state='running'",a.outbox_id)?.payload));
+    if(payload.issue!==a.id||payload.actor!==c.actor||payload.epoch!==a.epoch||payload.cmd!==cmd||typeof payload.cwd==='string'&&resolve(payload.cwd)!==resolve(text(a.cwd,this.projectRoot())))fail('stale_fence','execution does not match leased job');
+  }
   async verify(a: Obj,c: Context): Promise<Value> {
-    const task = this.active(a,c); this.expected(a);
+    const task = this.active(a,c); this.expected(a);const localZero=this.localZero(task);
     const oracle = text(task.oracle_cmd); if (!oracle.trim()) fail('missing_oracle','executable oracle required');
     const revision = this.revision(a.id), before = fingerprint(task,required(a,'cwd'),this.dbPath);
-    const result = await execute(oracle,before.cwd,integer(a.timeout_secs,'timeout_secs',10,1,300));
+    const result = await execute(oracle,before.cwd,integer(a.timeout_secs,'timeout_secs',10,1,300),localZero);
     return this.db.transaction(() => {
-      const current = this.active(a,c), after = fingerprint(current,before.cwd,this.dbPath);
+      const current = this.active(a,c), after = fingerprint(current,before.cwd,this.dbPath);this.localZero(current);
       if (revision !== this.revision(a.id) || before.source_hash !== after.source_hash) fail('stale_proof','contract or source changed during verification');
       const proof = uid('proof-'), passed = result.exit_code === 0 && !result.timed_out;
       this.run('INSERT INTO proofs(proof_id,issue,actor,epoch,revision,source_hash,cwd,oracle,exitcode,passed,timed_out,output,review_receipt) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)',proof,a.id,c.actor,a.epoch,revision,before.source_hash,before.cwd,oracle,result.exit_code,passed,result.timed_out,result.output,canonical(redact(a.review_receipt ?? null)));
-      const out = {proof_id:proof,passed,exit_code:result.exit_code,timed_out:result.timed_out,revision,source_hash:before.source_hash};
+      const out = {proof_id:proof,passed,exit_code:result.exit_code,timed_out:result.timed_out,revision,source_hash:before.source_hash,...(result.execution?{execution:result.execution}:{})};
       this.emit('verify',a.id ?? null,c,out); this.run('UPDATE agent_state SET last_error=? WHERE issue=?',passed ? null : result.output,a.id);
       return this.save('verify',c,out);
     });
   }
   async attestRun(a: Obj,c: Context): Promise<Value> {
-    const task = this.active(a,c), before = fingerprint(task,text(a.cwd,this.projectRoot()),this.dbPath), revision = this.revision(a.id);
+    const task = this.active(a,c), before = fingerprint(task,text(a.cwd,this.projectRoot()),this.dbPath), revision = this.revision(a.id);this.expected(a);const localZero=this.localZero(task);
     if (Buffer.byteLength(canonical(a.payload ?? null)) > 65536) fail('bad_args','payload exceeds 64 KiB');
     const cmd = required({cmd:a.cmd ?? object(a.payload).cmd},'cmd');
     if (Buffer.byteLength(cmd) > 8192) fail('bad_args','run cmd exceeds 8 KiB');
-    const result = await execute(cmd,before.cwd,integer(a.timeout_secs,'timeout_secs',10,1,60));
-    return this.db.transaction(() => { const current = this.active(a,c); if (revision !== this.revision(a.id) || fingerprint(current,before.cwd,this.dbPath).source_hash !== before.source_hash) fail('stale_proof','source changed during run'); return this.save('attest',c,this.storeAttest(a,c,revision,before,{passed:result.exit_code === 0 && !result.timed_out,cmd,exit_code:result.exit_code,timed_out:result.timed_out,output:result.output})); });
+    const policy=object(task.meta),execution=object(policy.execution);let matches=false;try{matches=typeof execution.cwd==='string'&&fingerprint(task,execution.cwd,this.dbPath).cwd===before.cwd;}catch{/* Unavailable execution directory is not trusted. */}
+    if(localZero&&Object.hasOwn(policy,'execution')&&(execution.cmd!==cmd||!matches))fail('execution_mismatch','run cmd/cwd differs from meta.execution');
+    const seconds=integer(a.timeout_secs,'timeout_secs',10,1,60);this.autorunDelivery(a,c,cmd,seconds+2);
+    const effectKey=a.outbox_id===undefined?null:`sis:autorun-effect:${String(a.outbox_id)}`;
+    if(effectKey)this.db.transaction(()=>{
+      this.active(a,c);this.autorunDelivery(a,c,cmd,seconds+2);
+      if(this.row('SELECT 1 FROM kv WHERE k=?',effectKey))fail('execution_uncertain','effect already started; reconcile its durable receipt before retry');
+      // Commit before spawn: a lost controller must never imply that no effect occurred.
+      this.run('INSERT INTO kv(k,v) VALUES(?,?)',effectKey,canonical({state:'started'}));
+    });
+    const result = await execute(cmd,before.cwd,seconds,localZero);
+    return this.db.transaction(() => {
+      const current = this.active(a,c);this.localZero(current);this.autorunDelivery(a,c,cmd,0);
+      if (revision !== this.revision(a.id) || fingerprint(current,before.cwd,this.dbPath).source_hash !== before.source_hash) fail('stale_proof','source changed during run');
+      const receipt=this.storeAttest(a,c,revision,before,{passed:result.exit_code === 0 && !result.timed_out,cmd,exit_code:result.exit_code,timed_out:result.timed_out,output:result.output,...(result.execution?{execution:result.execution}:{})});
+      if(effectKey)this.run('UPDATE kv SET v=? WHERE k=?',canonical({state:'complete',receipt}),effectKey);
+      return this.save('attest',c,receipt);
+    });
   }
   storeAttest(a: Obj,c: Context,revision: string,source: {source_hash:string;cwd:string},summary: Obj): Value {
     const id = uid('attest-'), passed = summary.passed === true, kind = required(a,'kind');
@@ -245,10 +290,12 @@ export class Engine {
       const have = this.rows('SELECT kind FROM attests WHERE issue=? AND revision=? AND source_hash IN (?,?) AND passed=1',a.id,proof.revision,source.source_hash,source.legacy_source_hash).map(r=>r.kind);
       if (!have.length || kinds.some(k=>!have.includes(k))) fail('attest_required','matching current-source attest required');
     }
+    this.localZero(task);
     if (meta.budget_gate === true) {
+      if(task.budget_eur==null)fail('budget_missing','budget_gate requires an explicit budget');
       const spent = Number(this.row("WITH RECURSIVE sub(id) AS (SELECT ? UNION SELECT i.id FROM issues i JOIN sub s ON json_extract(i.meta_json,'$.parent')=s.id OR (i.id LIKE s.id||'.%' AND instr(substr(i.id,length(s.id)+2),'.')=0)) SELECT COALESCE(SUM(c.cents),0) n FROM costs c WHERE c.issue IN (SELECT id FROM sub)",a.id)?.n ?? 0);
       const budget = Math.trunc(Number(task.budget_eur ?? 0)*100);
-      if (budget > 0 && spent > budget) fail('budget_exceeded',`cost rollup ${spent}c exceeds budget ${budget}c`);
+      if (spent > budget) fail('budget_exceeded',`cost rollup ${spent}c exceeds budget ${budget}c`);
     }
     if ((task.type === 'goal' || task.type === 'epic') && object(this.operation('goal_done',{id:task.id},c)).done !== true) fail('children_open','container children still open');
     return {task,proof,who,epoch};
@@ -291,6 +338,7 @@ export class Engine {
         if (this.row('SELECT 1 FROM issues WHERE id=?',id)) fail('exists',id);
         if (a.budget_eur != null) number(a.budget_eur,'budget_eur',undefined,0);
         if (a.allowed_paths !== undefined) paths(a.allowed_paths);
+        if(a.meta!==undefined&&(a.meta===null||typeof a.meta!=='object'||Array.isArray(a.meta)))fail('bad_args','meta must be an object');
         const meta = {...object(a.meta)}; if (a.parent) meta.parent = a.parent;
         this.run('INSERT INTO issues(id,title,"desc",type,priority,status,owner,oracle_cmd,allowed_paths,lane,budget_eur,acceptance,created_at,meta_json,lease_epoch,defer_until,expires_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,0,?,?)',id,title,a.desc ?? a.descr ?? '',a.type ?? 'task',integer(a.priority ?? a.prio,'priority',2,-2147483648),a.status === 'deferred' ? 'deferred' : 'open',a.owner,a.oracle_cmd,a.allowed_paths,a.lane,a.budget_eur,a.acceptance,now(),canonical(meta),a.defer_until,a.expires_at ?? (a.ttl_secs != null ? now()+number(a.ttl_secs,'ttl_secs',undefined,0) : null));
         this.emit('create',id,c,{title}); return {id};
@@ -306,9 +354,13 @@ export class Engine {
           if (!editable.has(key) && !(cmd === 'admin_update' && ['status','closed_at','lease_until','claim_actor'].includes(key))) fail('protected_field',key);
           if (key === 'status' && !statuses.includes(text(changes[key]))) fail('bad_args','invalid status');
         }
-        if (task.status === 'in_progress' && cmd !== 'admin_update' && (a.actor !== undefined || a.epoch !== undefined)) this.active(a,c);
+        if (task.status === 'in_progress' && cmd !== 'admin_update') this.active(a,c);
         if (changes.allowed_paths !== undefined) paths(changes.allowed_paths);
         if (changes.budget_eur != null) number(changes.budget_eur,'budget_eur',undefined,0);
+        if(cmd!=='admin_update'){
+          if(Object.hasOwn(changes,'budget_eur')&&task.budget_eur!=null&&(changes.budget_eur==null||Number(changes.budget_eur)>Number(task.budget_eur)))fail('over_budget','worker budget cannot increase');
+          if(Object.hasOwn(changes,'meta_json')){const meta=typeof changes.meta_json==='string'?decode(changes.meta_json):changes.meta_json;if(meta===null||typeof meta!=='object'||Array.isArray(meta))fail('bad_args','meta must be an object');for(const key of ['controller','local_zero','execution','budget_gate','review_required','attest_required'])if(canonical(object(meta)[key])!==canonical(object(task.meta)[key]))fail('protected_field','security metadata requires admin_update');}
+        }
         this.expected(a);
         const keys = Object.keys(changes); this.run('UPDATE issues SET '+keys.map(k=>`"${k}"=?`).join(',')+' WHERE id=?',...keys.map(k=>changes[k]),a.id);
         this.emit(cmd,a.id ?? null,c,{fields:keys.sort(),reason:a.reason ?? null}); return {ok:true};
@@ -371,7 +423,7 @@ export class Engine {
       case 'contract': { const task = this.contract(required(a,'id')); return {contract_text:JSON.stringify(JSON.parse(canonical(task)),null,2),revision:task.revision,task,structured:task,anchors:[],priors:null}; }
       case 'brief': return this.brief(a);
       case 'tokens': { const input = typeof a.text === 'string' ? a.text : fail('bad_args','text required'), enc = encoding(a); return {tokens:tokenCount(input,enc),encoding:enc,exact:true,algorithm:'tiktoken',billing:false}; }
-      case 'capabilities': return {version:VERSION,implementation:'typescript',typescript:'7.1',protocol:2,schema:7,schema_version:Number(this.row('PRAGMA user_version')?.user_version),project_id:this.row("SELECT v FROM kv WHERE k='project_id'")?.v,operations:registry.map(op=>op.name ?? null),encodings:['o200k_base','cl100k_base'],proof_receipts:true,billing:false,token_billing:false,durability:this.row('PRAGMA synchronous')?.synchronous,...(a.schemas === true ? {ops:registry} : {})};
+      case 'capabilities': return {local_zero_execution:localZeroAvailable(),outbox_delivery_leases:true,watch_wait_frames:1,version:VERSION,implementation:'typescript',typescript:'7.1',protocol:2,schema:7,schema_version:Number(this.row('PRAGMA user_version')?.user_version),project_id:this.row("SELECT v FROM kv WHERE k='project_id'")?.v,operations:registry.map(op=>op.name ?? null),encodings:['o200k_base','cl100k_base'],proof_receipts:true,billing:false,token_billing:false,durability:this.row('PRAGMA synchronous')?.synchronous,...(a.schemas === true ? {ops:registry} : {})};
       case 'context': { const caps = object(this.operation('capabilities',a,c)); return {project_id:caps.project_id,pid:process.pid,instance_id:instanceId,db_path:resolve(this.dbPath),capabilities:caps,stats:this.operation('stats',a,c)}; }
       case 'watch': return {events:this.events(undefined,integer(a.after,'after',0),integer(a.limit,'limit',1000,1,1000))};
       case 'lint': return {needs_oracle:this.rows("SELECT id,title FROM issues WHERE status!='closed' AND (oracle_cmd IS NULL OR oracle_cmd='') AND (acceptance IS NULL OR acceptance='') ORDER BY priority").map(r=>({...r,missing:['oracle_cmd','acceptance']}))};
@@ -387,7 +439,7 @@ export class Engine {
       case 'batch': { if (!Array.isArray(a.ops)) fail('bad_args','batch needs ops array'); const results = a.ops.map(item=>{ const op=object(item); return this.exec(required(op,'cmd'),op.args,{...c,idem:typeof op.idem === 'string' ? op.idem : null,run_id:typeof op.run_id === 'string' ? op.run_id : c.run_id}); }); return {results}; }
       case 'budget_claim': { const id = required(a,'issue'), eur = number(a.eur,'eur',undefined,0), task = this.issue(id); if (task.budget_eur != null && Number(task.budget_eur) < eur) fail('over_budget','requested budget exceeds balance'); if (task.budget_eur != null) this.run('UPDATE issues SET budget_eur=budget_eur-? WHERE id=?',eur,id); const remaining = task.budget_eur == null ? null : Number(task.budget_eur)-eur; this.emit(cmd,id,c,{eur,remaining}); return {ok:true,remaining}; }
       case 'outbox_list': return this.rows('SELECT * FROM outbox'+(a.state != null ? ' WHERE state=?' : '')+' ORDER BY id',...(a.state != null ? [a.state] : []));
-      case 'outbox_done': case 'outbox_fail': { const id = integer(a.id,'id',undefined,-Number.MAX_SAFE_INTEGER); const n = this.run(cmd === 'outbox_done' ? "UPDATE outbox SET state='done' WHERE id=?" : "UPDATE outbox SET state='failed',attempts=attempts+1 WHERE id=?",id); if (!n.changes) fail('not_found','outbox row'); this.emit(cmd,null,c,{id,err:a.err ?? null}); return {ok:true}; }
+      case 'outbox_done': case 'outbox_fail': { const id = integer(a.id,'id',undefined,-Number.MAX_SAFE_INTEGER);const lease=this.deliveryFence(a,cmd==='outbox_done'?'done':'failed'); const n = this.run(cmd === 'outbox_done' ? "UPDATE outbox SET state='done' WHERE id=?" : lease?"UPDATE outbox SET state='failed' WHERE id=?":"UPDATE outbox SET state='failed',attempts=attempts+1 WHERE id=?",id); if (!n.changes) fail('not_found','outbox row'); this.emit(cmd,null,c,{id,err:a.err ?? null}); return {ok:true}; }
       case 'compact': { const cutoff = now()-number(a.days,'days',30,0)*86400, archive = text(a.archive_path,this.dbPath+'.events-archive.jsonl'), rows = this.rows('SELECT * FROM events WHERE ts<? ORDER BY seq',cutoff); if (rows.length) { appendFileSync(archive,rows.map(canonical).join('\n')+'\n'); this.run('DELETE FROM events WHERE ts<?',cutoff); } const reaped = this.run('DELETE FROM issues WHERE expires_at IS NOT NULL AND expires_at<=?',now()).changes; return {archived:rows.length,kept:this.row('SELECT COUNT(*) n FROM events')?.n,reaped:Number(reaped),archive_path:archive}; }
       case 'gate': { const name = required(a,'name'); if (a.state != null) { if (!['open','closed'].includes(text(a.state))) fail('bad_args','gate state must be open or closed'); this.run('INSERT INTO gates(name,state,payload,updated_at) VALUES(?,?,?,?) ON CONFLICT(name) DO UPDATE SET state=excluded.state,payload=excluded.payload,updated_at=excluded.updated_at',name,a.state,a.payload,now()); this.emit(cmd,null,c,{name,state:a.state}); } return {name,state:this.row('SELECT state FROM gates WHERE name=?',name)?.state ?? 'closed'}; }
       case 'gate_list': return this.rows('SELECT * FROM gates ORDER BY name');

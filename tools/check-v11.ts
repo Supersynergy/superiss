@@ -19,6 +19,7 @@ const typeRoots = env.SIS_TYPE_ROOTS ?? dirname(dirname(createRequire(import.met
 run('current-core-types',compiler.command,['--project','packages/superiss/tsconfig.json','--typeRoots',typeRoots]);
 run('forge-and-release-types',compiler.command,['--strict','--skipLibCheck','--noEmit','--allowImportingTsExtensions','--module','ESNext','--moduleResolution','Bundler','--target','ES2023','--types','node,bun','--typeRoots',typeRoots,...readdirSync(join(root,'sisf')).filter(name=>name.endsWith('.ts')).map(name=>'sisf/'+name),'tools/package-v1.ts','tools/check-v1-publication.ts','tools/v1-lifecycle.ts']);
 run('current-core-regressions',process.execPath,['test','packages/superiss/ts/store.test.ts','--bail']);
+run('current-api-capsules-outcome-sync',process.execPath,['test','packages/superiss/api.test.ts','packages/superiss/local-zero.test.ts','packages/superiss/customer-outcome.test.ts','tests/sis-sync.test.ts','--bail']);
 const quote = (value: string) => "'" + value.replaceAll("'", "'\\''") + "'";
 run('complete-wire-contract','python3',['packages/superiss/tests/contract_suite.py','--require-complete','--serve-cmd',quote(process.execPath) + ' ' + quote(join(root,'packages/superiss/cli.ts')) + ' serve']);
 run('forge-contract-workflow-connectors-package',process.execPath,['test','sisf','--bail']);

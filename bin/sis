@@ -15,6 +15,6 @@ case "${1:-}" in
   reference) shift; exec "$ROOT/bin/sis-reference" "$@" ;;
   forge) shift; exec "${SIS_BUN:-bun}" "$ROOT/sisf/sisf.ts" "$@" ;;
   up|down|status) exec "${SIS_BUN:-bun}" "$ROOT/tools/v1-lifecycle.ts" "$ROOT/bin/sis" "$@" ;;
-  service|run) printf '%s\n' 'The macOS local-zero service belongs to the retained reference runtime: sis reference service|run ...' >&2; exit 2 ;;
+  run|runner|service) exec "${SIS_BUN:-bun}" "$ROOT/tools/v1-integrations.ts" "$ROOT/bin/sis" "$@" ;;
 esac
 exec "${SIS_BUN:-bun}" "$ROOT/packages/superiss/cli.ts" "$@"

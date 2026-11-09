@@ -29,7 +29,7 @@ test("socket disconnect rejects queued requests and reconnect rejects project dr
     s.on("data", chunk => { buf += chunk; let i;
       while ((i = buf.indexOf("\n")) >= 0) {
         const request = JSON.parse(buf.slice(0, i)); buf = buf.slice(i+1);
-        if (request.cmd === "context") s.write(JSON.stringify({ ok: true, data: { project_id: project, db_path: f.cfg.db, capabilities:{version:"1.1.0",protocol:2,proof_receipts:true} } }) + "\n");
+        if (request.cmd === "context") s.write(JSON.stringify({ ok: true, data: { project_id: project, db_path: f.cfg.db, capabilities:{version:"1.2.0",protocol:2,proof_receipts:true} } }) + "\n");
         else s.destroy();
       }
     });

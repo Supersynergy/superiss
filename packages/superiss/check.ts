@@ -1,3 +1,4 @@
+import { VERSION } from './runtime.ts';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -43,13 +44,13 @@ run('build-artifacts', process.execPath, ['build', 'cli.ts', 'analytics-worker.t
 const temp = mkdtempSync(join(tmpdir(), 'sis-v1-artifact-'));
 try {
   const response = JSON.parse(run('built-cli-smoke', process.execPath, ['dist/cli.js', 'capabilities', '--db', join(temp, 'artifact.db')], true)) as Record<string, unknown>;
-  assert.equal(response.version, '1.1.0');
+  assert.equal(response.version, VERSION);
   assert.equal(response.typescript, '7.1');
   assert.match(String(response.sqlite_version), /^3\.\d+\.\d+$/u);
   const report = JSON.parse(run('built-analytics-worker-smoke', process.execPath, ['dist/cli.js', 'analytics', 'kind=all', '--db', join(temp, 'artifact.db')], true, 45000)) as Record<string, unknown>;
   assert.equal(report.consistency, 'snapshot'); assert.equal(report.authority, 'sqlite');
   const artifactHashes = Object.fromEntries(['cli.js', 'analytics-worker.js'].map(name => [name, createHash('sha256').update(readFileSync(join('dist', name))).digest('hex')]));
-  const manifest = { version: '1.1.0', typescript: compilerVersion, runtime: process.versions.bun, sqlite: response.sqlite_version, duckdb: report.duckdb_version, operations: response.operations, artifactHashes };
+  const manifest = { version: VERSION, typescript: compilerVersion, runtime: process.versions.bun, sqlite: response.sqlite_version, duckdb: report.duckdb_version, operations: response.operations, artifactHashes };
   writeFileSync('dist/version.json', JSON.stringify(manifest, null, 2) + '\n');
   const receipt = join(mkdtempSync(join(tmpdir(), 'sis-v1-receipt-')), 'check.json');
   writeFileSync(receipt, JSON.stringify({ passed: true, manifest, stages, benchmark }, null, 2) + '\n', { mode: 0o600 });

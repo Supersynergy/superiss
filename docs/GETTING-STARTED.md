@@ -38,7 +38,7 @@ bun tools/check-v11.ts
 # Additional full hybrid analytics/source gate, with its native dependencies installed:
 bun packages/superiss/check.ts
 bun tools/check-v1-publication.ts
-bun tools/package-v1.ts /absolute/new-superiss-1.1.0
+bun tools/package-v1.ts /absolute/new-superiss-1.2.0
 ```
 
 The package manifest hashes every shipped runtime file, including the forge and MIT license. A package build is not a production installation or a completed soak.
