@@ -4,7 +4,7 @@ Office already records a desired outcome, its meaning, the chosen priority, a bo
 
 ## Existing contract path
 
-`contract`, `brief`, `acquire` and `resume` carry this optional metadata. It participates in the existing contract revision. Changing it makes a prior proof stale. A compact brief may omit a long description but must retain this metadata; insufficient mandatory-token budgets fail without claiming a task. Tasks without the key retain the previous contract shape and revision hash. No migration, operation or additional supervisor is introduced.
+`contract`, `brief`, `acquire` and `resume` carry this optional metadata. It participates in the existing contract revision. Changing it makes a prior proof stale. A compact brief may omit a long description but must retain this metadata; insufficient mandatory-token budgets fail without claiming a task. Tasks without the key retain the previous contract shape and revision hash. The 1.2 projection introduced no migration, operation or additional supervisor.
 
 The Office projection is versioned data with `v: 1`, `source: office_willenskarte`, at most 400 characters each for `desired_outcome`, `meaning`, `chosen_priority`, `bottleneck`, `customer_acceptance`, and at most 20 declared `evidence_refs`. References must be resolved through the existing evidence policy before work. Their presence is not customer acceptance. Existing role, tenant, privacy, budget, fencing and verification rules still apply.
 
@@ -25,3 +25,7 @@ Use the existing economic calculator and approved data adapters instead of copyi
 Run `bun test packages/superiss/customer-outcome.test.ts packages/superiss/api.test.ts --bail` from the repository root, plus the existing strict typecheck. Regression coverage includes mandatory context, atomic rejection of insufficient budgets, acquire/resume, legacy revisions, ownership and stale proofs after an intent change.
 
 This is an additive source change. It does not replace installed services or their running daemons. A controller must bind a candidate build and arrange an owned cutover before claiming the new metadata semantics on an installed runtime. Preserve active foreign claims and processes. Existing description-based contracts remain usable during preparation; do not mix changed source runtimes against a live database as an implicit upgrade.
+
+## WOOP in 1.3
+
+The additive [WOOP compiler](WOOP.md) uses this same revision-bound path with `source: sis_woop` and a nested `woop.v: 1` contract. Its declared stages and intent are not evidence. Existing Office projections and contracts without this key retain their previous shape.

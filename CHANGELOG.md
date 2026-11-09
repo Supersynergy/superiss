@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.3.0 — WOOP and separate evidence stages (2026-11-09)
+
+- Added bounded `woop` compilation to native atomic goal planning, with controller ownership, revision-bound intent, three ordered proof-gated tasks and native replay/rollback semantics. No jobs, claims or customer confirmations are created implicitly.
+- Added a preview-first board form and SuperSynergy template; implementation/delivery/outcome show separate stored oracle receipts, contract drift and unknown source currency. Filter, draft and expanded intent survive refresh; untrusted text is escaped.
+- Rejected case-folded hierarchy collisions and read board goals/tasks/receipt revisions in one SQLite snapshot.
+- Kept the local 1.2 Forge completed-commit acknowledgement fix, old contract hashes, protocol/fence checks and explicit runtime mismatch refusal. Updated the runtime/catalog/package/docs to 1.3.0 (89 core operations); no database migration or new dependencies.
+
+
 ## 1.2.0 — Forge safety integration (2026-11-09)
 
 - Added `forge reserve` across CLI, HTTP and MCP: atomically create the contract and claim, then bind the returned live fence. Native idempotency permits acknowledgement reconciliation without duplicate claims; binding failures preserve the claim and foreign work.

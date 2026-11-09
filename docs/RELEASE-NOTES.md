@@ -1,3 +1,13 @@
+# Superiss 1.3.0
+
+- Added `sis woop`: one atomic native goal with implementation, delivery and outcome tasks, separate oracles/scopes/acceptance, ordered dependencies and explicit controller ownership. No execution or claims occur on creation.
+- Versioned intent and stage references travel through the existing revision-bound contract/brief/acquire/resume path. Input is bounded and exact; replay uses native idempotency. No database migration or dependencies.
+- Added a board form with preview and a SuperSynergy template. Each stage shows its stored native proof, stale-contract state and unknown source currency; customer impact and payment are not inferred.
+- Preserved the installed local Forge completed-commit acknowledgement fix. Runtime, schema catalog, packaging and MCP advertise 1.3.0 with 89 core operations and eleven forge tools.
+- Existing daemons retain their old runtime. A 1.3 client refuses mismatched daemons; rollback uses the retained installation. [Upgrade](GETTING-STARTED.md), [WOOP](WOOP.md), [validation scope](VALIDATION.md).
+
+## Historical 1.1 release notes
+
 # Superiss 1.1.0
 
 The source default, release bundle and forge now use one current Bun/TypeScript runtime. Previously the source default and forge remained on the 0.9 reference while the 1.0 bundle used a separate runtime.

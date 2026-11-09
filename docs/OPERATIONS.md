@@ -1,6 +1,6 @@
-# Core operation catalog — 1.1.0
+# Core operation catalog — 1.3.0
 
-Generated from [the current registry](../packages/superiss/ops.json). **88 core operations**, protocol 2. The ten forge tools are listed in [the forge guide](SISF.md). The retained root registry belongs to the 0.9 reference.
+Generated from [the current registry](../packages/superiss/ops.json). **89 core operations**, protocol 2. The eleven forge tools are listed in [the forge guide](SISF.md). The retained root registry belongs to the 0.9 reference.
 
 | Operation | Contract | Required fields |
 | --- | --- | --- |
@@ -77,6 +77,7 @@ Generated from [the current registry](../packages/superiss/ops.json). **88 core 
 | `goal` | Create a named goal container with final acceptance. | `name` |
 | `sub` | Create a child task under a goal without a blocking parent edge. | `parent`, `title` |
 | `plan` | Create atomic goal tree and validated internal dependencies; save or reuse a named template. | `name` |
+| `woop` | Compile declared WOOP intent into one atomic native goal and three ordered proof-gated tasks. Does not execute, claim or confirm customer outcomes. | `id`, `name`, `owner`, `wish`, `outcome`, `obstacle`, `if`, `then`, `stages` |
 | `goal_tree` | Read named goal hierarchy and progress. |  |
 | `goal_done` | Check subtree completion; caller still needs verified final goal acceptance. | `id` |
 | `snapshot` | Write the git-diffable <db>.issues.jsonl mirror (one upsert line per issue, deps embedded, sorted by id). Runs automatically after every committed write op; SIS_SNAPSHOT=0 disables. |  |

@@ -35,7 +35,7 @@ function fixture() {
 }
 
 test('1.1 uses the live version and advertises read-only close preflight',async()=>{
-  const f=fixture();try{const c:any=await f.engine.dispatch('capabilities');expect(c.version).toBe(VERSION);expect(c.operations).toContain('close_check');expect(c.operations).toHaveLength(88);}finally{await f.cleanup();}
+  const f=fixture();try{const c:any=await f.engine.dispatch('capabilities');expect(c.version).toBe(VERSION);expect(c.operations).toContain('close_check');expect(c.operations).toHaveLength(89);}finally{await f.cleanup();}
 });
 
 test('staged Git commit, evidence, verification, preflight and merge close one task without pushing or deleting work',async()=>{

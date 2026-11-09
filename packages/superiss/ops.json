@@ -1,5 +1,5 @@
 {
-  "version": "1.2.0",
+  "version": "1.3.0",
   "protocol": 2,
   "ops": [
     {
@@ -2764,6 +2764,196 @@
         "required": [
           "name"
         ]
+      }
+    },
+    {
+      "name": "woop",
+      "description": "Compile declared WOOP intent into one atomic native goal and three ordered proof-gated tasks. Does not execute, claim or confirm customer outcomes.",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "name",
+          "owner",
+          "wish",
+          "outcome",
+          "obstacle",
+          "if",
+          "then",
+          "stages"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "maxLength": 120,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9-]*$"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 400,
+            "pattern": "\\S"
+          },
+          "owner": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "\\S"
+          },
+          "wish": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 400,
+            "pattern": "\\S"
+          },
+          "outcome": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 400,
+            "pattern": "\\S"
+          },
+          "obstacle": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 400,
+            "pattern": "\\S"
+          },
+          "if": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 400,
+            "pattern": "\\S"
+          },
+          "then": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 400,
+            "pattern": "\\S"
+          },
+          "stages": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "implementation",
+              "delivery",
+              "outcome"
+            ],
+            "properties": {
+              "implementation": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "oracle_cmd",
+                  "allowed_paths",
+                  "acceptance"
+                ],
+                "properties": {
+                  "oracle_cmd": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 400,
+                    "pattern": "\\S"
+                  },
+                  "acceptance": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 400,
+                    "pattern": "\\S"
+                  },
+                  "allowed_paths": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 32,
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 400,
+                      "pattern": "\\S"
+                    }
+                  }
+                }
+              },
+              "delivery": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "oracle_cmd",
+                  "allowed_paths",
+                  "acceptance"
+                ],
+                "properties": {
+                  "oracle_cmd": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 400,
+                    "pattern": "\\S"
+                  },
+                  "acceptance": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 400,
+                    "pattern": "\\S"
+                  },
+                  "allowed_paths": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 32,
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 400,
+                      "pattern": "\\S"
+                    }
+                  }
+                }
+              },
+              "outcome": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "oracle_cmd",
+                  "allowed_paths",
+                  "acceptance"
+                ],
+                "properties": {
+                  "oracle_cmd": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 400,
+                    "pattern": "\\S"
+                  },
+                  "acceptance": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 400,
+                    "pattern": "\\S"
+                  },
+                  "allowed_paths": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 32,
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 400,
+                      "pattern": "\\S"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "actor": {
+            "type": "string"
+          },
+          "idem": {
+            "type": "string"
+          },
+          "run_id": {
+            "type": "string"
+          }
+        }
       }
     },
     {

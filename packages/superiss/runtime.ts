@@ -1,7 +1,7 @@
 import { existsSync } from 'node:fs';
 import { createRequire } from 'node:module';
 
-export const VERSION = '1.2.0';
+export const VERSION = '1.3.0';
 // Configure once before the first connection. Never replace or install a library.
 const configured = process.env.SIS_SQLITE_LIBRARY;
 const candidate = configured ?? (process.platform === 'darwin' && existsSync('/opt/homebrew/opt/sqlite/lib/libsqlite3.dylib') ? '/opt/homebrew/opt/sqlite/lib/libsqlite3.dylib' : undefined);

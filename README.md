@@ -1,16 +1,20 @@
 <p align="center"><img src="assets/superiss-hero.png" alt="Superiss — goal coordination for agents" width="100%"></p>
 
-# Superiss 1.2
+# Superiss 1.3
 
 **Local-first agent coordination with source-bound acceptance and an integrated Git/forge workflow.**
 
 Superiss stores tasks, goals, dependencies, project memory, checkpoints and evidence. An agent must hold the current claim and present a passing proof for the current contract and source files before closing a task.
 
-Version **1.2.0** uses Bun/TypeScript and authoritative SQLite: **88 core operations plus 11 forge tools**. DuckDB 2 provides optional, separate snapshot analytics. The tracker needs no model API key.
+Version **1.3.0** uses Bun/TypeScript and authoritative SQLite: **89 core operations plus 11 forge tools**. DuckDB 2 provides optional, separate snapshot analytics. The tracker needs no model API key.
 
 [Get started](docs/GETTING-STARTED.md) · [Forge workflow](docs/SISF.md) · [Features](docs/FEATURES.md) · [Comparison](docs/COMPARISON.md) · [Deutsch](README.de.md) · [Validation](docs/VALIDATION.md)
 
-Superiss 1.2 includes [API/client/capsules and optional workflow/service adapters](docs/V1-INTEGRATIONS.md), durable Forge conflict reconciliation and [fork integration guidance](docs/FORGE-BRIDGES.md). Forge can reserve new tasks atomically and serializes local merges across stores sharing a Git repository. Running daemons remain pinned to their existing installation.
+Superiss 1.3 includes [API/client/capsules and optional workflow/service adapters](docs/V1-INTEGRATIONS.md), durable Forge conflict reconciliation and [fork integration guidance](docs/FORGE-BRIDGES.md). Forge can reserve new tasks atomically and serializes local merges across stores sharing a Git repository. Running daemons remain pinned to their existing installation.
+
+## WOOP and separate evidence stages
+
+`sis woop` compiles a bounded wish/outcome/obstacle/if–then contract into one native goal and three ordered tasks: implementation, delivery and outcome. Each stage retains its own oracle and source scope. The board previews creation and shows stored receipts separately; unknown source currency and missing customer evidence stay explicit. No job starts on creation. [Input, example and limits](docs/WOOP.md).
 
 ## Start
 
@@ -74,7 +78,7 @@ Configure a `repos` map and set a task's `meta.repo_key` to route it explicitly.
 
 ```sh
 bun tools/check-v11.ts
-bun tools/package-v1.ts /absolute/new-superiss-1.2.0
+bun tools/package-v1.ts /absolute/new-superiss-1.3.0
 ```
 
 The relocatable package contains the core, forge CLI, both MCP entry points, tokenizers, task/forge boards, lifecycle helper, license and exact SHA-256 file manifest. The build refuses to overwrite its destination. Type checking requires installed TypeScript 7.1 and Node/Bun types; no dependencies are installed automatically.

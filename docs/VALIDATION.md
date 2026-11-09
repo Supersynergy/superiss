@@ -1,8 +1,16 @@
-# Validation — Superiss 1.1.0
+# Validation — Superiss 1.3.0
 
 Current evidence is separate from the [historical 0.9 record](archive/0.9/VALIDATION.md). JSON receipts under `docs/research/` describe their original snapshots; their hashes are not current-file assertions.
 
-## Hosted current-runtime and forge gate
+## 1.3 acceptance scope
+
+Run `bun tools/check-v11.ts` for strict current/forge types, native store/API/WOOP/outcome regressions, the complete wire contract, Forge/process oracles, catalog and launcher checks. Run `bun packages/superiss/check.ts` and `bun tools/check-v1-publication.ts` for the additional full hybrid and relocated-release gates; these require the installed DuckDB 2 library and run-guard. No dependency is downloaded automatically.
+
+`packages/superiss/woop.test.ts` covers atomic creation, exact bounds, dependency ordering, native idempotency, orphan collisions, whole-batch rollback, durable context, ownership and stale proofs. API regressions cover mutation method/origin boundaries, stored stage receipts, contract drift and restart. Browser acceptance additionally covers preview-before-write, template, keyboard/filter/focus, draft and expansion persistence, reload, escaping, failed/unknown/stale/passed receipts. Synthetic examples do not establish customer acceptance.
+
+This section defines the 1.3 gate; the following numeric results belong to their original historical commits. Local acceptance does not assert a published 1.3 tag or GitHub CI run. [WOOP limits and upgrade](WOOP.md).
+
+## Historical hosted 1.1 runtime and forge gate
 
 [Passing Linux/macOS and Worktrunk run](https://github.com/Supersynergy/superiss/actions/runs/42485621381), code commit `5d6a8c2a91b38f0b99aa9a949144197bdfc54407`:
 
