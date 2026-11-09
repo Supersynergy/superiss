@@ -1,94 +1,51 @@
-<p align="center"><img src="assets/superiss-hero.png" alt="Superiss — goal coordination for agents" width="100%"></p>
+# Superiss
 
-# Superiss 1.3
+**Task coordination for AI coding agents. Require a passing check before “done”.**
 
-**Local-first agent coordination with source-bound acceptance and an integrated Git/forge workflow.**
+Give work an owner, keep the context needed to resume, and check the result before closing the task. Superiss runs locally and connects to your agents through CLI or MCP.
 
-Superiss stores tasks, goals, dependencies, project memory, checkpoints and evidence. An agent must hold the current claim and present a passing proof for the current contract and source files before closing a task.
+[Download 1.3](https://github.com/Supersynergy/superiss/releases/latest) · [Get started](docs/GETTING-STARTED.md) · [Deutsch](README.de.md)
 
-Version **1.3.0** uses Bun/TypeScript and authoritative SQLite: **89 core operations plus 11 forge tools**. DuckDB 2 provides optional, separate snapshot analytics. The tracker needs no model API key.
+## What it helps you do
 
-[Get started](docs/GETTING-STARTED.md) · [Forge workflow](docs/SISF.md) · [Features](docs/FEATURES.md) · [Comparison](docs/COMPARISON.md) · [Deutsch](README.de.md) · [Validation](docs/VALIDATION.md)
+- Coordinate parallel agents. Claims identify the current worker; expiring leases and epochs reject stale worker writes.
+- Make completion checkable. Each task carries an executable check and a source scope. Closing requires a passing proof for the current contract and files.
+- Resume interrupted work. Checkpoints retain progress and the next safe step. Resume reads the state; acquiring a claim remains explicit. [Resume safely](docs/GETTING-STARTED.md#resume-an-interrupted-task).
+- Carry a goal through delivery. WOOP plans implementation → delivery → outcome as separate tasks, each with its own check. Planning starts no agents and confirms no customer outcome.
 
-Superiss 1.3 includes [API/client/capsules and optional workflow/service adapters](docs/V1-INTEGRATIONS.md), durable Forge conflict reconciliation and [fork integration guidance](docs/FORGE-BRIDGES.md). Forge can reserve new tasks atomically and serializes local merges across stores sharing a Git repository. Running daemons remain pinned to their existing installation.
+```text
+Task → Claim → Work → Verify → Close with proof
+                 ↳ Checkpoint → Resume
+```
 
-## WOOP and separate evidence stages
+## Try the complete loop
 
-`sis woop` compiles a bounded wish/outcome/obstacle/if–then contract into one native goal and three ordered tasks: implementation, delivery and outcome. Each stage retains its own oracle and source scope. The board previews creation and shows stored receipts separately; unknown source currency and missing customer evidence stay explicit. No job starts on creation. [Input, example and limits](docs/WOOP.md).
-
-## Start
-
-Install Bun **1.4.4 or newer**. Git is needed for forge operations. No runtime npm packages are required. Worktrunk is optional; GitHub operations additionally use an authenticated `gh`. Analytics requires an installed `run-guard` and DuckDB 2 shared library.
+Requires **Bun 1.4.4+** and Git. The demo also uses Python 3.
 
 ```sh
 git clone https://github.com/Supersynergy/superiss.git
 cd superiss
-mkdir -p /absolute/project/.sis
-export SIS_DB=/absolute/project/.sis/project.db
-bin/sis up
-bin/sis capabilities
-# Separate terminal: native Git backend, local forge board and task watcher.
-bin/sis forge serve --repo /absolute/project --port 8766
+python3 examples/quickstart.py
 ```
 
-The forge board opens at `http://127.0.0.1:8766/forge`. `sis up` owns only the core daemon; the foreground forge process is stopped separately with Ctrl-C. To enable the core task board, set `SIS_HTTP=8765` when starting a new daemon.
+The demo uses a temporary database. It claims a task, demonstrates a rejected close without proof, executes the check, then closes and reads back the result. It leaves your project stores alone.
 
-## One checked workflow
+## Use it with your agent
 
-Reserve a new task and its claim in one native transaction, then bind the returned fence:
+Bind the agent to an existing project database. Start its MCP server with:
 
 ```sh
-bin/sis forge reserve auth --db "$SIS_DB" --actor worker-a \
-  --title "Implement authentication" --oracle "bun test tests/auth.test.ts" \
-  --paths '["src","tests"]' --idem auth-reservation
+bin/sis mcp --db /absolute/project/.sis/tasks.db
 ```
 
-Read `data.claim.epoch`, `data.path` and the current `data.contract` before editing. The claim and Git binding are separate durable effects: a binding failure preserves the reservation and reports `claim_preserved:true`. A lost acknowledgement requires native-state reconciliation; the same explicit idempotency key can deduplicate the native reservation. Existing tasks keep the ordinary flow:
+The CLI uses the same contracts and proofs. [Setup and upgrades](docs/GETTING-STARTED.md) cover creating a store, client configuration and keeping running jobs on their current runtime.
 
-```sh
-bin/sis create '{"id":"auth","title":"Implement authentication","oracle_cmd":"bun test tests/auth.test.ts","allowed_paths":["src","tests"]}'
-bin/sis acquire id=auth actor=worker-a ttl=1800
-# Use the returned epoch; do not assume it is always 1.
-bin/sis forge bind auth --actor worker-a --epoch 1
-# Edit and stage files inside the returned worktree.
-bin/sis forge git-commit auth --actor worker-a --epoch 1 --message "Implement authentication"
-bin/sis forge record auth --actor worker-a --epoch 1
-bin/sis forge verify auth --actor worker-a --epoch 1
-# Keep heartbeating throughout the work. Inspect passed:true and the actual proof_id.
-bin/sis forge push auth --actor worker-a --epoch 1
-bin/sis forge pr auth --actor worker-a --epoch 1 --via github
-bin/sis forge ci auth --actor worker-a --epoch 1 --via github
-```
+For coding workflows, the optional Forge layer connects task claims to worktrees and GitHub/Gitea/Forgejo PRs. [Forge guide](docs/SISF.md).
 
-A PR workflow uses the forge's reviews and protected-branch merge. Separately, `sis forge merge` is an **explicit local fast-forward workflow**: it checks the proof, requires passing CI by default, acquires a merge slot, advances the clean local base and closes the task. It retains the worktree and branch and never pushes the base. `--skip-ci` explicitly permits a local workflow without CI; it never bypasses proof. Rebase and verify again if the base advanced. [Commands, cleanup and failure recovery](docs/SISF.md).
+## Where it fits
 
-## Worktrunk and multiple repositories
+Useful when several agents share work, tasks need to survive interruptions, or “done” must be backed by a repeatable check. A simple to-do list remains a reasonable choice for reminders without an execution or handoff workflow.
 
-Use `--backend worktrunk` on the forge process or set `backend` in `sisf.config.json`. Superiss remains responsible for task claims and bindings; Worktrunk handles the selected worktree operations. There is no fallback to Git if Worktrunk fails. Automated calls disable Worktrunk hooks and preserve the verified source commit during merge.
+SQLite stores the task state. The tracker needs no model API key. A proof establishes only what its check covers; actor names are not authentication. [Support and limits](docs/FEATURES.md).
 
-Configure a `repos` map and set a task's `meta.repo_key` to route it explicitly. This is routing within one project store; it is not distributed scheduling across machines.
-
-## Agent interfaces
-
-- Core: `bin/sis mcp --db /absolute/project.db`. `SIS_MCP_PROFILE=agent` exposes 13 selected worker tools; selection is enforced on calls.
-- Forge: `bin/sis forge mcp --db /absolute/project.db --repo /absolute/project`. Eleven tools share the CLI/HTTP workflow, ownership and proof rules.
-- Compatibility: `mcp/sis-mcp.js` launches the current core MCP through Bun. `bin/sisf` aliases the current forge CLI; `bin/sis-v1` aliases the current core CLI.
-
-## Build and upgrade
-
-```sh
-bun tools/check-v11.ts
-bun tools/package-v1.ts /absolute/new-superiss-1.3.0
-```
-
-The relocatable package contains the core, forge CLI, both MCP entry points, tokenizers, task/forge boards, lifecycle helper, license and exact SHA-256 file manifest. The build refuses to overwrite its destination. Type checking requires installed TypeScript 7.1 and Node/Bun types; no dependencies are installed automatically.
-
-A new installation does not migrate databases or replace daemons. A 1.1 client/forge refuses an older daemon before mutation. Stop the previous daemon using its own installation, retain that installation for rollback, test `migrate_copy` into a new database, then arrange the explicit cutover. [Upgrade and platform details](docs/GETTING-STARTED.md).
-
-## Reference and limits
-
-The retained Rust/Python **0.9 reference** is explicit: `sis reference …` or `SIS_IMPL=rs|py`. Its 85-operation registry is `ops.json`; the current registry is [packages/superiss/ops.json](packages/superiss/ops.json). The current core includes explicit macOS local-zero execution; unsupported platforms refuse it. Workflow/foreground-service adapters are optional bundle contents; launchd installation remains an explicit reference workflow. [Version/support table](docs/FEATURES.md).
-
-An oracle proves only what it checks. Actor names are not authentication. File scopes are not an OS sandbox. Recorded costs are observations, not invoices or pre-call spending authorization. Git, task state and remote PR writes are separate operations: interrupted or timed-out writes require reconciliation. Passing tests do not establish a production soak, independent security audit or competitor performance ranking.
-
-[MIT license](LICENSE). Built by [Supersynergy](https://github.com/Supersynergy). The hero is conceptual artwork.
+[WOOP example](docs/WOOP.md) · [Agent integrations](docs/V1-INTEGRATIONS.md) · [Validation](docs/VALIDATION.md) · [Operation catalog](docs/OPERATIONS.md) · [MIT license](LICENSE)
