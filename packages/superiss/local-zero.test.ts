@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { test } from 'node:test';
 import { Engine } from './engine.ts';
 import { object, type Obj } from './ts/util.ts';
+const localZeroAvailable = process.platform === 'darwin' && existsSync('/usr/bin/sandbox-exec');
 
 async function fixture(patch: Obj = {}) {
   const root = realpathSync(mkdtempSync(join(tmpdir(), 'sis-zero-'))), db = join(root, 'tasks.db');
@@ -29,7 +30,7 @@ test('local-zero contract binds budget and security metadata and advertises exec
   } finally { await f.close(); }
 });
 
-test('nonzero/missing budgets, positive subtree costs and command mismatches deny execution', async () => {
+test('nonzero/missing budgets and positive subtree costs deny execution', async () => {
   for (const budget_eur of [null, 1]) {
     const f = await fixture({ budget_eur });
     try { await assert.rejects(f.engine.dispatch('verify', f.fence), { code: 'local_zero_budget' }); }
@@ -37,11 +38,27 @@ test('nonzero/missing budgets, positive subtree costs and command mismatches den
   }
   const f = await fixture();
   try {
-    await assert.rejects(f.engine.dispatch('attest', { ...f.fence, kind: 'run', cmd: 'printf wrong > output.txt' }), { code: 'execution_mismatch' });
-    assert.equal(existsSync(join(f.root, 'output.txt')), false);
     await f.engine.dispatch('create', { id: 'job.child', title: 'child' });
     await f.engine.dispatch('cost_add', { issue: 'job.child', cents: 1 });
     await assert.rejects(f.engine.dispatch('verify', f.fence), { code: 'budget_exceeded' });
+  } finally { await f.close(); }
+});
+
+test('local-zero command mismatches deny execution when the sandbox is available', { skip: !localZeroAvailable }, async () => {
+  const f = await fixture();
+  try {
+    await assert.rejects(f.engine.dispatch('attest', { ...f.fence, kind: 'run', cmd: 'printf wrong > output.txt' }), { code: 'execution_mismatch' });
+    assert.equal(existsSync(join(f.root, 'output.txt')), false);
+  } finally { await f.close(); }
+});
+
+test('unsupported local-zero execution fails closed without writing an effect', { skip: localZeroAvailable }, async () => {
+  const f = await fixture({ oracle_cmd: 'printf oracle > output.txt' });
+  try {
+    await assert.rejects(f.engine.dispatch('verify', f.fence), { code: 'local_zero_unavailable' });
+    await assert.rejects(f.engine.dispatch('attest', { ...f.fence, kind: 'run', cmd: 'printf executed > output.txt' }), { code: 'local_zero_unavailable' });
+    assert.equal(existsSync(join(f.root, 'output.txt')), false);
+    assert.equal(f.engine.rows('SELECT * FROM attests WHERE issue=?', 'job').length, 0);
   } finally { await f.close(); }
 });
 
@@ -90,7 +107,7 @@ test('worker cannot raise budget or silently remove execution, controller or rev
 });
 
 test('run attestation is forbidden in a transaction and invalid inherited lock fails before spawn', async () => {
-  const f = await fixture(); const old = process.env.SIS_CONTROLLER_LOCK_FD;
+  const f = await fixture(localZeroAvailable ? {} : { meta: {} }); const old = process.env.SIS_CONTROLLER_LOCK_FD;
   try {
     await assert.rejects(f.engine.dispatch('batch', { ops: [{ cmd: 'attest', args: { ...f.fence, kind: 'run', cmd: 'printf executed > output.txt' } }] }));
     process.env.SIS_CONTROLLER_LOCK_FD = 'not-a-descriptor';
@@ -99,13 +116,16 @@ test('run attestation is forbidden in a transaction and invalid inherited lock f
 });
 
 test('autorun export and execution require the matching delivery fence and never redeliver a live lease', async () => {
-  const f = await fixture({ meta: { local_zero: true, execution: { cmd: 'true', cwd: '.' }, autorun: { cmd: 'true' } } });
+  // Delivery fencing is portable; sandbox execution is tested separately and
+  // remains enabled here on hosts that provide it.
+  const policy: Obj = localZeroAvailable ? { local_zero: true } : {};
+  const f = await fixture({ meta: { ...policy, execution: { cmd: 'true', cwd: '.' }, autorun: { cmd: 'true' } } });
   try {
     const exported = object(await f.engine.dispatch('outbox_export', { actor: 'runner', kind: 'autorun', ttl: 120, limit: 1 }));
     const job = object((exported.jobs as Obj[])[0]); assert.equal(job.delivery_actor, 'runner'); assert.equal(job.delivery_epoch, 1);
     assert.equal((object(await f.engine.dispatch('outbox_export', { actor: 'other', kind: 'autorun' })).jobs as unknown[]).length, 0);
     await assert.rejects(f.engine.dispatch('outbox_done', { id: job.outbox_id, actor: 'other', epoch: 1 }), { code: 'stale_fence' });
-    f.engine.run('UPDATE issues SET meta_json=? WHERE id=?', JSON.stringify({ local_zero: true, execution: { cmd: 'true', cwd: f.root } }), 'job');
+    f.engine.run('UPDATE issues SET meta_json=? WHERE id=?', JSON.stringify({ ...policy, execution: { cmd: 'true', cwd: f.root } }), 'job');
     const run: Obj = { ...f.fence, kind: 'run', cmd: 'true', outbox_id: job.outbox_id, delivery_actor: 'runner', delivery_epoch: 1, idem: job.idempotency_key };
     await assert.rejects(f.engine.dispatch('attest', { ...run, delivery_epoch: 2 }), { code: 'stale_fence' });
     assert.equal(object(await f.engine.dispatch('attest', run)).passed, true);
