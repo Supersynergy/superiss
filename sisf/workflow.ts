@@ -86,10 +86,17 @@ export async function forgeAction(d: ForgeDependencies, action: string, args: an
       await d.active(args.id,args.actor,args.epoch);
       await command('git',['commit','-m',args.message],wk.path,30000);
     } else throw Error('No staged changes; stage files explicitly or use --all');
-    const sha = head();
-    state.run('UPDATE worktrees SET head=?,updated=? WHERE task=?',[sha,Date.now()/1000,args.id]);
-    const recorded = await d.record(args.id,args.actor,args.epoch);
-    return recorded.ok ? {ok:true,data:{...recorded.data,git_commit:true,head:sha}} : {ok:false,git_commit:true,head:sha,error:recorded.error};
+    // Git has acknowledged the write. Later failures must not hide that effect
+    // or invite a caller to replay the commit.
+    let sha: string | undefined;
+    try {
+      sha = head();
+      state.run('UPDATE worktrees SET head=?,updated=? WHERE task=?',[sha,Date.now()/1000,args.id]);
+      const recorded = await d.record(args.id,args.actor,args.epoch);
+      return recorded.ok ? {ok:true,data:{...recorded.data,git_commit:true,head:sha}} : {ok:false,git_commit:true,head:sha,reconcile_required:true,error:recorded.error};
+    } catch (error) {
+      return {ok:false,git_commit:true,...(sha ? {head:sha} : {}),reconcile_required:true,error:failureDetails(error,'sisf')};
+    }
   }
   if (action === 'push') {
     clean(wk.path); const sha = head();

@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test';
-import { chmodSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -52,6 +52,83 @@ test('staged Git commit, evidence, verification, preflight and merge close one t
     expect(readFileSync(join(f.repo,'f'),'utf8')).toBe('changed\n');expect(readFileSync(join(path,'f'),'utf8')).toBe('changed\n');
     expect((await f.sis.call('show',{id:'task'})).data.issue.status).toBe('closed');expect(f.engine.db.get('SELECT holder FROM slots')?.holder).toBeNull();
   }finally{await f.cleanup();}
+});
+
+test('post-commit thrown evidence failure acknowledges the real commit and preserves the untracked symlink', async () => {
+  const f = fixture(); try {
+    const bound = await f.setup(), path = bound.data.path, before = f.git('-C', path, 'rev-parse', 'HEAD');
+    writeFileSync(join(path, 'f'), 'changed\n'); f.git('-C', path, 'add', '--', 'f');
+    const dependency = join(f.root, 'dependency'); mkdirSync(dependency); symlinkSync(dependency, join(path, 'node_modules'));
+    const record = f.deps.record; let records = 0;
+    f.deps.record = (...args) => { records++; return record(...args); };
+    const result = await forgeAction(f.deps, 'git-commit', { ...f.fence, message: 'change' });
+    const sha = f.git('-C', path, 'rev-parse', 'HEAD');
+    expect(result).toMatchObject({ ok: false, git_commit: true, head: sha, reconcile_required: true });
+    expect(result.error).toMatchObject({ code: 'sisf', msg: 'untracked symlink requires explicit review: node_modules' });
+    expect(sha).not.toBe(before); expect(f.git('-C', path, 'rev-list', '--count', 'HEAD')).toBe('2'); expect(records).toBe(1);
+    expect(lstatSync(join(path, 'node_modules')).isSymbolicLink()).toBe(true); expect(readFileSync(join(path, 'f'), 'utf8')).toBe('changed\n');
+    expect(f.state.query('SELECT * FROM worktrees WHERE task=?').get('task')).toMatchObject({ path, branch: bound.data.branch, actor: 'worker', epoch: 1, status: 'active' });
+    expect((await f.sis.call('show', { id: 'task' })).data.issue).toMatchObject({ status: 'in_progress', claim_actor: 'worker', lease_epoch: 1 });
+  } finally { await f.cleanup(); }
+});
+
+test('post-commit structured evidence failure retains its error and requires reconciliation', async () => {
+  const f = fixture(); try {
+    const bound = await f.setup(), path = bound.data.path; writeFileSync(join(path, 'f'), 'changed\n');
+    const call = f.sis.call.bind(f.sis), error = { code: 'evidence_unavailable', msg: 'fixture attestation rejected', detail: 'retained' }; let attempts = 0;
+    f.sis.call = async (cmd: string, args: unknown) => cmd === 'attest' ? (attempts++, { ok: false, error }) : call(cmd, args);
+    const result = await forgeAction(f.deps, 'git-commit', { ...f.fence, message: 'change', all: true });
+    const sha = f.git('-C', path, 'rev-parse', 'HEAD');
+    expect(result).toMatchObject({ ok: false, git_commit: true, head: sha, reconcile_required: true }); expect(result.error).toEqual(error);
+    expect(f.git('-C', path, 'rev-list', '--count', 'HEAD')).toBe('2'); expect(attempts).toBe(1); expect(f.git('-C', path, 'status', '--porcelain')).toBe('');
+    expect(f.state.query('SELECT * FROM worktrees WHERE task=?').get('task')).toMatchObject({ path, branch: bound.data.branch, actor: 'worker', epoch: 1, status: 'active', head: sha });
+    expect((await call('show', { id: 'task' })).data.issue).toMatchObject({ status: 'in_progress', claim_actor: 'worker', lease_epoch: 1 });
+  } finally { await f.cleanup(); }
+});
+
+test('post-commit state-write failure acknowledges the commit without retrying evidence or releasing ownership', async () => {
+  const f = fixture(); try {
+    const bound = await f.setup(), path = bound.data.path, before = f.git('-C', path, 'rev-parse', 'HEAD');
+    writeFileSync(join(path, 'f'), 'changed\n');
+    f.state.run("CREATE TRIGGER reject_commit_head BEFORE UPDATE OF head ON worktrees BEGIN SELECT RAISE(ABORT, 'fixture state write rejected'); END");
+    let records = 0; f.deps.record = async () => { records++; throw Error('evidence must not run after failed state write'); };
+    const result = await forgeAction(f.deps, 'git-commit', { ...f.fence, message: 'change', all: true });
+    const sha = f.git('-C', path, 'rev-parse', 'HEAD');
+    expect(result).toMatchObject({ ok: false, git_commit: true, head: sha, reconcile_required: true });
+    expect(result.error).toMatchObject({ code: 'sisf', msg: 'fixture state write rejected' });
+    expect(sha).not.toBe(before); expect(f.git('-C', path, 'rev-list', '--count', 'HEAD')).toBe('2'); expect(records).toBe(0);
+    expect(f.state.query('SELECT * FROM worktrees WHERE task=?').get('task')).toMatchObject({ path, branch: bound.data.branch, actor: 'worker', epoch: 1, status: 'active', head: before });
+    expect(readFileSync(join(path, 'f'), 'utf8')).toBe('changed\n');
+    expect((await f.sis.call('show', { id: 'task' })).data.issue).toMatchObject({ status: 'in_progress', claim_actor: 'worker', lease_epoch: 1 });
+  } finally { await f.cleanup(); }
+});
+
+test('post-commit unreadable HEAD still acknowledges completion without inventing a commit hash', async () => {
+  const f = fixture(); try {
+    const bound = await f.setup(), path = bound.data.path; writeFileSync(join(path, 'f'), 'changed\n');
+    const hook = join(f.repo, '.git/hooks/post-commit');
+    writeFileSync(hook, '#!/bin/sh\ngit symbolic-ref HEAD refs/heads/missing\n'); chmodSync(hook, 0o700);
+    let records = 0; f.deps.record = async () => { records++; throw Error('evidence must not run without HEAD'); };
+    const result = await forgeAction(f.deps, 'git-commit', { ...f.fence, message: 'change', all: true });
+    expect(result).toMatchObject({ ok: false, git_commit: true, reconcile_required: true }); expect(result.head).toBeUndefined();
+    expect(result.error).toMatchObject({ code: 'sisf', msg: 'Missing worktree HEAD' });
+    expect(f.git('-C', path, 'rev-list', '--count', bound.data.branch)).toBe('2'); expect(records).toBe(0);
+    expect(f.state.query('SELECT * FROM worktrees WHERE task=?').get('task')).toMatchObject({ path, branch: bound.data.branch, actor: 'worker', epoch: 1, status: 'active' });
+    expect(readFileSync(join(path, 'f'), 'utf8')).toBe('changed\n');
+    expect((await f.sis.call('show', { id: 'task' })).data.issue).toMatchObject({ status: 'in_progress', claim_actor: 'worker', lease_epoch: 1 });
+  } finally { await f.cleanup(); }
+});
+
+test('an unacknowledged Git commit retains command uncertainty instead of asserting completed acknowledgement', async () => {
+  const f = fixture(); try {
+    const bound = await f.setup(), path = bound.data.path; writeFileSync(join(path, 'f'), 'changed\n');
+    const hook = join(f.repo, '.git/hooks/post-commit'); writeFileSync(hook, '#!/bin/sh\nkill -TERM "$PPID"\n'); chmodSync(hook, 0o700);
+    let records = 0; f.deps.record = async () => { records++; throw Error('evidence must not run without Git acknowledgement'); };
+    const error = await forgeAction(f.deps, 'git-commit', { ...f.fence, message: 'change', all: true }).catch(error => error);
+    expect(error.kind).toBe('exit'); expect(error.started).toBe(true); expect(error.execution_uncertain).toBe(true); expect(error.git_commit).toBeUndefined();
+    expect(f.git('-C', path, 'rev-list', '--count', 'HEAD')).toBe('2'); expect(records).toBe(0);
+    expect((await f.sis.call('show', { id: 'task' })).data.issue).toMatchObject({ status: 'in_progress', claim_actor: 'worker', lease_epoch: 1 });
+  } finally { await f.cleanup(); }
 });
 
 test('merge refuses missing or stale proof before changing main',async()=>{

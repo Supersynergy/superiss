@@ -21,6 +21,8 @@
 
 ## Unreleased
 
+- Preserve completed Forge Git commits in failed acknowledgements when HEAD, state writes or evidence recording fail. Return the known HEAD and require reconciliation without retrying the commit or releasing the claim/worktree; cover the boundary with real Git regressions.
+
 - Preserve optional declared customer outcome in native contract revisions and mandatory compact briefs. Old tasks keep their existing revision input. Added budget/claim, acquire/resume and stale-proof regressions; no installed daemon cutover or customer-confirmation claim.
 
 - Added opt-in source-bound worker capsules with exact local token budgets, mandatory contract/fence retention and explicit drift invalidation. Added a reusable loopback HTTP client with bounded keepalive connections, correlation, deadlines/cancellation, queued-request shutdown and no automatic retries or redirects. Documented controller/worker/reviewer ownership and evidence-based sweetspot decisions; no paid routing, runtime cutover or 1.1 publication.
