@@ -15,7 +15,7 @@ test('optional adapters are hash-bound, relocated and executable without the sou
   const root = realpathSync(mkdtempSync(join(tmpdir(), 'sis-adapters-'))); let engine: Engine | undefined, daemon: ChildProcess | undefined;
   try {
     const built = join(root, 'built'), home = join(root, 'relocated'), data = join(root, 'data'), work = join(data, 'work'); mkdirSync(work, { recursive: true }); writeFileSync(join(work, 'input'), 'accepted');
-    const release = await packageRelease(built, { adapters: true }); assert.equal(release.version, '1.2.0'); assert.deepEqual(release.adapters, ['workflow', 'service', 'forge']);
+    const release = await packageRelease(built, { adapters: true }); assert.equal(release.version, '1.3.0'); assert.deepEqual(release.adapters, ['workflow', 'service', 'forge']);
     for (const path of ['tools/v1-integrations.ts', 'tools/sis_runner.py', 'tools/sis_workflow.py', 'tools/service.ts', 'tools/service-lock.py', 'tools/service-soak.ts', 'sisf/sisf.ts']) assert.ok(release.files[path], path);
     renameSync(built, home); const launcher = join(home, 'bin/sis'), db = join(data, 'tasks.db');
     engine = new Engine(db); await engine.dispatch('create', { id: 'packaged', title: 'portable', owner: 'worker', budget_eur: 0, allowed_paths: ['input'], oracle_cmd: 'test "$(cat output)" = accepted', meta: { local_zero: true, execution: { cmd: 'cp input output', cwd: work, replay_safe: true, oracle_replay_safe: true } } });

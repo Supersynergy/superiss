@@ -26,7 +26,7 @@ while [ -L "$SELF" ]; do
 done
 ROOT="$(cd "$(dirname "$SELF")/.." && pwd)"
 if [ "\${SIS_IMPL:-ts}" != ts ]; then
-  printf '%s\\n' 'This 1.2 bundle contains the TypeScript runtime. Use the retained 0.9 installation for explicit Rust/Python reference commands.' >&2
+  printf '%s\\n' 'This 1.3 bundle contains the TypeScript runtime. Use the retained 0.9 installation for explicit Rust/Python reference commands.' >&2
   exit 2
 fi
 case "\${1:-}" in

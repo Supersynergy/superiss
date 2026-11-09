@@ -1,4 +1,4 @@
-# Get started and upgrade — 1.1
+# Get started and upgrade — 1.3
 
 ## Requirements
 
@@ -38,9 +38,13 @@ bun tools/check-v11.ts
 # Additional full hybrid analytics/source gate, with its native dependencies installed:
 bun packages/superiss/check.ts
 bun tools/check-v1-publication.ts
-bun tools/package-v1.ts /absolute/new-superiss-1.2.0
+bun tools/package-v1.ts /absolute/new-superiss-1.3.0
 ```
 
 The package manifest hashes every shipped runtime file, including the forge and MIT license. A package build is not a production installation or a completed soak.
 
 The historical macOS runner/service remains explicit through `sis reference run` / `sis reference service`. Its platform and execution contracts are described in [the reference service guide](../SERVICE.md). [Current validation](VALIDATION.md).
+
+## Upgrade to 1.3
+
+WOOP adds an operation and bounded contract metadata; it adds no tables or dependencies. A 1.3 client requires a 1.3 daemon and refuses a 1.2/unversioned daemon before work, without a silent direct retry. Keep the old installation for existing consumers; use its absolute launcher while its jobs run. Test a database copy, arrange an owned idle cutover, and retain the previous artifact for rollback. Switching a CLI symlink does not upgrade already running processes. [WOOP input and board](WOOP.md).

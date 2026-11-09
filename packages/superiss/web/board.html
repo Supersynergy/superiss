@@ -1,69 +1,54 @@
-<!doctype html><meta charset=utf-8><title>superiss board</title>
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Superiss board</title>
 <style>
-:root{color-scheme:dark}body{font:14px/1.5 -apple-system,monospace;background:#0d1117;color:#c9d1d9;margin:0;padding:24px}
-h1{font-size:18px;margin:0 0 4px}.stats{display:flex;gap:10px;flex-wrap:wrap;margin:12px 0 18px}
-.chip{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:8px 14px}
-.chip b{font-size:20px;display:block}.chip span{color:#8b949e;font-size:11px;text-transform:uppercase}
-table{border-collapse:collapse;width:100%}th{text-align:left;color:#8b949e;font-weight:600;font-size:11px;text-transform:uppercase;border-bottom:1px solid #30363d;padding:6px 8px}
-td{border-bottom:1px solid #21262d;padding:6px 8px;vertical-align:top}
-.s-open{color:#3fb950}.s-in_progress{color:#d29922}.s-blocked{color:#f85149}.s-deferred{color:#8b949e}.s-closed{color:#8957e5}
-.id{color:#58a6ff;font-family:monospace;font-size:12px}.oracle{color:#8b949e;font-size:11px;font-family:monospace}
-.chg{color:#8b949e;font-size:12px;white-space:nowrap}
-input{background:#161b22;border:1px solid #30363d;color:#c9d1d9;border-radius:6px;padding:6px 10px;width:280px;margin-bottom:12px}
-.goal{background:#161b22;border:1px solid #30363d;border-left:3px solid #58a6ff;border-radius:8px;padding:10px 14px;margin-bottom:8px}
-.goal .t{font-weight:600}.goal .obj{color:#8b949e;font-size:12px}.goal .bar{height:6px;background:#21262d;border-radius:3px;margin-top:6px}
-.goal .bar i{display:block;height:6px;background:#3fb950;border-radius:3px}
-.goal .kid{color:#8b949e;font-size:12px;margin-left:14px}
-</style>
-<h1>superiss board <small id=stamp style=color:#8b949e;font-weight:400></small></h1>
-<div class=stats id=stats></div>
-<div id=goals></div>
-<input id=q aria-label="Filter tasks and agents" placeholder="filter task / agent / controller / lane…" oninput="render()">
-<table><thead><tr><th>id</th><th>status</th><th>p</th><th>type</th><th>title</th><th>agent / controller / lane</th><th>oracle</th></tr></thead><tbody id=rows></tbody></table>
-<script>
-let D={issues:[]},G=[];
-async function load(){try{const r=await fetch('/board');D=await r.json();D=D.data||D;
- const g=await fetch('/op?q='+encodeURIComponent('{"cmd":"goal_tree"}'));let gj=await g.json();G=(gj.data||[]);
- render();}catch(e){}}
-function esc(s){return (s||'').replace(/[<>&]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]))}
-function assignment(i){
- const active=i.status==='in_progress'&&i.claim_actor;
- const lease=active?(Number(i.lease_until)>Date.now()/1000?'active':'expired'):'';
- const trace=encodeURIComponent(JSON.stringify({cmd:'history',args:{id:i.id}}));
- return `Agent: ${esc(i.claim_actor||'unassigned')}<br><span class=oracle>Controller: ${esc(i.owner||(i.meta||{}).controller||'unassigned')}${i.lane?'<br>Lane: '+esc(i.lane):''}${active?'<br>Claim #'+esc(String(i.lease_epoch))+' · '+lease:''}</span><br><a class=id href="/op?q=${trace}">history</a>`;
-}
-function changes(i){
- const fs=i.changes||[];if(!fs.length)return '';
- return fs.slice(0,4).map(f=>{
-  const hs=Array.isArray(f.hunks)?f.hunks:[];
-  const rg=hs.length?' @'+hs.slice(0,3).map(h=>h[0]+'–'+h[1]).join(',')+(hs.length>3?'…':''):'';
-  return `<div class=chg>${esc(f.status||'M')} ${esc(f.path||'')} <b style=color:#3fb950>+${f.adds??0}</b> <b style=color:#f85149>-${f.dels??0}</b>${rg}</div>`;
- }).join('')+(fs.length>4?`<div class=chg>… +${fs.length-4} files</div>`:'');
-}
-function render(){
- const S=D.stats||{};document.getElementById('stats').innerHTML=
-  ['total','ready','open','in_progress','blocked','deferred','closed','pending_outbox']
-  .map(k=>S[k]!==undefined?`<div class=chip><b>${S[k]}</b><span>${k}</span></div>`:'').join('');
- const flat=(n,acc)=>{acc.push(n);(n.children||[]).forEach(c=>flat(c,acc));return acc};
- document.getElementById('goals').innerHTML=(G||[]).map(g=>{
-  const kids=flat(g,[]).slice(1);const done=kids.filter(k=>k.status==='closed').length;
-  const pct=kids.length?Math.round(done*100/kids.length):0;
-  return `<div class=goal><div class=t>${esc(g.title)} <span class=id>${esc(g.id)}</span></div>
-   ${g.meta&&g.meta.objective?`<div class=obj>${esc(g.meta.objective)}</div>`:''}
-   <div class=bar><i style="width:${pct}%"></i></div>
-   <div class=obj>${done}/${kids.length} done · ${esc(g.oracle_cmd||'')}</div>
-   ${kids.slice(0,4).map(k=>`<div class=kid><span class=s-${k.status}>●</span> ${esc(k.id)} — ${esc(k.title)}</div>`).join('')}
-   ${kids.length>4?`<div class=kid>… +${kids.length-4} more</div>`:''}</div>`;
- }).join('');
- const q=document.getElementById('q').value.toLowerCase();
- const rows=(D.issues||[]).filter(i=>!q||([i.id,i.title,i.oracle_cmd,i.claim_actor,i.owner,(i.meta||{}).controller,i.lane,i.run_state,...(i.changes||[]).map(f=>f.path)].filter(Boolean).join(' ').toLowerCase().includes(q)))
-  .sort((a,b)=>(a.status==='closed')-(b.status==='closed')||a.priority-b.priority);
- document.getElementById('rows').innerHTML=rows.map(i=>
-  `<tr><td class=id>${esc(i.id)}</td><td class=s-${i.status}>${i.status}${i.run_state&&i.run_state!==i.status?'<br><span class=id>'+esc(i.run_state)+'</span>':''}</td><td>${i.priority}</td>
-  <td>${esc(i.type||'')}</td><td>${esc(i.title)}${changes(i)}</td>
-  <td>${assignment(i)}</td>
-  <td class=oracle>${esc(i.oracle_cmd||'')}</td></tr>`).join('');
- document.getElementById('stamp').textContent=' · '+new Date().toLocaleTimeString();
-}
+:root{color-scheme:dark}*{box-sizing:border-box}body{font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#0d1117;color:#c9d1d9;margin:0;padding:24px;max-width:1600px;margin:auto}
+h1{font-size:22px;margin:0 0 4px}h2{font-size:17px}.muted,.oracle,.obj{color:#8b949e;font-size:12px}.stats,.actions{display:flex;gap:10px;flex-wrap:wrap;margin:12px 0 18px}.chip{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:8px 14px}.chip b{font-size:20px;display:block}.chip span{color:#8b949e;font-size:11px;text-transform:uppercase}
+.table-wrap{overflow:auto}table{border-collapse:collapse;width:100%}th{text-align:left;color:#8b949e;font-size:11px;text-transform:uppercase;border-bottom:1px solid #30363d;padding:6px 8px}td{border-bottom:1px solid #21262d;padding:6px 8px;vertical-align:top}.s-open{color:#3fb950}.s-in_progress{color:#d29922}.s-blocked,.error{color:#ff7b72}.s-deferred{color:#8b949e}.s-closed{color:#bc8cff}.id{color:#79c0ff;font:12px monospace}.oracle{font-family:monospace;overflow-wrap:anywhere}.chg{font-size:12px;color:#8b949e}.goal,.planner{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:14px;margin:12px 0}.goal{border-left:3px solid #58a6ff}.t{font-weight:600}.bar{height:6px;background:#21262d;border-radius:3px;margin:6px 0}.bar i{display:block;height:6px;background:#3fb950;border-radius:3px}.kid{font-size:12px;margin-left:14px}.phases,.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}.phase{border:1px solid #30363d;padding:12px;border-radius:6px;overflow-wrap:anywhere}.phase h3{margin:0 0 6px;font-size:14px}.intent{display:grid;grid-template-columns:max-content 1fr;gap:4px 16px}.intent dt{color:#8b949e}.intent dd{margin:0;white-space:pre-wrap;overflow-wrap:anywhere}.evidence{font-size:12px;color:#d29922}.evidence-pass{color:#79c0ff}summary{cursor:pointer}summary:focus-visible,a:focus-visible,button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px solid #79c0ff;outline-offset:3px}
+input,textarea,button{font:inherit;background:#0d1117;border:1px solid #484f58;color:#c9d1d9;border-radius:6px;padding:8px}input,textarea{width:100%}textarea{min-height:74px;resize:vertical}label{display:block;font-size:13px;margin:8px 0}label input,label textarea{display:block;margin-top:4px}button{cursor:pointer}button:disabled{opacity:.5;cursor:default}.primary{background:#238636;color:white}fieldset{border:1px solid #30363d;border-radius:6px;min-width:0}legend{padding:0 6px}pre{white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px}#q{max-width:500px;margin:8px 0 16px}#load-error,#form-status{min-height:22px}#form-status{white-space:pre-wrap}.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}[hidden]{display:none!important}@media(max-width:600px){body{padding:14px}.intent{grid-template-columns:1fr}.intent dd{margin-bottom:8px}}
+</style></head><body><main>
+<h1>Superiss board <small id="stamp" class="muted"></small></h1>
+<p class="muted">Native tasks, claims and oracle receipts. Customer impact and payment are not automatically confirmed.</p>
+<div id="load-error" class="error" role="status"></div><div class="stats" id="stats"></div>
+<details class="planner" id="planner"><summary>Create a WOOP plan</summary>
+<p>Describe the wish, outcome and obstacle, then define an if–then response. Each evidence stage needs its own oracle and scope. Planning creates four open tasks and starts no jobs.</p>
+<button type="button" id="example">Load SuperSynergy template</button><p id="example-note" class="muted" hidden>Template only. Replace these oracles with trusted evidence checks. No evidence files or customer confirmation are supplied.</p>
+<form id="woop-form">
+<div class="grid"><label>Goal ID<input name="id" required maxlength="120" pattern="[A-Za-z0-9][A-Za-z0-9-]*" placeholder="super-synergy-appointment"></label><label>Goal name<input name="name" required maxlength="400"></label><label>Controller / owner<input name="owner" required maxlength="128" placeholder="your-controller"></label></div>
+<div class="grid"><label>Wish<textarea name="wish" required maxlength="400"></textarea></label><label>Observable outcome<textarea name="outcome" required maxlength="400"></textarea></label><label>Obstacle<textarea name="obstacle" required maxlength="400"></textarea></label></div>
+<div class="grid"><label>If this happens<textarea name="if" required maxlength="400"></textarea></label><label>Then do this<textarea name="then" required maxlength="400"></textarea></label></div>
+<div class="grid" id="stage-fields"></div>
+<div class="actions"><button type="submit">Preview native plan</button><button type="button" id="create-woop" class="primary" disabled>Create four open tasks</button></div>
+</form>
+<div id="preview" hidden><h2>Plan preview</h2><p class="muted">Implementation → Delivery → Outcome. Each next stage waits for the previous native task to close. The goal's final oracle uses the outcome contract. Nothing executes on creation.</p><pre id="preview-json"></pre></div>
+<p id="form-status" role="status" aria-live="polite"></p>
+</details>
+<label for="q">Filter goals, tasks and agents</label><input id="q" placeholder="task / owner / lane / WOOP intent…" type="search">
+<div id="goals"></div><p id="limit-note" class="muted"></p>
+<div class="table-wrap"><table><caption class="sr-only">Native tasks</caption><thead><tr><th>ID</th><th>Status</th><th>Priority</th><th>Type</th><th>Title</th><th>Agent / controller / lane</th><th>Oracle</th></tr></thead><tbody id="rows"></tbody></table></div>
+</main><script>
+const stages=['implementation','delivery','outcome'],labels={implementation:'Implementation',delivery:'Delivery',outcome:'Outcome'};
+let D={issues:[]},G=[],loading=false,pending=null;const expanded=new Set();
+const $=id=>document.getElementById(id),form=$('woop-form');
+function esc(value){return String(value??'').replace(/[<>&"']/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'}[c]))}
+function woop(issue){return issue?.meta?.customer_outcome?.woop||{}}
+function sameIntent(a,b){return ['v','wish','outcome','obstacle','if','then','goal_id'].every(k=>a[k]===b[k])&&stages.every(k=>a.stages?.[k]===b.stages?.[k])}
+function historyLink(issue){const q=encodeURIComponent(JSON.stringify({cmd:'history',args:{id:issue.id}}));return `<a class="id" data-focus-key="${esc(issue.id)}" href="/op?q=${q}">history</a>`}
+function searchable(issue){return [issue.id,issue.title,issue.oracle_cmd,issue.claim_actor,issue.owner,issue.meta?.controller,issue.lane,issue.run_state,...Object.values(woop(issue)),...(issue.changes||[]).map(f=>f.path)].join(' ').toLowerCase()}
+async function read(url){const r=await fetch(url,{signal:AbortSignal.timeout(8000)}),j=await r.json();if(!r.ok||j.ok===false)throw Error(j.error?.msg||`HTTP ${r.status}`);return j.data??j}
+async function load(){if(loading)return;loading=true;try{const data=await read('/board');D=data;G=data.goals||[];render();$('stamp').textContent=' · '+new Date().toLocaleTimeString();$('load-error').textContent='';}catch(e){$('load-error').textContent='Refresh failed; last loaded data is retained. '+e.message;}finally{loading=false}}
+function assignment(i){const active=i.status==='in_progress'&&i.claim_actor,lease=active?(Number(i.lease_until)>Date.now()/1000?'active':'expired'):'';return `Agent: ${esc(i.claim_actor||'unassigned')}<br><span class="oracle">Controller: ${esc(i.owner||i.meta?.controller||'unassigned')}${i.lane?'<br>Lane: '+esc(i.lane):''}${active?'<br>Claim #'+esc(i.lease_epoch)+' · '+lease:''}</span><br>${historyLink(i)}`}
+function changes(i){const fs=i.changes||[];return fs.slice(0,4).map(f=>`<div class="chg">${esc(f.status||'M')} ${esc(f.path)} +${esc(f.adds??0)} −${esc(f.dels??0)}</div>`).join('')+(fs.length>4?`<div class="chg">… +${fs.length-4} files</div>`:'')}
+function evidence(i){const r=D.woop_receipts?.[i.id],p=r?.proof;if(!r)return '<div class="evidence">Evidence unknown</div>';if(!p)return '<div class="evidence">Unverified · no oracle receipt</div>';let label=p.passed?'Stored oracle passed':'Oracle failed',cls=p.passed?'evidence-pass':'error';if(p.revision!==r.revision){label='Stale receipt · contract changed';cls='error'}return `<div class="evidence ${cls}">${label}</div><div class="oracle">${esc(p.proof_id)}<br>Source currency: unknown</div>`}
+function goalMarkup(g){const w=woop(g),nodes=[];const flat=n=>{nodes.push(n);(n.children||[]).forEach(flat)};flat(g);const kids=nodes.slice(1),done=kids.filter(k=>k.status==='closed').length,pct=kids.length?Math.round(done*100/kids.length):0;
+ if(w.v===1&&w.stage==='goal'){const byId=new Map([...D.issues,...nodes].map(i=>[i.id,i]));return `<section class="goal"><div class="t">${esc(g.title)} <span class="id">${esc(g.id)}</span></div><p class="muted">Declared WOOP intent · ${esc(g.status)} · controller ${esc(g.owner)}</p><details data-key="${esc(g.id)}" ${expanded.has(g.id)?'open':''}><summary>Wish and if–then contract</summary><dl class="intent">${['wish','outcome','obstacle','if','then'].map(k=>`<dt>${esc(k)}</dt><dd>${esc(w[k])}</dd>`).join('')}</dl></details><h2>Evidence stages</h2><div class="phases">${stages.map(stage=>{const i=byId.get(w.stages?.[stage]);return `<article class="phase"><h3>${labels[stage]}</h3>${i&&sameIntent(w,woop(i))&&woop(i).stage===stage?`<div class="id">${esc(i.id)} · ${esc(i.status)}</div>${evidence(i)}<p>${esc(i.acceptance)}</p><div class="oracle">${esc(i.oracle_cmd)}</div>${historyLink(i)}`:'<p class="evidence">Phase missing or intent differs · evidence unknown</p>'}</article>`}).join('')}</div><p class="muted">These are native oracle records. Outcome confirmation depends on the declared oracle and its evidence; no customer impact or payment is inferred.</p></section>`}
+ return `<section class="goal"><div class="t">${esc(g.title)} <span class="id">${esc(g.id)}</span></div>${g.meta?.objective?`<div class="obj">${esc(g.meta.objective)}</div>`:''}<div class="bar"><i style="width:${pct}%"></i></div><div class="obj">${done}/${kids.length} closed · ${esc(g.oracle_cmd)}</div>${kids.slice(0,4).map(k=>`<div class="kid">${esc(k.id)} — ${esc(k.title)} · ${esc(k.status)}</div>`).join('')}${kids.length>4?`<div class="kid">… +${kids.length-4} tasks</div>`:''}</section>`}
+function render(){const focus=document.activeElement?.dataset?.focusKey,S=D.stats||{},q=$('q').value.toLowerCase();$('stats').innerHTML=['total','ready','open','in_progress','blocked','deferred','closed','pending_outbox'].map(k=>S[k]!==undefined?`<div class="chip"><b>${esc(S[k])}</b><span>${k}</span></div>`:'').join('');const goals=new Map(G.map(g=>[g.id,g]));for(const g of D.issues)if(g.type==='goal'&&woop(g).v===1&&!goals.has(g.id))goals.set(g.id,{...g,children:D.issues.filter(i=>i.meta?.parent===g.id)});$('goals').innerHTML=[...goals.values()].filter(g=>!q||searchable(g).includes(q)||(g.children||[]).some(i=>searchable(i).includes(q))).map(goalMarkup).join('');const rows=D.issues.filter(i=>!q||searchable(i).includes(q)).sort((a,b)=>(a.status==='closed')-(b.status==='closed')||a.priority-b.priority);$('rows').innerHTML=rows.map(i=>`<tr><td class="id">${esc(i.id)}</td><td class="s-${esc(i.status)}">${esc(i.status)}${i.run_state&&i.run_state!==i.status?'<br><span class="id">'+esc(i.run_state)+'</span>':''}</td><td>${esc(i.priority)}</td><td>${esc(i.type)}</td><td>${esc(i.title)}${changes(i)}</td><td>${assignment(i)}</td><td class="oracle">${esc(i.oracle_cmd)}</td></tr>`).join('');$('limit-note').textContent=Number(S.total)>D.issues.length?`Showing the first ${D.issues.length} tasks of ${S.total}; missing phase evidence remains unknown.`:'';if(focus)for(const el of document.querySelectorAll('[data-focus-key]'))if(el.dataset.focusKey===focus){el.focus({preventScroll:true});break}}
+$('goals').addEventListener('toggle',e=>{const id=e.target.dataset?.key;if(id){if(e.target.open)expanded.add(id);else expanded.delete(id)}},true);
+$('q').addEventListener('input',render);
+$('stage-fields').innerHTML=stages.map(stage=>`<fieldset><legend>${labels[stage]}</legend><label>Oracle command<textarea name="${stage}-oracle" required maxlength="400"></textarea></label><label>Allowed paths · one per line<textarea name="${stage}-paths" required></textarea></label><label>Acceptance<textarea name="${stage}-acceptance" required maxlength="400"></textarea></label></fieldset>`).join('');
+function invalidate(){pending=null;$('create-woop').disabled=true;$('preview').hidden=true;$('form-status').textContent=''}form.addEventListener('input',invalidate);
+form.addEventListener('submit',e=>{e.preventDefault();if(!form.reportValidity())return;const f=new FormData(form),get=k=>String(f.get(k)||'').trim(),args=Object.fromEntries(['id','name','owner','wish','outcome','obstacle','if','then'].map(k=>[k,get(k)]));args.stages=Object.fromEntries(stages.map(stage=>[stage,{oracle_cmd:get(stage+'-oracle'),allowed_paths:get(stage+'-paths').split('\n').map(s=>s.trim()).filter(Boolean),acceptance:get(stage+'-acceptance')}]));pending={args,actor:args.owner,idem:'woop-board-'+crypto.randomUUID()};$('preview-json').textContent=JSON.stringify(args,null,2);$('preview').hidden=false;$('create-woop').disabled=false;$('create-woop').textContent='Create four open tasks';$('form-status').textContent='Preview ready. No tasks have been created.'});
+$('create-woop').addEventListener('click',async()=>{if(!pending)return;const request=pending,button=$('create-woop');button.disabled=true;try{const r=await fetch('/api/v1/ops/woop',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(request),signal:AbortSignal.timeout(10000)}),j=await r.json();if(!r.ok||j.ok!==true)throw Error(j.error?.msg||`HTTP ${r.status}`);pending=null;$('form-status').textContent=`Created ${j.data.goal} and three open evidence tasks. No jobs started.`;await load();}catch(e){$('form-status').textContent='Creation was not confirmed. '+e.message+' No automatic retry; retrying this unchanged preview uses the same request key.';if(pending===request){button.disabled=false;button.textContent='Retry same request'}}});
+$('example').addEventListener('click',()=>{invalidate();const values={id:'super-synergy-appointment-'+Date.now(),name:'SuperSynergy: suitable customer appointment',owner:'example-controller',wish:'Arrange a suitable private customer appointment',outcome:'Customer confirms the agreed slot',obstacle:'The requested slot is unavailable',if:'If the requested slot is unavailable',then:'Request one alternative before making a booking'};for(const [key,value]of Object.entries(values))form.elements.namedItem(key).value=value;const assertions={implementation:'d["critical_path_passed"] is True',delivery:'d["deployed_commit"] and d["live_smoke_passed"] is True',outcome:'d["customer_confirmed"] is True and d["source_ref"]'};for(const stage of stages){form.elements.namedItem(stage+'-oracle').value=`python3 -c 'import json; d=json.load(open("evidence/${stage}.json")); assert ${assertions[stage]}'`;form.elements.namedItem(stage+'-paths').value='evidence/'+stage+'.json';form.elements.namedItem(stage+'-acceptance').value={implementation:'The critical booking path passes its declared tests',delivery:'The declared deployed commit passes a live smoke test',outcome:'A referenced customer source confirms the agreed appointment'}[stage]}$('example-note').hidden=false;form.elements.namedItem('id').focus()});
 load();setInterval(load,4000);
-</script>
+</script></body></html>

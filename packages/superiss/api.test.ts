@@ -27,13 +27,13 @@ test('versioned API describes every registered operation and actual runtime iden
   const f = await fixture();
   try {
     const caps = await (await fetch(f.url + '/api/v1/capabilities')).json() as { ok: boolean; data: Obj };
-    assert.equal(caps.ok, true); assert.equal(caps.data.version, '1.2.0');
+    assert.equal(caps.ok, true); assert.equal(caps.data.version, '1.3.0');
     assert.ok(Array.isArray(caps.data.operations));
     const spec = await (await fetch(f.url + '/api/v1/openapi.json')).json() as { openapi: string; paths: Record<string, unknown> };
     assert.equal(spec.openapi, '3.1.0');
     for (const name of caps.data.operations as string[]) assert.ok(spec.paths['/api/v1/ops/' + name], name);
     const context = await (await fetch(f.url + '/api/v1/context')).json() as { data: Obj };
-    assert.equal(object(context.data.capabilities).version, '1.2.0'); assert.ok(context.data.project_id);
+    assert.equal(object(context.data.capabilities).version, '1.3.0'); assert.ok(context.data.project_id);
     assert.equal((await fetch(f.url + '/health')).status, 200);
   } finally { await f.close(); }
 });
@@ -88,7 +88,7 @@ test('HTTP rejects unsafe origins, form posts, rebinding and GET mutations befor
   const f = await fixture();
   try {
     for (const headers of [{ origin: 'https://evil.invalid' }, { 'sec-fetch-site': 'cross-site' }, { host: 'evil.invalid:' + f.port }] as Record<string, string>[]) assert.equal((await f.rpc({ cmd: 'create', args: { id: 'evil', title: 'evil' } }, '/api/v1/rpc', headers)).status, 403);
-    for (const cmd of ['create', 'verify', 'attest', 'analytics', 'analytics_report', 'migrate_copy', 'goal_create', 'subgoal', 'tag', 'comment', 'merge_slot']) {
+    for (const cmd of ['create', 'woop', 'verify', 'attest', 'analytics', 'analytics_report', 'migrate_copy', 'goal_create', 'subgoal', 'tag', 'comment', 'merge_slot']) {
       assert.equal((await fetch(f.url + '/op?q=' + encodeURIComponent(JSON.stringify({ cmd, args: { id: 'unsafe', title: 'unsafe' } })))).status, 405, cmd);
     }
     assert.equal((await fetch(f.url + '/op?q=' + encodeURIComponent(JSON.stringify({ cmd: 'stats' })))).status, 200);
@@ -275,5 +275,46 @@ test('versioned events preserve cursor and bounded long-poll validation', async 
     const before = Date.now();
     const empty = await (await fetch(f.url + '/api/v1/events?after=9007199254740991&wait=0.1')).json() as Obj;
     assert.deepEqual(object(empty.data).events, []); assert.equal(object(empty.data).next_after, 9007199254740991); assert.ok(Date.now() - before < 1500);
+  } finally { await f.close(); }
+});
+
+
+test('WOOP API and board retain separate native phase evidence through proof, drift and restart', async () => {
+  const f = await fixture();
+  try {
+    writeFileSync(join(f.root, 'input.txt'), 'synthetic SuperSynergy example\n');
+    const stages = ['implementation', 'delivery', 'outcome'];
+    const args = {id: 'woop-api', name: 'SuperSynergy appointment example', owner: 'controller',
+      wish: '<img src=x onerror=alert(1)>', outcome: 'Confirmed suitable slot', obstacle: 'No available slot',
+      if: 'If unavailable', then: 'Request an alternative', stages: Object.fromEntries(stages.map(stage => [stage,
+        {oracle_cmd: 'test -s input.txt', allowed_paths: ['input.txt'], acceptance: `${stage} oracle passes`}]))};
+    const request = {args, actor: 'controller', idem: 'woop-api-once'};
+    for (let i = 0; i < 2; i++) {
+      const reply = object(await (await f.rpc(request, '/api/v1/ops/woop')).json());
+      assert.equal(reply.ok, true); assert.equal(object(reply.data).goal, 'woop-api');
+    }
+    const board = async () => object(object(await (await fetch(f.url + '/board')).json()).data);
+    const initial = await board(), receipt = object(object(initial.woop_receipts)['woop-api.1']);
+    assert.equal(receipt.proof, null);
+    assert.equal((initial.issues as Obj[]).length, 4);
+    assert.equal((initial.goals as Obj[]).length, 1);
+    const claim = object(await f.engine.dispatch('claim', {id: 'woop-api.1', actor: 'worker'}));
+    const binding = {id: 'woop-api.1', actor: 'worker', epoch: claim.epoch};
+    const proof = object(await f.engine.dispatch('verify', {...binding, cwd: f.root, timeout_secs: 10}));
+    assert.equal(proof.passed, true);
+    let current = object(object((await board()).woop_receipts)['woop-api.1']);
+    assert.equal(object(current.proof).passed, true); assert.equal(object(current.proof).source_current, null);
+    assert.equal(current.revision, object(current.proof).revision);
+    await f.engine.dispatch('update', {...binding, set: {acceptance: 'Changed acceptance'}});
+    current = object(object((await board()).woop_receipts)['woop-api.1']);
+    assert.notEqual(current.revision, object(current.proof).revision);
+    const snapshot = await board(), goal = (snapshot.goals as Obj[])[0];
+    const shown = (goal.children as Obj[]).find(x => x.id === 'woop-api.1')!;
+    assert.equal(shown.acceptance, 'Changed acceptance');
+    assert.equal(shown.acceptance, (snapshot.issues as Obj[]).find(x => x.id === shown.id)!.acceptance);
+    await f.restart();
+    current = object(object((await board()).woop_receipts)['woop-api.1']);
+    assert.notEqual(current.revision, object(current.proof).revision);
+    assert.equal(f.engine.issue('woop-api.2').status, 'open');
   } finally { await f.close(); }
 });

@@ -27,7 +27,7 @@ test('relocated 1.1 bundle has an exact manifest and runnable core, forge and bo
     expect(run('bash',[join(bundle,'bin/sisf'),'--help'])).toContain(VERSION+' forge');
     const input=messages.map(m=>JSON.stringify(m)).join('\n')+'\n';
     const core=run('node',[join(bundle,'mcp/sis-mcp.js')],input).trim().split('\n').map(line=>JSON.parse(line));
-    expect(core[0].result.serverInfo.version).toBe(VERSION);expect(core[1].result.tools).toHaveLength(88);
+    expect(core[0].result.serverInfo.version).toBe(VERSION);expect(core[1].result.tools).toHaveLength(89);
     const forge=run('bash',[launcher,'forge','mcp'],input).trim().split('\n').map(line=>JSON.parse(line));
     expect(forge[0].result.serverInfo.version).toBe(VERSION);expect(forge[1].result.tools).toHaveLength(11);
     const reservation = forge[1].result.tools.find((tool: { name: string }) => tool.name === 'sis_forge_reserve');

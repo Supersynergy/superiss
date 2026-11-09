@@ -5,7 +5,7 @@ const path = require("node:path");
 const { spawn } = require("node:child_process");
 if (["rs", "py"].includes(process.env.SIS_IMPL)) {
   const reference = path.join(__dirname, "sis-mcp-reference.js");
-  if (!fs.existsSync(reference)) throw Error("Reference MCP is not included in the 1.1 bundle; use the retained reference installation");
+  if (!fs.existsSync(reference)) throw Error("Reference MCP is not included in the current bundle; use the retained reference installation");
   require(reference);
 } else {
   if (!process.env.SIS_DB) throw Error("Explicit SIS_DB required for Superiss MCP");

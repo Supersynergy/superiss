@@ -88,7 +88,19 @@ export async function startHttp(engine: Engine,port: number,dispatch: (request: 
       if(req.method==='GET'&&path.startsWith('/api/v1/capsules/')&&!path.slice('/api/v1/capsules/'.length).includes('/')){send({ok:true,data:loopReceipt(engine,path.slice('/api/v1/capsules/'.length),url.searchParams)});return;}
       if(req.method==='GET'&&path.startsWith('/api/v1/loops/')&&!path.slice('/api/v1/loops/'.length).includes('/')){send({ok:true,data:loopReceipt(engine,path.slice('/api/v1/loops/'.length))});return;}
       if (req.method==='GET' && path==='/health') { send({ok:true,data:{ok:true}}); return; }
-      if (req.method==='GET' && path==='/board') { send({ok:true,data:{stats:await engine.dispatch('stats'),issues:await engine.dispatch('list',{limit:1000})}}); return; }
+      if (req.method==='GET' && path==='/board') {
+        const data=engine.db.transaction(()=>{
+          const issues=array(engine.exec('list',{limit:1000})).map(object),receipts:Obj={};
+          for(const issue of issues){
+            const woop=object(object(object(issue.meta).customer_outcome).woop);
+            if(woop.v===1&&['implementation','delivery','outcome'].includes(text(woop.stage))){
+              const receipt=loopReceipt(engine,encodeURIComponent(text(issue.id)));
+              receipts[text(issue.id)]={proof:receipt.proof,revision:object(receipt.contract).revision,claim:receipt.claim};
+            }
+          }
+          return {stats:engine.exec('stats'),issues,goals:engine.exec('goal_tree'),woop_receipts:receipts};
+        });send({ok:true,data});return;
+      }
       if (req.method==='GET' && ['/api/v1/capabilities','/api/v1/context','/api/v1/openapi.json'].includes(path)) {
         const out=await dispatch({cmd:path.endsWith('/context')?'context':'capabilities',args:{schemas:true}});
         send(path.endsWith('/openapi.json') && out.ok===true?openapi(object(out.data)):out,out.ok===false?400:200); return;
