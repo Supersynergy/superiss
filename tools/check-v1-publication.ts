@@ -47,6 +47,18 @@ try {
   assert.equal(caps.version, VERSION); assert.equal(caps.protocol, 2); assert.equal(caps.proof_receipts, true);
   assert.ok(Array.isArray(caps.operations)); assert.equal(caps.operations.length, 90);
   checks.push('relocated-launcher-version-and-contract');
+  for (const [args, expected] of [
+    [['--help'], 'search_index'],
+    [['search', '--help'], 'mode=hybrid'],
+    [['help', 'search_index'], 'SIS_VEC_EXTENSION'],
+    [['analytics', '--help'], 'DuckDB'],
+    [['rpc', '--help'], 'NDJSON'],
+  ] as const) {
+    const help = spawnSync('/bin/bash', [cli, ...args], { cwd: scratch, env, encoding: 'utf8', timeout: 10000 });
+    assert.equal(help.status, 0, help.stderr || args.join(' '));
+    assert.ok(help.stdout.includes(expected), `${args.join(' ')} missing ${expected}`);
+  }
+  checks.push('relocated-cli-help-without-db');
   assert.ok(Object.hasOwn(manifest.files, 'packages/superiss/dist/sisf.js'));
   assert.ok(Object.hasOwn(manifest.files, 'bin/sisf'));
   assert.ok(Object.hasOwn(manifest.files, 'mcp/sis-mcp.js'));

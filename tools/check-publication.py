@@ -11,8 +11,8 @@ def main():
     runtime = json.loads((ROOT / 'packages/superiss/package.json').read_text())
     registry = json.loads((ROOT / 'packages/superiss/ops.json').read_text())
     reference = json.loads((ROOT / 'ops.json').read_text())
-    assert runtime['version'] == registry['version'] == '1.5.1'
-    assert "export const VERSION = '1.5.1'" in (ROOT / 'packages/superiss/runtime.ts').read_text()
+    assert runtime['version'] == registry['version'] == '1.5.2'
+    assert "export const VERSION = '1.5.2'" in (ROOT / 'packages/superiss/runtime.ts').read_text()
     assert len(registry['ops']) == 90 and len(reference['ops']) == 85
     assert len({op['name'] for op in registry['ops']}) == 90
     for op in registry['ops']:
@@ -32,6 +32,6 @@ def main():
     # These records describe original reference snapshots, not current-file hashes.
     for name in ['validation.json','forge-validation.json','source-snapshot.json']:
         json.loads((ROOT / 'docs/research' / name).read_text())
-    print(json.dumps({'passed':True,'stage':'source-content-only','version':'1.5.1','operations':90,'forge_tools':11,'reference_operations':85,'files':len(paths),'remote_publication_checked':False}))
+    print(json.dumps({'passed':True,'stage':'source-content-only','version':'1.5.2','operations':90,'forge_tools':11,'reference_operations':85,'files':len(paths),'remote_publication_checked':False}))
 
 if __name__ == '__main__': main()

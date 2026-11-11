@@ -1,6 +1,6 @@
 {
   "name": "@superiss/v1",
-  "version": "1.5.1",
+  "version": "1.5.2",
   "private": true,
   "type": "module",
   "description": "TypeScript 7.1 Superiss: SQLite authority and isolated DuckDB 2 analytics",

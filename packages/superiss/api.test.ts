@@ -27,13 +27,13 @@ test('versioned API describes every registered operation and actual runtime iden
   const f = await fixture();
   try {
     const caps = await (await fetch(f.url + '/api/v1/capabilities')).json() as { ok: boolean; data: Obj };
-    assert.equal(caps.ok, true); assert.equal(caps.data.version, '1.5.1');
+    assert.equal(caps.ok, true); assert.equal(caps.data.version, '1.5.2');
     assert.ok(Array.isArray(caps.data.operations));
     const spec = await (await fetch(f.url + '/api/v1/openapi.json')).json() as { openapi: string; paths: Record<string, unknown> };
     assert.equal(spec.openapi, '3.1.0');
     for (const name of caps.data.operations as string[]) assert.ok(spec.paths['/api/v1/ops/' + name], name);
     const context = await (await fetch(f.url + '/api/v1/context')).json() as { data: Obj };
-    assert.equal(object(context.data.capabilities).version, '1.5.1'); assert.ok(context.data.project_id);
+    assert.equal(object(context.data.capabilities).version, '1.5.2'); assert.ok(context.data.project_id);
     assert.equal((await fetch(f.url + '/health')).status, 200);
   } finally { await f.close(); }
 });

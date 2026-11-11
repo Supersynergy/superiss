@@ -1,6 +1,14 @@
-# Validation — Superiss 1.5.1
+# Validation — Superiss 1.5.2
 
 Current evidence is separate from the [historical 0.9 record](archive/0.9/VALIDATION.md). JSON receipts under `docs/research/` describe their original snapshots; their hashes are not current-file assertions.
+
+## 1.5.2 acceptance scope
+
+Run the current core/forge gate, the optional-search/analytics gate and the
+relocatable publication gate on the same source hash before release. Verify
+help from the packaged binary without a DB. Hosted CI and live daemon
+cutovers remain separate evidence; a CLI symlink alone cannot upgrade a
+running 1.5.1 owner.
 
 ## 1.5.1 acceptance scope
 

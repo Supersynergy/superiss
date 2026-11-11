@@ -1,4 +1,4 @@
-# Get started and upgrade — 1.5.1
+# Get started and upgrade — 1.5.2
 
 ## Requirements
 
@@ -38,10 +38,20 @@ bun tools/check-v11.ts
 # Additional full hybrid analytics/source gate, with its native dependencies installed:
 bun packages/superiss/check.ts
 bun tools/check-v1-publication.ts
-bun tools/package-v1.ts /absolute/new-superiss-1.5.1 --with-adapters
+bun tools/package-v1.ts /absolute/new-superiss-1.5.2 --with-adapters
 ```
 
 The package manifest hashes every shipped runtime file, including the forge and MIT license. A package build is not a production installation or a completed soak.
+
+## Upgrade from 1.5.1 to 1.5.2
+
+The schema and protocol are unchanged. 1.5.2 adds CLI help and a tested FTS
+fallback when a configured model lacks the vector extension. A 1.5.2 client
+still rejects a 1.5.1 daemon by version before mutation. Install the new
+bundle separately; keep the 1.5.1 client and owner running until a checked,
+idle cutover is authorized. Switching a symlink alone does not upgrade a
+running daemon. Use `sis --help` and `sis help search_index` without a DB;
+inspect `sis context --db /absolute/project.db` to confirm the actual owner.
 
 ## Upgrade to 1.5.1
 

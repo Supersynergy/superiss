@@ -124,7 +124,7 @@ test('Forge consumes the TypeScript single-frame wait-watch then the next socket
   const client = new forge.Sis({ db: f.db, sock, port: '8766', host: '127.0.0.1', state: join(f.root, 'forge.db'), repos: {}, gitea: null, lanes: {} });
   try {
     let error = ''; daemon.stderr!.on('data', data => { error += data; }); const until = Date.now() + 3000; while (!existsSync(sock) && Date.now() < until && daemon.exitCode === null) await delay(20); assert.ok(existsSync(sock), error);
-    const context = await client.call('context'); assert.equal(context.data.capabilities.version, '1.5.1');
+    const context = await client.call('context'); assert.equal(context.data.capabilities.version, '1.5.2');
     let timer: ReturnType<typeof setTimeout> | undefined;
     try { const watched = await Promise.race([client.call('watch', { after: 9007199254740991, wait: 0.05 }), new Promise<never>((_, reject) => { timer = setTimeout(() => reject(Error('Forge waited for a nonexistent second watch frame')), 800); })]); assert.equal(watched.ok, true); assert.deepEqual(watched.data.events, []); }
     finally { if (timer) clearTimeout(timer); }

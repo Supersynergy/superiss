@@ -1,8 +1,10 @@
 # Changelog
 
-## Unreleased
+## 1.5.2 — help and documentation (2026-11-11)
 
 - Add database-free CLI help for optional hybrid search, sqlite-vec index controls, DuckDB analytics and persistent RPC sessions.
+- Document where task authority, search and analytics data live; verify FTS fallback when a configured model has no installed vector extension.
+- Keep the schema and protocol unchanged. Clients still require a matching daemon version; a 1.5.2 client cannot silently attach to a running 1.5.1 owner.
 
 ## 1.5.1 — release candidate (2026-11-11)
 
