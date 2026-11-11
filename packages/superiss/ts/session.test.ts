@@ -43,6 +43,26 @@ class Peer {
   }
 }
 
+test('help describes optional search, analytics and sessions without opening a database', () => {
+  const root = mkdtempSync(join(tmpdir(), 'sis-help-'));
+  const cli = join(dirname(fileURLToPath(import.meta.url)), 'cli.ts');
+  const env = { ...process.env };
+  for (const key of ['SIS_DB', 'SIS_SOCK', 'SIS_CWD_DB']) delete env[key];
+  try {
+    for (const [args, expected] of [
+      [['--help'], 'search_index'],
+      [['search', '--help'], 'mode=hybrid'],
+      [['help', 'search_index'], 'SIS_VEC_EXTENSION'],
+      [['analytics', '--help'], 'DuckDB'],
+      [['rpc', '--help'], 'NDJSON'],
+    ] as const) {
+      const result = spawnSync(process.execPath, [cli, ...args], { cwd: root, env, encoding: 'utf8', timeout: 5000 });
+      assert.equal(result.status, 0, `${args.join(' ')}: ${result.stderr}`);
+      assert.ok(result.stdout.includes(expected), `${args.join(' ')} missing ${expected}`);
+    }
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
 test('native rpc retains one engine, request identity and idempotent mutations through EOF', async () => {
   const root = mkdtempSync(join(tmpdir(), 'sis-rpc-')), db = join(root, 'tasks.db');
   const peer = new Peer('rpc', db);

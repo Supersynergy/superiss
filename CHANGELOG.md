@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Add database-free CLI help for optional hybrid search, sqlite-vec index controls, DuckDB analytics and persistent RPC sessions.
+
 ## 1.5.1 — release candidate (2026-11-11)
 
 - Promote the optional, rebuildable sqlite-vec search projection from the 1.5.0 local candidate; SQLite/FTS5 remains the default and DuckDB remains an explicit analytics snapshot.

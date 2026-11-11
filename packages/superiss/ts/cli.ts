@@ -14,6 +14,17 @@ import { SuperissSocketClient } from './socket-client.ts';
 import { runSession, writeSessionFrame } from './session.ts';
 
 interface Options { cmd: string; payload: string[]; db?: string; sock?: string; actor?: string; idem?: string; run_id?: string; headers: boolean; tools: string[] }
+function help(topic = ''): string {
+  const pages: Record<string, string> = {
+    search: 'sis search q=TEXT [limit=1..1000] --db PATH\nsis search q=TEXT mode=hybrid --db PATH\nSQLite FTS5 is the default. Hybrid is opt-in; missing model, extension or fresh index falls back to FTS5.',
+    search_index: 'sis search_index action=status|build --db PATH\nBuild a disposable sqlite-vec projection from SQLite authority. Set SIS_VEC_MODEL and an absolute SIS_VEC_EXTENSION; SIS_VEC_PORT defaults to 11434 (loopback). No model or extension is downloaded.',
+    analytics: 'sis analytics kind=all|summary|actors|daily [limit=1..1000] --db PATH\nExplicit DuckDB snapshot analytics; SQLite remains the task and proof authority.',
+    rpc: 'sis rpc --db PATH [--sock PATH]\nPersistent serial NDJSON session: one {\"id\":1,\"cmd\":\"stats\",\"args\":{}} per line; check reply ok and data. No automatic retry after uncertain mutations.',
+  };
+  if (topic && pages[topic]) return pages[topic];
+  if (topic) return `No dedicated help for ${topic}. Use sis capabilities schemas=true --db PATH or docs/OPERATIONS.md.`;
+  return 'sis <operation> [JSON | key=value ...] --db PATH [--actor NAME] [--idem KEY]\nsis serve --db PATH --sock PATH\nsis mcp --db PATH [--tool NAME] [--mcp-headers]\nsis help search|search_index|analytics|rpc\nSQLite/FTS5 is the authority; sqlite-vec is optional search; DuckDB is snapshot analytics.\nRepeated agent calls: sis rpc --db PATH. TypeScript 7.1 / Bun.';
+}
 function options(): Options {
   const result: Options={cmd:'serve',payload:[],headers:false,tools:[]}; let selected=false;
   const args=process.argv.slice(2), flags: Record<string,'db'|'sock'|'actor'|'idem'|'run_id'>={'--db':'db','--sock':'sock','--actor':'actor','--idem':'idem','--run-id':'run_id'};
@@ -26,10 +37,11 @@ function options(): Options {
     else if (part==='--http') { if (!args[i+1]) fail('bad_args','--http requires port'); process.env.SIS_HTTP=args[++i]; }
     else if (part.startsWith('--http=')) process.env.SIS_HTTP=part.slice(7);
     else if (part==='--version') { console.log(VERSION); process.exit(0); }
-    else if (part==='--help' || part==='-h') { console.log('sis <operation> [JSON | key=value ...] --db PATH [--actor NAME] [--idem KEY]\nsis serve --db PATH --sock PATH\nsis rpc --db PATH [--sock PATH] (bounded NDJSON session)\nsis mcp --db PATH [--tool NAME] [--mcp-headers]\nTypeScript 7.1 / Bun; Rust and Python are explicit reference runtimes.'); process.exit(0); }
+    else if (part==='--help' || part==='-h') { console.log(help(selected ? result.cmd : '')); process.exit(0); }
     else if (!selected) { result.cmd=part; selected=true; }
     else result.payload.push(part);
   }
+  if (result.cmd === 'help') { console.log(help(result.payload[0])); process.exit(0); }
   return result;
 }
 function dbPath(opt: Options): string {
