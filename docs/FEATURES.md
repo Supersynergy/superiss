@@ -1,6 +1,6 @@
-# Features and support — 1.3.0
+# Features and support — 1.5.1
 
-| Capability | Current 1.3 runtime | Retained 0.9 reference |
+| Capability | Current 1.5.1 runtime | Retained 0.9 reference |
 | --- | --- | --- |
 | Default source launcher | `bin/sis`, `bin/sis-v1` alias | `bin/sis-reference`, `sis reference`, explicit `SIS_IMPL=rs|py` |
 | Implementation | Bun / TypeScript 7.1 | Rust / Python |
@@ -13,10 +13,35 @@
 | Evidence and cost | JUnit, coverage, command/artifact/custom receipts; recorded costs and close-time budget gate | Available |
 | Recovery and exchange | Checkpoint/resume, handoff, outbox, JSONL, explicit Beads export migration | Available |
 | Interfaces | JSON CLI, Unix socket, multiplexed requests, MCP, local HTTP/task board | CLI/socket/MCP/HTTP |
+| Repeated agent calls | `sis rpc` serial NDJSON session or identity-checked persistent socket client | One-shot client or explicit socket |
+| Search | SQLite FTS5 by default; optional local sqlite-vec hybrid projection with explicit rebuild and FTS fallback | SQLite search only |
 | Analytics | Optional isolated DuckDB 2 snapshot worker | Recorded outcome aggregates |
 | Forge | Packaged CLI, HTTP board, eleven MCP tools; atomic reservation, Git/Worktrunk, repository routing and cross-store local merge locks | Explicit adapter `--runtime reference`; no current proof-gated merge |
 | macOS local-zero execution | Explicit zero budget and native sandbox boundary; unsupported platforms refuse it | Explicit supported workflow |
 | Workflow / services | Optional workflow and foreground service adapters; launchd installation remains an explicit reference workflow | Explicit launchd workflow |
+
+## What lives where
+
+| Data or process | Location | Role |
+| --- | --- | --- |
+| Issues, claims, leases, proof receipts, events and FTS5 | Selected `--db /absolute/project/.sis/tasks.db` | Only task authority; FTS5 shares this SQLite database |
+| Optional sqlite-vec | Sibling `<tasks.db>.search-vec-<project-model-hash>.sqlite` | Disposable search suggestions; `search_index action=build` rebuilds it from an authority snapshot |
+| DuckDB 2 | Sibling `<tasks.db>.analytics.duckdb` | Explicit read-only analytics snapshot; never a claim or proof authority |
+| Embedding model | Operator-supplied loopback endpoint and native sqlite-vec library | Opt-in; no downloads or model calls on default FTS5 searches |
+| `sis rpc` / Unix socket | Client session / one project-owned daemon | Reuses a process or connection, not a second database; no automatic replay of ambiguous mutations |
+
+Use one-shot `sis` for occasional human commands. For an agent making many calls
+to the same database, hold `sis rpc --db /absolute/project/.sis/tasks.db` open
+and send one JSON request per line; keep the returned `id`, `ok` and `data`
+envelope. Existing socket clients can instead reuse their version- and
+project-checked connection. This removes repeated CLI startup, not SQLite
+transaction, oracle or model work. Never change a running daemon's version
+under active clients without a controlled cutover.
+
+`SIS_VERIFY_CONCURRENCY` is a separate operator choice (default 2, maximum 8).
+Increasing it admits more simultaneous oracles but also increases subprocess
+and host load. A `verify_busy` rejection is not a completed proof; keep the
+lease alive and retry only after inspecting the claim and capacity.
 
 ## Forge operations
 

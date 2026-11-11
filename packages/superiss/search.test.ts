@@ -19,6 +19,10 @@ test('FTS remains authoritative when the optional vector extension and model are
     assert.equal(object(array(await engine.dispatch('search', { q: 'sqlite', mode: 'hybrid' }))[0]).id, 'exact');
     assert.equal(object(await engine.dispatch('search_index', {})).reason, 'disabled');
     assert.equal(object(object(await engine.dispatch('capabilities', {})).search_projection).default, 'fts5');
+    process.env.SIS_VEC_MODEL = 'fixture-embeddings';
+    process.env.SIS_VEC_EXTENSION = join(root, 'missing-vec0.dylib');
+    assert.equal(object(await engine.dispatch('search_index', {})).reason, 'disabled');
+    assert.equal(object(array(await engine.dispatch('search', { q: 'sqlite', mode: 'hybrid' }))[0]).id, 'exact');
     assert.equal(engine.db.get('PRAGMA user_version')?.user_version, 7);
   } finally {
     await engine.shutdown(); engine.db.close();
