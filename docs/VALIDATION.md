@@ -1,6 +1,10 @@
-# Validation — Superiss 1.3.0
+# Validation — Superiss 1.5.1
 
 Current evidence is separate from the [historical 0.9 record](archive/0.9/VALIDATION.md). JSON receipts under `docs/research/` describe their original snapshots; their hashes are not current-file assertions.
+
+## 1.5.1 acceptance scope
+
+Run `bun tools/check-v11.ts`, `bun packages/superiss/check.ts` and `bun tools/check-v1-publication.ts` on the same source hash. The optional sqlite-vec integration test requires an installed extension selected with `SIS_TEST_VEC_EXTENSION`; otherwise it is explicitly skipped while the FTS-only case still runs. Bundle checks prove a relocated synthetic lifecycle and DuckDB snapshot, not the state of a production daemon. Verify each target's owner receipt, current leases and copied database before any live cutover; identify the new runtime by its actual `context` response. Hosted CI, other hosts and real-model search quality require separate evidence.
 
 ## 1.3 acceptance scope
 

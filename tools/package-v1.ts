@@ -26,7 +26,7 @@ while [ -L "$SELF" ]; do
 done
 ROOT="$(cd "$(dirname "$SELF")/.." && pwd)"
 if [ "\${SIS_IMPL:-ts}" != ts ]; then
-  printf '%s\\n' 'This 1.3 bundle contains the TypeScript runtime. Use the retained 0.9 installation for explicit Rust/Python reference commands.' >&2
+  printf '%s\\n' 'This ${VERSION} bundle contains the TypeScript runtime. Use the retained 0.9 installation for explicit Rust/Python reference commands.' >&2
   exit 2
 fi
 case "\${1:-}" in
@@ -66,7 +66,7 @@ export function packageRelease(destination: string, options: { adapters?: boolea
   mkdirSync(out, { mode: 0o700 });
   const runtime = join(out, 'packages', 'superiss');
   mkdirSync(join(runtime, 'dist'), { recursive: true });
-  for (const entries of [[join(source, 'cli.ts'), join(source, 'analytics-worker.ts')], [join(repository, 'tools', 'v1-lifecycle.ts')], [join(repository, 'sisf', 'sisf.ts')]]) {
+  for (const entries of [[join(source, 'cli.ts'), join(source, 'analytics-worker.ts')], [join(source, 'ts', 'socket-client.ts')], [join(repository, 'tools', 'v1-lifecycle.ts')], [join(repository, 'sisf', 'sisf.ts')]]) {
     const build = spawnSync(process.execPath, ['build', ...entries, '--target=bun', '--outdir=' + join(runtime, 'dist')], { cwd: repository, encoding: 'utf8', timeout: 30000 });
     assert.equal(build.status, 0, build.stderr || String(build.error));
   }

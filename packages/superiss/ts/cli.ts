@@ -10,6 +10,8 @@ import { array, canonical, decode, digest, fail, git, object, required, SisError
 import { startHttp } from './http.ts';
 import { collectChanges } from './git.ts';
 import { setTimeout as delay } from 'node:timers/promises';
+import { SuperissSocketClient } from './socket-client.ts';
+import { runSession, writeSessionFrame } from './session.ts';
 
 interface Options { cmd: string; payload: string[]; db?: string; sock?: string; actor?: string; idem?: string; run_id?: string; headers: boolean; tools: string[] }
 function options(): Options {
@@ -24,7 +26,7 @@ function options(): Options {
     else if (part==='--http') { if (!args[i+1]) fail('bad_args','--http requires port'); process.env.SIS_HTTP=args[++i]; }
     else if (part.startsWith('--http=')) process.env.SIS_HTTP=part.slice(7);
     else if (part==='--version') { console.log(VERSION); process.exit(0); }
-    else if (part==='--help' || part==='-h') { console.log('sis <operation> [JSON | key=value ...] --db PATH [--actor NAME] [--idem KEY]\nsis serve --db PATH --sock PATH\nsis mcp --db PATH [--tool NAME] [--mcp-headers]\nTypeScript 7.1 / Bun; Rust and Python are explicit reference runtimes.'); process.exit(0); }
+    else if (part==='--help' || part==='-h') { console.log('sis <operation> [JSON | key=value ...] --db PATH [--actor NAME] [--idem KEY]\nsis serve --db PATH --sock PATH\nsis rpc --db PATH [--sock PATH] (bounded NDJSON session)\nsis mcp --db PATH [--tool NAME] [--mcp-headers]\nTypeScript 7.1 / Bun; Rust and Python are explicit reference runtimes.'); process.exit(0); }
     else if (!selected) { result.cmd=part; selected=true; }
     else result.payload.push(part);
   }
@@ -78,6 +80,7 @@ function requestTimeout(req: Obj): number {
   let seconds = 0;
   if (req.cmd === 'verify' || req.cmd === 'attest' && args.kind === 'run') seconds = typeof args.timeout_secs === 'number' ? args.timeout_secs : 10;
   else if (req.cmd === 'watch') seconds = typeof args.wait === 'number' ? args.wait : 0;
+  else if (req.cmd === 'search_index' && args.action === 'build') seconds = 135;
   if (!Number.isFinite(seconds) || seconds < 0) seconds = 0;
   return Math.min(305000, Math.max(15000, (seconds + 5) * 1000));
 }
@@ -252,12 +255,12 @@ async function serve(engine: Engine,path: string): Promise<void> {
     process.stderr.write(`serving ${path}\n`);
   } catch (error) { if (server.listening) server.close(); cleanup(); throw error; }
 }
-function mcp(engine: Engine | null,opt: Options,remote?: (cmd:string,args:Value)=>Promise<Obj>): void {
+async function mcp(engine: Engine | null,opt: Options,remote?: (cmd:string,args:Value)=>Promise<Obj>,signal?:AbortSignal): Promise<void> {
   const agentNames=new Set('acquire heartbeat checkpoint resume verify close_check close brief context capabilities cancel cancel_ack tokens'.split(' '));
   const selected=registry.filter(op=>(process.env.SIS_MCP_PROFILE!=='agent' || agentNames.has(text(op.name))) && (!opt.tools.length || opt.tools.includes(text(op.name))));
   if (opt.tools.some(name=>!registry.some(op=>op.name===name))) fail('bad_args','unknown selected MCP tool');
-  let buffer=Buffer.alloc(0), chain=Promise.resolve();
-  const output=(value: Obj) => { const body=canonical(value); process.stdout.write(opt.headers ? `Content-Length: ${Buffer.byteLength(body)}\r\n\r\n${body}` : body+'\n'); };
+  let buffer=Buffer.alloc(0);
+  const output=(value: Obj) => writeSessionFrame(value,opt.headers);
   const handle=async(input: unknown) => {
     const req=object(input); if (req.id===undefined || typeof req.method!=='string' || req.method.startsWith('notifications/')) return;
     try {
@@ -265,26 +268,40 @@ function mcp(engine: Engine | null,opt: Options,remote?: (cmd:string,args:Value)
       if (req.method==='initialize') result={protocolVersion:'2024-11-05',capabilities:{tools:{}},serverInfo:{name:'superiss',version:VERSION}};
       else if (req.method==='tools/list') result={tools:selected.map(op=>({name:'sis_'+text(op.name),description:op.description ?? '',inputSchema:op.inputSchema ?? {type:'object',additionalProperties:true}}))};
       else if (req.method==='tools/call') { const params=object(req.params), name=required(params,'name').replace(/^sis_/u,''); if (!selected.some(op=>op.name===name)) fail('bad_cmd','unknown or unselected tool'); let envelope: Obj; try { envelope=remote ? await remote(name,params.arguments ?? {}) : engine ? {ok:true,data:await engine.dispatch(name,params.arguments ?? {},context(opt))} : fail('internal','MCP backend unavailable'); } catch (error) { envelope=responseError(error); } result={content:[{type:'text',text:canonical(envelope)}],isError:!envelope.ok}; }
-      else { output({jsonrpc:'2.0',id:req.id,error:{code:-32601,message:'Method not found'}}); return; }
-      output({jsonrpc:'2.0',id:req.id,result});
-    } catch (error) { output({jsonrpc:'2.0',id:req.id,error:{code:-32602,message:error instanceof Error ? error.message : String(error)}}); }
-  };
-  process.stdin.on('data',(chunk: Buffer)=>{
-    buffer=Buffer.concat([buffer,chunk]);
-    while (buffer.length) {
-      let frame: Buffer;
-      if (buffer.subarray(0,15).toString().toLowerCase().startsWith('content-length:')) {
-        const end=buffer.indexOf('\r\n\r\n'); if (end<0) break;
-        const match=buffer.subarray(0,end).toString().match(/^Content-Length: (\d+)$/imu); const size=match ? Number(match[1]) : -1;
-        if (size<0 || size>1048576) { process.stderr.write('invalid MCP frame\n'); process.exitCode=1; process.stdin.destroy(); return; }
-        if (buffer.length<end+4+size) break; frame=buffer.subarray(end+4,end+4+size); buffer=buffer.subarray(end+4+size);
-      } else { const end=buffer.indexOf(10); if (end<0) break; frame=buffer.subarray(0,end); buffer=buffer.subarray(end+1); }
-      if (frame.length>1048576) { process.stdin.destroy(); process.exitCode=1; return; }
-      if (!frame.toString().trim()) continue;
-      chain=chain.then(async()=>{try {await handle(JSON.parse(frame.toString('utf8')));} catch {output({jsonrpc:'2.0',id:null,error:{code:-32700,message:'Parse error'}});}});
+      else { await output({jsonrpc:'2.0',id:req.id,error:{code:-32601,message:'Method not found'}}); return; }
+      await output({jsonrpc:'2.0',id:req.id,result});
+    } catch (error) {
+      if(error instanceof SisError && ['output_backpressure','frame_too_large'].includes(error.code))throw error;
+      await output({jsonrpc:'2.0',id:req.id,error:{code:-32602,message:error instanceof Error ? error.message : String(error)}});
     }
-    if (buffer.length>1048576) {process.stdin.destroy();process.exitCode=1;}
-  });
+  };
+  const brokenOutput=(error:Error)=>process.stdin.destroy(error), stop=()=>process.stdin.destroy();
+  process.stdout.on('error',brokenOutput);signal?.addEventListener('abort',stop,{once:true});
+  try {
+    for await(const chunk of process.stdin) {
+      if(signal?.aborted)return;
+      buffer=Buffer.concat([buffer,Buffer.isBuffer(chunk)?chunk:Buffer.from(chunk)]);
+      while (buffer.length) {
+        if(signal?.aborted)return;
+        let frame: Buffer;
+        if (buffer.subarray(0,15).toString().toLowerCase().startsWith('content-length:')) {
+          const end=buffer.indexOf('\r\n\r\n'); if (end<0) break;
+          const match=buffer.subarray(0,end).toString().match(/^Content-Length: (\d+)$/imu); const size=match ? Number(match[1]) : -1;
+          if (size<0 || size>1048576) fail('frame_too_large','Invalid MCP frame');
+          if (buffer.length<end+4+size) break; frame=buffer.subarray(end+4,end+4+size); buffer=buffer.subarray(end+4+size);
+        } else { const end=buffer.indexOf(10); if (end<0) break; frame=buffer.subarray(0,end); buffer=buffer.subarray(end+1); }
+        if (frame.length>1048576) fail('frame_too_large','MCP request exceeds 1 MiB');
+        if (!frame.toString().trim()) continue;
+        let input:unknown;
+        try {input=JSON.parse(frame.toString('utf8'));}
+        catch {await output({jsonrpc:'2.0',id:null,error:{code:-32700,message:'Parse error'}});continue;}
+        await handle(input);
+      }
+      if (buffer.length>1048576) fail('frame_too_large','MCP request exceeds 1 MiB');
+    }
+    if(buffer.length)fail('bad_frame','Incomplete MCP frame at EOF; not dispatched');
+  } catch(error) {if(!signal?.aborted || error instanceof SisError && error.code==='output_backpressure')throw error;}
+  finally {process.stdout.removeListener('error',brokenOutput);signal?.removeEventListener('abort',stop);}
 }
 async function main(): Promise<void> {
   const opt=options(); let db=dbPath(opt);
@@ -299,7 +316,26 @@ async function main(): Promise<void> {
     }
     const engine=new Engine(db); try{return {ok:true,data:await engine.dispatch(cmd,args,{...context(opt),idem:withIdem ? opt.idem ?? null : null})};} catch(error){return responseError(error);} finally{await engine.shutdown();engine.db.close();}
   };
-  if (opt.cmd==='mcp') {mcp(useSocket ? null : new Engine(db),opt,useSocket ? call : undefined);return;}
+  if (opt.cmd==='mcp' || opt.cmd==='rpc') {
+    const client=useSocket ? new SuperissSocketClient(sock,db) : undefined;
+    const engine=useSocket ? null : new Engine(db);
+    const dispatch=async(input: Obj):Promise<Obj>=>{
+      const req: Obj={...input,...(input.actor===undefined && opt.actor!==undefined ? {actor:opt.actor} : {}),...(input.idem===undefined && opt.idem!==undefined ? {idem:opt.idem} : {}),...(input.run_id===undefined && opt.run_id!==undefined ? {run_id:opt.run_id} : {})};
+      try {
+        return client ? req.cmd==='watch' ? await socketCall(sock,db,req) : await client.request(req,{timeoutMs:requestTimeout(req)}) : engine ? await request(engine,req) : fail('internal','Session backend unavailable');
+      } catch(error) {return responseError(error,req.id ?? null);}
+    };
+    const cleanup=async()=>{client?.close();if(engine){await engine.shutdown();engine.db.close();}};
+    const controller=new AbortController();
+    const stop=()=>{process.exitCode=143;controller.abort();};
+    process.once('SIGTERM',stop);process.once('SIGINT',stop);
+    let blocked: SisError | undefined;
+    try {if(opt.cmd==='mcp')await mcp(engine,opt,client ? (cmd,args)=>dispatch({cmd,args}) : undefined,controller.signal);else await runSession(dispatch,controller.signal);}
+    catch(error) {if(error instanceof SisError && error.code==='output_backpressure')blocked=error;else throw error;}
+    finally {process.removeListener('SIGTERM',stop);process.removeListener('SIGINT',stop);await cleanup();}
+    if(blocked){process.stderr.write(canonical(responseError(blocked))+'\n');process.exit(2);}
+    return;
+  }
   let args=payload(opt);
   if (opt.cmd==='changes' && object(args).files===undefined) args=collectChanges(object(args),db);
   if (['checkpoint','handoff'].includes(opt.cmd) && object(args).cwd===undefined && !opt.payload[0]?.startsWith('{')) args={...object(args),cwd:process.cwd()};

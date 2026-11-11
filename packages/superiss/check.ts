@@ -37,7 +37,8 @@ for (const file of origin.files) {
   if (existsSync(original)) assert.equal(createHash('sha256').update(readFileSync(original)).digest('hex'), file.sha256, `Original changed: ${file.source}; do not overwrite or silently adopt drift`);
 }
 run('inherited-unit-regressions', process.execPath, ['test', 'ts/store.test.ts', '--bail'], false, 90000);
-run('hybrid-concurrency-recovery', process.execPath, ['test', 'hybrid.test.ts', 'release.test.ts', '--bail'], false, 120000);
+run('hybrid-concurrency-recovery', process.execPath, ['test', 'hybrid.test.ts', 'release.test.ts', '--timeout', '20000', '--bail'], false, 120000);
+run('optional-search', process.execPath, ['test', 'search.test.ts', '--bail']);
 run('protocol-contract-complete', 'python3', ['tests/contract_suite.py', '--require-complete', '--serve-cmd', `${process.execPath} ${join(root, 'cli.ts')} serve`], false, 90000);
 const benchmark = JSON.parse(run('paired-cache-benchmark', process.execPath, ['benchmark.ts'], true, 30000)) as unknown;
 run('build-artifacts', process.execPath, ['build', 'cli.ts', 'analytics-worker.ts', '--target=bun', '--outdir=dist']);

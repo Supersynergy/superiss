@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { _test, changesFromGit } from "./sisf";
+import { VERSION } from "../packages/superiss/runtime.ts";
 import { createServer } from "node:net";
 import { existsSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
@@ -29,7 +30,7 @@ test("socket disconnect rejects queued requests and reconnect rejects project dr
     s.on("data", chunk => { buf += chunk; let i;
       while ((i = buf.indexOf("\n")) >= 0) {
         const request = JSON.parse(buf.slice(0, i)); buf = buf.slice(i+1);
-        if (request.cmd === "context") s.write(JSON.stringify({ ok: true, data: { project_id: project, db_path: f.cfg.db, capabilities:{version:"1.3.0",protocol:2,proof_receipts:true} } }) + "\n");
+        if (request.cmd === "context") s.write(JSON.stringify({ ok: true, data: { project_id: project, db_path: f.cfg.db, capabilities:{version:VERSION,protocol:2,proof_receipts:true} } }) + "\n");
         else s.destroy();
       }
     });

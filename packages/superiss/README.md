@@ -1,8 +1,8 @@
 # Superiss v1 — TypeScript 7.1, SQLite und DuckDB 2
 
-Version **1.3.0**. `bin/sis` is now the current source entry point; `bin/sis-v1` is its alias. The release bundle includes forge CLI/HTTP/MCP, optional Worktrunk and explicit repository routing. See [the current forge guide](../../docs/SISF.md), [feature boundaries](../../docs/FEATURES.md) and [validation](../../docs/VALIDATION.md). `close_check` brings the current core to 89 operations.
+Version **1.5.1**, local release candidate. `bin/sis` is the current source entry point; `bin/sis-v1` is its alias. The release bundle includes forge CLI/HTTP/MCP, optional Worktrunk and explicit repository routing. See [the current forge guide](../../docs/SISF.md), [feature boundaries](../../docs/FEATURES.md) and [validation](../../docs/VALIDATION.md). The core has 90 operations; `rpc` is a transport entry point, not another task operation.
 
-The host-specific measurements and research provenance below describe the inherited 1.0 analytics work; they are not fresh 1.1 production acceptance. SQLite ist die verbindliche Aufgabensteuerung; DuckDB erzeugt ausdrücklich datierte, lesende Analyseprojektionen. Releasepakete enthalten CLI, Analyse-Worker, Ops-Register, Tokenizer und Web-Board. Ein Installationswechsel migriert keine Projekt-DB und ersetzt keinen laufenden Daemon: Ein 1.3-Client weist ältere oder unversionierte Daemons vor dem ersten Arbeitsbefehl ab.
+The host-specific measurements and research provenance below describe the inherited 1.0 analytics work; they are not fresh 1.5 production acceptance. SQLite ist die verbindliche Aufgabensteuerung; DuckDB erzeugt ausdrücklich datierte, lesende Analyseprojektionen. Releasepakete enthalten CLI, Analyse-Worker, Ops-Register, Tokenizer und Web-Board. Ein Installationswechsel migriert keine Projekt-DB und ersetzt keinen laufenden Daemon: Ein 1.5-Client weist ältere oder unversionierte Daemons vor dem ersten Arbeitsbefehl ab.
 
 ## Start
 
@@ -20,7 +20,78 @@ bun packages/superiss/cli.ts analytics kind=all limit=100 --db /tmp/superiss-v1/
 
 `--db`, `SIS_DB` oder das ausdrückliche `SIS_CWD_DB=1` ist erforderlich. Es gibt keine stillschweigende Suche nach einer produktiven DB. Die CLI behält das bestehende Format bei: erfolgreicher Aufruf = direktes JSON-Ergebnis; Socket/MCP = Protokoll-Envelope.
 
+## Optionale lokale Suche
+
+Ohne Konfiguration bleibt `search q=BEGRIFF` unverändert bei SQLite FTS5
+(einschließlich der bisherigen `LIKE`-Rückfallebene). Für einen separaten,
+rekonstruierbaren Vektorindex müssen Betreiber selbst eine kompatible
+sqlite-vec-Bibliothek und ein lokales Ollama-Embedding-Modell bereitstellen:
+
+```sh
+export SIS_VEC_EXTENSION=/absolute/path/to/vec0.dylib
+export SIS_VEC_MODEL=all-minilm
+bun packages/superiss/cli.ts search_index action=build --db /absolute/project.db
+bun packages/superiss/cli.ts search q='ähnliche Aufgabe' mode=hybrid --db /absolute/project.db
+bun packages/superiss/cli.ts search_index action=status --db /absolute/project.db
+```
+
+`SIS_VEC_EXTENSION` lädt ausschließlich eine vorhandene lokale native
+Bibliothek. `SIS_VEC_MODEL` aktiviert ausschließlich den Embedding-Aufruf an
+`127.0.0.1:11434/api/embed`; `SIS_VEC_PORT` ändert nur den Loopback-Port.
+Nichts wird automatisch installiert oder heruntergeladen. Vor der
+Indizierung sensibler Aufgaben den tatsächlichen Ollama-Upstream prüfen:
+Loopback allein beweist keinen fehlenden Weitertransport.
+
+`search_index action=build` liest einen SQLite-Snapshot, berechnet lokal
+Embeddings in Batches und baut die separate Datei
+`<project.db>.search-vec-<Projekt-Modell-Hash>.sqlite` transaktional. Nach
+einem Restore mit anderer Projektidentität oder einem Modellwechsel (Runtime
+neu starten) entsteht ein eigener Indexpfad; alte abgeleitete Dateien werden
+nicht automatisch gelöscht. Das Limit sind 100.000
+Aufgaben; ein großes Projekt braucht einen separat evaluierten Indexdienst.
+Fremde, modellfremde oder projektfremde Indexdateien werden nicht übernommen.
+Nach einer Inhaltsänderung oder geänderter Aufgabenzahl ist der Index veraltet:
+`search mode=hybrid` fällt
+bis zum expliziten Rebuild auf FTS5 zurück. `search_index` zeigt
+`ready`, `reason` und den Snapshot-Cursor. Standardmäßig werden keine
+Embeddings erzeugt. Eine Suchprojektion vergibt niemals Claims, Proofs oder
+Budgets; sie darf bei Verlust aus SQLite neu aufgebaut werden. Fremde
+Schreibzugriffe ohne Superiss-Events liegen außerhalb der garantierten
+Drift-Erkennung. Das indexierte Aufgabenmaterial bleibt lokal sensibel.
+
 ## Viele Worker und Agenten
+
+### Wiederverwendbare Sessions
+
+`sis rpc --db /absolute/project.db` liest pro Zeile ein Objekt wie
+`{"id":"read-1","cmd":"ready","args":{}}` und schreibt ein Envelope mit derselben
+`id`, `ok` und `data` beziehungsweise `error`. Der Controller hält stdin/stdout
+offen; ein neuer Prozess pro Zeile würde den Startaufwand erneut bezahlen.
+Direkt bleibt ein Engine offen. Mit explizitem Socket oder vorhandenem
+Projekt-Socket nutzt die Session einen identitäts- und versionsgeprüften Client.
+
+Frames bleiben auf 1 MiB Eingabe und 8 MiB Ausgabe begrenzt. Aufträge werden
+seriell angenommen, Ausgabe hat eine endliche Drain-Deadline. Ungültiges JSON
+wird sichtbar abgewiesen; eine unvollständige letzte Zeile wird nicht ausgeführt.
+EOF und SIGTERM schließen nur die eigenen Ressourcen; bereits angenommene
+Arbeit wird abgewickelt. Actor, `idem` und `run_id` gehören zum jeweiligen
+Auftrag. Eine Antwort mit `ok:false` ist kein Erfolg.
+
+`SuperissSocketClient` aus `ts/socket-client.ts` (im Bundle:
+`dist/socket-client.js`) hält eine Verbindung mit
+einmaligem Handshake und korrelierten `request_id`-Antworten. Standardgrenzen:
+64 offene Aufträge, 15 Sekunden pro Aufruf, höchstens 310 Sekunden bei expliziter
+Konfiguration. Eine verlorene Bestätigung, Deadline oder ein Abort löst keinen
+automatischen Retry aus. Ein Abort schließt diesen Clientkanal, nicht den Server
+oder die dort bereits gestartete Arbeit; andere laufende Aufrufe desselben
+Kanals können dadurch ebenfalls unklar werden. Folgeaufrufe verbinden neu und
+prüfen dieselbe gebundene Projekt-ID. Ein bewusst gewechseltes Projekt braucht
+einen neuen Client. `watch` bleibt auf einer dedizierten Verbindung.
+
+MCP verwendet direkt bereits einen langlebigen Engine. Im Socket-Modus wird
+jetzt ebenfalls eine Verbindung wiederverwendet; EOF schließt den Client.
+Claims, Leases, Budgets und Proofs werden weiterhin frisch gelesen. Es gibt
+keinen neuen Ergebniscache und keinen zweiten Aufgabenstore.
 
 - **Ein zentraler Besitzerprozess pro Projekt-DB**, viele Clients. SQLite-Transaktionen für Claims, Epochs und Leases bleiben kurz. Die Claim-Auswahl filtert unpassende Status, Container und blockierte Aufgaben bereits in SQL; die vollständige Eligibility-Prüfung bleibt erhalten.
 - Keine doppelte Zuteilung: konkurrierende Requests werden durch den vorhandenen Transaktions-/Fencing-Pfad geführt. Bei leerer Queue ist die Antwort `{ "id": null }`, kein Fehler und kein neuer Claim.
@@ -43,7 +114,7 @@ bun packages/superiss/cli.ts migrate_copy source=/absolute/old-project.db --db /
 
 Die Quelle wird nur lesend geöffnet. SQLite `VACUUM INTO` erzeugt eine konsistente Kopie einschließlich WAL-Inhalt. Integritätsprüfung und Projektidentität werden geprüft, danach wird die Zieldatei atomar ohne Überschreiben angelegt. Existiert das Ziel, schlägt der Befehl fehl; auch Symlink-/Hardlink-Kollisionen dürfen nicht zu einem Überschreiben führen. Es ist keine SQLite-zu-DuckDB-Konvertierung und keine laufende Synchronisierung.
 
-Unterstützt sind die übernommenen Superiss-Schemas 7 und 8; neue Datenbanken verwenden den kompatiblen Schema-7-Kern. Neuere unbekannte Schemas werden abgewiesen. Die Formatnummer ist nicht mit der Produktversion 1.3.0 oder der SQLite-Laufzeitversion zu verwechseln. Für eine Produktivübernahme zuerst eine Kopie prüfen; nicht versuchsweise die echte Projekt-DB migrieren.
+Unterstützt sind die übernommenen Superiss-Schemas 7 und 8; neue Datenbanken verwenden den kompatiblen Schema-7-Kern. Neuere unbekannte Schemas werden abgewiesen. Die Formatnummer ist nicht mit der Produktversion 1.5.1 oder der SQLite-Laufzeitversion zu verwechseln. Für eine Produktivübernahme zuerst eine Kopie prüfen; nicht versuchsweise die echte Projekt-DB migrieren.
 
 ## DuckDB-Analyse
 

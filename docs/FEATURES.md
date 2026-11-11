@@ -4,7 +4,7 @@
 | --- | --- | --- |
 | Default source launcher | `bin/sis`, `bin/sis-v1` alias | `bin/sis-reference`, `sis reference`, explicit `SIS_IMPL=rs|py` |
 | Implementation | Bun / TypeScript 7.1 | Rust / Python |
-| Registry | `packages/superiss/ops.json`, 89 operations | `ops.json`, 85 operations |
+| Registry | `packages/superiss/ops.json`, 90 operations | `ops.json`, 85 operations |
 | WOOP | `woop`: bounded atomic goal + implementation/delivery/outcome tasks; preview and separate board receipts | Not available |
 | Persistent tasks and memory | SQLite, FTS, goals, subtasks, notes, Remember/Recall | SQLite |
 | Ownership | Atomic claims, epochs, expiring leases, heartbeat, cancellation | Same core contract |

@@ -48,4 +48,6 @@ Useful when several agents share work, tasks need to survive interruptions, or �
 
 SQLite stores the task state. The tracker needs no model API key. A proof establishes only what its check covers; actor names are not authentication. [Support and limits](docs/FEATURES.md).
 
+Superiss 1.5.1 keeps SQLite/FTS5 as the default. An explicitly built, local sqlite-vec index can add hybrid search without becoming task authority; DuckDB is used only for requested analytics snapshots. [Optional search setup and fallback](packages/superiss/README.md#optionale-lokale-suche).
+
 [WOOP example](docs/WOOP.md) · [Agent integrations](docs/V1-INTEGRATIONS.md) · [Validation](docs/VALIDATION.md) · [Operation catalog](docs/OPERATIONS.md) · [MIT license](LICENSE)

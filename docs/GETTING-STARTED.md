@@ -1,4 +1,4 @@
-# Get started and upgrade — 1.3
+# Get started and upgrade — 1.5.1
 
 ## Requirements
 
@@ -38,10 +38,14 @@ bun tools/check-v11.ts
 # Additional full hybrid analytics/source gate, with its native dependencies installed:
 bun packages/superiss/check.ts
 bun tools/check-v1-publication.ts
-bun tools/package-v1.ts /absolute/new-superiss-1.3.0
+bun tools/package-v1.ts /absolute/new-superiss-1.5.1 --with-adapters
 ```
 
 The package manifest hashes every shipped runtime file, including the forge and MIT license. A package build is not a production installation or a completed soak.
+
+## Upgrade to 1.5.1
+
+SQLite and FTS5 remain authoritative. sqlite-vec is a disposable, opt-in search projection built with `search_index action=build`; DuckDB remains an explicit analytics snapshot. Check a copy of each project database and the current owner receipt before a cutover. Existing 1.4 clients cannot write through a 1.5.1 daemon and 1.5.1 clients reject 1.4 before mutation. Allow running claims and their heartbeats to finish, then stop only the verified owner with its old launcher. Retain the old release and switch only after the new owner responds with `version: 1.5.1`, the original `project_id` and a passing read/claim/proof smoke. Roll back to the retained release only after stopping the new owner safely. Changing a CLI symlink does not change a running process.
 
 The historical macOS runner/service remains explicit through `sis reference run` / `sis reference service`. Its platform and execution contracts are described in [the reference service guide](../SERVICE.md). [Current validation](VALIDATION.md).
 

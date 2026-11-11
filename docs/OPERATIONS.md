@@ -1,6 +1,6 @@
-# Core operation catalog — 1.3.0
+# Core operation catalog — 1.5.1
 
-Generated from [the current registry](../packages/superiss/ops.json). **89 core operations**, protocol 2. The eleven forge tools are listed in [the forge guide](SISF.md). The retained root registry belongs to the 0.9 reference.
+Generated from [the current registry](../packages/superiss/ops.json). **90 core operations**, protocol 2. The eleven forge tools are listed in [the forge guide](SISF.md). The retained root registry belongs to the 0.9 reference.
 
 | Operation | Contract | Required fields |
 | --- | --- | --- |
@@ -28,7 +28,8 @@ Generated from [the current registry](../packages/superiss/ops.json). **89 core 
 | `defer` | Defer task until explicit release or due timestamp. | `id` |
 | `undefer` | Make a deferred task eligible for qualification. | `id` |
 | `show` | Read complete task, dependencies and bounded recent events. | `id` |
-| `search` | Search task text with a bounded result limit. | `q` |
+| `search` | FTS5 search by default; opt-in `mode=hybrid` fuses lexical and local sqlite-vec suggestions, falling back to FTS5 when unavailable. | `q` |
+| `search_index` | Inspect or explicitly rebuild the disposable local sqlite-vec projection from an SQLite snapshot. |  |
 | `children` | Read immediate goal/task children. | `id` |
 | `label` | Add or remove task labels. | `id` |
 | `rename` | Rename task identity and related references administratively. | `from`, `to` |

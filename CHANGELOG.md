@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.5.1 — release candidate (2026-11-11)
+
+- Promote the optional, rebuildable sqlite-vec search projection from the 1.5.0 local candidate; SQLite/FTS5 remains the default and DuckDB remains an explicit analytics snapshot.
+- Version the CLI, package, operation catalog, protocol fixtures and publication gate together. Clients reject an older daemon before mutations; no task database schema migration or automatic model installation is required.
+- Keep existing release artifacts for rollback. A source/package check does not imply that a running daemon or another machine has been upgraded.
+
+## 1.5.0 — local candidate: optional semantic search (2026-11-11)
+
+- Keep SQLite/FTS5 as the default task authority and search path. Add an opt-in local sqlite-vec projection with explicit rebuild, source/project/model identity checks, change detection and lexical fallback.
+- Require a locally supplied sqlite-vec library and an explicitly selected local embedding model; never install extensions or download models. Hybrid suggestions cannot mutate claims, budgets or proofs.
+- Retain isolated DuckDB 2 snapshot analytics without changing the SQLite schema, production databases, installed 1.4 runtime or running daemons. Version the source package, registry and wire contract for explicit 1.5 adoption.
+
+## 1.4.0 — local candidate: persistent sessions (2026-11-11)
+
+- Added `sis rpc --db PATH`: a native, serial NDJSON session that keeps one engine open, preserves per-request actor/idempotency/run IDs and closes owned resources at EOF or termination.
+- Added a reusable Unix-socket client with one identity handshake, correlated replies, bounded pending calls, deadlines and transport abort. Database, project, protocol, runtime and private socket ownership are checked; ambiguous mutations are never replayed.
+- MCP socket mode now reuses that connection. Dedicated watch connections retain the existing watch protocol. Direct MCP already reused its engine and is not represented as a new optimization.
+- Added input, reconnect, lost-acknowledgement, identity, cancellation and MCP-reuse regressions. Updated package identity and the current CI gate without dependencies, schema changes, publication or a live-daemon cutover.
+
 ## 1.3.0 — WOOP and separate evidence stages (2026-11-09)
 
 - Added bounded `woop` compilation to native atomic goal planning, with controller ownership, revision-bound intent, three ordered proof-gated tasks and native replay/rollback semantics. No jobs, claims or customer confirmations are created implicitly.

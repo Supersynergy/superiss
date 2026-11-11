@@ -1,5 +1,5 @@
 {
-  "version": "1.3.0",
+  "version": "1.5.1",
   "protocol": 2,
   "ops": [
     {
@@ -1163,7 +1163,7 @@
     },
     {
       "name": "search",
-      "description": "Search task text with a bounded result limit.",
+      "description": "FTS5 search by default; opt-in mode=hybrid fuses lexical and local sqlite-vec suggestions, falling back to FTS5 when unavailable.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -1187,11 +1187,28 @@
           },
           "limit": {
             "type": "integer"
+          },
+          "mode": {
+            "type": "string",
+            "enum": ["lexical", "hybrid"]
           }
         },
         "required": [
           "q"
         ]
+      }
+    },
+    {
+      "name": "search_index",
+      "description": "Inspect or explicitly rebuild the disposable local sqlite-vec projection from an SQLite snapshot.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": ["status", "build"]
+          }
+        }
       }
     },
     {

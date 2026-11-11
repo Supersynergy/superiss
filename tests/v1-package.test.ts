@@ -4,9 +4,11 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { existsSync, mkdtempSync, mkdirSync, readFileSync, realpathSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { test } from 'node:test';
 import { packageRelease } from '../tools/package-v1.ts';
 import { Engine } from '../packages/superiss/engine.ts';
+import { VERSION } from '../packages/superiss/runtime.ts';
 
 const env: NodeJS.ProcessEnv = { ...process.env, SIS_DIRECT: '1', PYTHONDONTWRITEBYTECODE: '1' };
 for (const key of ['SIS_DB', 'SIS_SOCK', 'SIS_HTTP', 'SIS_IMPL', 'SIS_ADMIN_TOKEN', 'SIS_CONTROLLER_LOCK_FD', 'SIS_SERVICE_LOCK_FD']) delete env[key];
@@ -15,7 +17,7 @@ test('optional adapters are hash-bound, relocated and executable without the sou
   const root = realpathSync(mkdtempSync(join(tmpdir(), 'sis-adapters-'))); let engine: Engine | undefined, daemon: ChildProcess | undefined;
   try {
     const built = join(root, 'built'), home = join(root, 'relocated'), data = join(root, 'data'), work = join(data, 'work'); mkdirSync(work, { recursive: true }); writeFileSync(join(work, 'input'), 'accepted');
-    const release = await packageRelease(built, { adapters: true }); assert.equal(release.version, '1.3.0'); assert.deepEqual(release.adapters, ['workflow', 'service', 'forge']);
+    const release = await packageRelease(built, { adapters: true }); assert.equal(release.version, VERSION); assert.deepEqual(release.adapters, ['workflow', 'service', 'forge']);
     for (const path of ['tools/v1-integrations.ts', 'tools/sis_runner.py', 'tools/sis_workflow.py', 'tools/service.ts', 'tools/service-lock.py', 'tools/service-soak.ts', 'sisf/sisf.ts']) assert.ok(release.files[path], path);
     renameSync(built, home); const launcher = join(home, 'bin/sis'), db = join(data, 'tasks.db');
     engine = new Engine(db); await engine.dispatch('create', { id: 'packaged', title: 'portable', owner: 'worker', budget_eur: 0, allowed_paths: ['input'], oracle_cmd: 'test "$(cat output)" = accepted', meta: { local_zero: true, execution: { cmd: 'cp input output', cwd: work, replay_safe: true, oracle_replay_safe: true } } });
@@ -23,6 +25,14 @@ test('optional adapters are hash-bound, relocated and executable without the sou
     const sock = join(data, 'tasks.sock'); daemon = spawn(launcher, ['serve', '--db', db, '--sock', sock], { cwd: home, env, stdio: 'ignore' });
     for (let i = 0; i < 100 && !existsSync(sock) && daemon.exitCode === null; i++) await delay(20);
     assert.equal(existsSync(sock), true, 'packaged daemon did not bind its isolated socket');
+    assert.ok(release.files['packages/superiss/dist/socket-client.js']);
+    const { SuperissSocketClient } = await import(pathToFileURL(join(home, 'packages/superiss/dist/socket-client.js')).href) as typeof import('../packages/superiss/ts/socket-client.ts');
+    const client = new SuperissSocketClient(sock, db);
+    try {
+      const first = await client.request({ cmd: 'context', args: {} });
+      assert.equal(((first.data as Record<string, unknown>).capabilities as Record<string, unknown>).version, VERSION);
+      const second = await client.request({ cmd: 'stats', args: {} }); assert.equal(second.ok, true);
+    } finally { client.close(); }
     const forge = spawnSync(launcher, ['forge', 'health', '--db', db, '--sock', sock], { cwd: home, env, encoding: 'utf8', timeout: 5000 }); assert.equal(forge.status, 0, forge.stdout + forge.stderr); assert.equal(JSON.parse(forge.stdout).sis_daemon, true);
     if (process.platform === 'darwin') {
       const workflow = spawnSync(launcher, ['run', '--db', db, '--issue', 'packaged', '--actor', 'worker', '--timeout', '3', '--deadline', '20'], { cwd: home, env, encoding: 'utf8', timeout: 25000 }); assert.equal(workflow.status, 0, workflow.stdout + workflow.stderr); assert.equal(engine.issue('packaged').status, 'closed'); assert.equal(readFileSync(join(work, 'output'), 'utf8'), 'accepted');
