@@ -1,5 +1,7 @@
 # Superiss
 
+![Superiss](docs/assets/cover.png)
+
 **Aufgabenkoordination für Coding-Agenten. „Fertig“ braucht einen bestandenen Prüflauf.**
 
 Arbeit zuweisen, den Kontext für die Fortsetzung erhalten und das Ergebnis vor dem Abschluss prüfen. Superiss läuft lokal und verbindet sich über CLI oder MCP mit deinen Agenten.

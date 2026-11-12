@@ -1,6 +1,6 @@
 # Superiss
 
-![Agent tasks pass through a verification gate into a completed stack](docs/assets/cover.png)
+![Superiss](docs/assets/cover.png)
 
 **Task coordination for AI coding agents. Require a passing check before “done”.**
 
