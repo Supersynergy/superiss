@@ -1,10 +1,14 @@
 # Superiss
 
+![Agent tasks pass through a verification gate into a completed stack](docs/assets/cover.png)
+
 **Task coordination for AI coding agents. Require a passing check before “done”.**
 
 Give work an owner, keep the context needed to resume, and check the result before closing the task. Superiss runs locally and connects to your agents through CLI or MCP.
 
 [Download 1.3](https://github.com/Supersynergy/superiss/releases/latest) · [Get started](docs/GETTING-STARTED.md) · [Deutsch](README.de.md)
+
+[🚀 Get started](docs/GETTING-STARTED.md) · [✅ Complete loop](#try-the-complete-loop) · [🤖 Agent integration](#use-it-with-your-agent) · [🧭 Where it fits](#where-it-fits)
 
 ## What it helps you do
 
