@@ -1,6 +1,9 @@
+<p align="center">
+  <img src="docs/assets/cover.png" alt="Superiss" width="960">
+</p>
+
 # Superiss
 
-![Superiss](docs/assets/cover.png)
 
 **Aufgabenkoordination für Coding-Agenten. „Fertig“ braucht einen bestandenen Prüflauf.**
 

@@ -1,6 +1,9 @@
+<p align="center">
+  <img src="docs/assets/cover.png" alt="Superiss" width="960">
+</p>
+
 # Superiss
 
-![Superiss](docs/assets/cover.png)
 
 **Task coordination for AI coding agents. Require a passing check before “done”.**
 
