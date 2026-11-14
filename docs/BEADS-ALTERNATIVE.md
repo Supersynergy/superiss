@@ -31,4 +31,4 @@ python3 tools/bd2sis.py /absolute/path/issues.jsonl --dry-run
 
 The migration helper does not run Beads or start a background sync. Apply to an explicitly selected Superiss database only after checking IDs, statuses and dependency types. Admin authorization is required; keep the token in the environment, not shell history.
 
-Historical in-progress tasks become deferred without a live lease. Imported closed work is marked as historical acceptance that Superiss has not verified. Imported history creates no fresh oracle execution or proof. Preserve those boundaries when reporting migration success. File/frame limits and conflict rules are described in the [protocol specification](../SPEC.md) and migration helper.
+Historical in-progress tasks become deferred without a live lease. Imported closed work is marked as historical acceptance that Superiss has not verified. Imported history creates no fresh oracle execution or proof. Preserve those boundaries when reporting migration success. File/frame limits and conflict rules are described in the [protocol specification](reference/SPEC.md) and migration helper.

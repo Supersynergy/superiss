@@ -1,4 +1,4 @@
-> Reference-era guide. For Superiss 1.1 entry points and supported features, see [the current feature table](docs/FEATURES.md). Commands for the macOS runner/service use `sis reference` or explicit `SIS_IMPL=rs|py`.
+> Reference-era guide. For Superiss 1.1 entry points and supported features, see [the current feature table](../FEATURES.md). Commands for the macOS runner/service use `sis reference` or explicit `SIS_IMPL=rs|py`.
 
 # Superiss 0.9: Multiworker-Kern und lokale Bereitstellung
 
@@ -80,7 +80,7 @@ sgg bench compare --file .cache/bench/comparison-new.json --json --require-gain
 
 Die Baseline ist ein vor der Änderung gesicherter Debug-Build desselben Checkouts; der Kandidat muss ebenfalls ein aktueller Debug-Build sein. Die Messung enthält drei Paare pro Laststufe und wechselt die Arm-Reihenfolge. Quellen, Binärdateien und Prüfprogramm werden gehasht; Änderungen während der Messung brechen die Auswertung ab. Die CLI überschreibt keine vorhandene Ergebnisdatei und begrenzt Backlog, Wiederholungen und virtuelle Clients.
 
-Messdaten, SGG-Auswertung und Kennzahlen liegen für diese Lieferung unter [`bench/results/`](bench/results/README.md). Der installierte SGG-CLI-Vergleich besteht mit `--file`; eine CLI-Codeänderung war nicht erforderlich. Anzugeben sind akzeptierte Aufgaben pro Sekunde und Latenzen je Laststufe, nicht allein die Anzahl gestarteter Worker. Ein Quellenvergleich gilt nur für das geprüfte Arbeitsprofil. Modellaufrufe, Tokenverbrauch und Providerkosten werden hier nicht gemessen. Acht virtuelle Socket-Clients beweisen keine optimale Zahl von Coding-Agenten.
+Messdaten, SGG-Auswertung und Kennzahlen liegen für diese Lieferung unter [`bench/results/`](../../bench/results/README.md). Der installierte SGG-CLI-Vergleich besteht mit `--file`; eine CLI-Codeänderung war nicht erforderlich. Anzugeben sind akzeptierte Aufgaben pro Sekunde und Latenzen je Laststufe, nicht allein die Anzahl gestarteter Worker. Ein Quellenvergleich gilt nur für das geprüfte Arbeitsprofil. Modellaufrufe, Tokenverbrauch und Providerkosten werden hier nicht gemessen. Acht virtuelle Socket-Clients beweisen keine optimale Zahl von Coding-Agenten.
 
 ## Simflow: geprüfte Übergänge und Grenzen
 

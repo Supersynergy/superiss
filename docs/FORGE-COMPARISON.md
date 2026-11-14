@@ -40,6 +40,6 @@ Version 1.1 exposes Forgejo explicitly through the compatible REST connector; fi
 - [Gitea documentation](https://docs.gitea.com/), [pull requests](https://docs.gitea.com/usage/pull-request), [protected branches](https://docs.gitea.com/usage/access-control/protected-branches), [API usage](https://docs.gitea.com/development/api-usage).
 - [Forgejo user guide](https://forgejo.org/docs/latest/user/): repositories, issues, projects, pull requests, Actions, packages and protected branches.
 - [GitHub Projects](https://docs.github.com/en/issues/planning-and-tracking-with-projects/learning-about-projects/about-projects), [protected branches](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-protected-branches/about-protected-branches), [Actions](https://docs.github.com/en/actions/about-github-actions/understanding-github-actions), [Packages](https://docs.github.com/en/packages/learn-github-packages/introduction-to-github-packages).
-- Superiss: [protocol](../SPEC.md), [operation registry](../ops.json), [sisf implementation](../sisf/sisf.ts) and [executable adapter gate](../tools/verify-forge.sh).
+- Superiss: [protocol](reference/SPEC.md), [operation registry](../ops.json), [sisf implementation](../sisf/sisf.ts) and [executable adapter gate](../tools/verify-forge.sh).
 
 [Compare five task/agent tools](COMPARISON.md) · [Use sisf](SISF.md)

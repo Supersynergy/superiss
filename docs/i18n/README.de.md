@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/assets/cover.png" alt="Superiss" width="960">
+  <img src="../assets/cover.png" alt="Superiss" width="960">
 </p>
 
 # Superiss
@@ -9,13 +9,13 @@
 
 Arbeit zuweisen, den Kontext für die Fortsetzung erhalten und das Ergebnis vor dem Abschluss prüfen. Superiss läuft lokal und verbindet sich über CLI oder MCP mit deinen Agenten.
 
-[Version 1.3 laden](https://github.com/Supersynergy/superiss/releases/latest) · [Einrichten](docs/GETTING-STARTED.md) · [English](README.md)
+[Version 1.3 laden](https://github.com/Supersynergy/superiss/releases/latest) · [Einrichten](../GETTING-STARTED.md) · [English](../../README.md)
 
 ## Wobei es hilft
 
 - Parallele Agenten koordinieren. Claims halten fest, wer eine Aufgabe gerade bearbeitet. Lease und Epoch weisen Schreibversuche mit veralteter Zuständigkeit zurück.
 - Abschluss prüfbar machen. Jede Aufgabe hat einen Prüfbefehl und einen Quellenumfang. Schließen geht mit einem bestandenen Beleg für den aktuellen Vertrag und die aktuellen Dateien.
-- Nach Unterbrechungen fortsetzen. Checkpoints bewahren den Arbeitsstand und den nächsten sicheren Schritt. Resume liest den Zustand; der Claim wird ausdrücklich angefordert. [Sicher fortsetzen](docs/GETTING-STARTED.md#resume-an-interrupted-task).
+- Nach Unterbrechungen fortsetzen. Checkpoints bewahren den Arbeitsstand und den nächsten sicheren Schritt. Resume liest den Zustand; der Claim wird ausdrücklich angefordert. [Sicher fortsetzen](../GETTING-STARTED.md#resume-an-interrupted-task).
 - Ziele bis zur Wirkung verfolgen. WOOP plant Umsetzung → Auslieferung → Wirkung als getrennte Aufgaben mit eigenen Prüfungen. Planung startet keine Agenten und bestätigt keinen Kundenerfolg.
 
 ```text
@@ -43,14 +43,14 @@ Den Agenten an eine vorhandene Projekt-Datenbank binden und den MCP-Server start
 bin/sis mcp --db /absolutes/projekt/.sis/tasks.db
 ```
 
-Die CLI verwendet dieselben Verträge und Belege. [Einrichtung und Upgrade](docs/GETTING-STARTED.md) erklären die Store-Anlage und Agentenkonfiguration sowie den Erhalt laufender Jobs beim Versionswechsel.
+Die CLI verwendet dieselben Verträge und Belege. [Einrichtung und Upgrade](../GETTING-STARTED.md) erklären die Store-Anlage und Agentenkonfiguration sowie den Erhalt laufender Jobs beim Versionswechsel.
 
-Der optionale Forge-Ablauf verbindet Claims mit Worktrees und PRs auf GitHub, Gitea oder Forgejo. [Forge-Anleitung](docs/SISF.md).
+Der optionale Forge-Ablauf verbindet Claims mit Worktrees und PRs auf GitHub, Gitea oder Forgejo. [Forge-Anleitung](../SISF.md).
 
 ## Wann es passt
 
 Für parallele Coding-Agenten, Aufgaben mit Unterbrechungen und Ergebnisse, die einen wiederholbaren Prüflauf brauchen. Für einfache Erinnerungen ohne Ausführung oder Übergabe genügt weiterhin eine To-do-Liste.
 
-SQLite speichert den Aufgabenstand. Der Tracker braucht keinen Modell-API-Key. Ein Beleg gilt für seinen Prüfumfang; Actor-Namen sind keine Authentifizierung. [Unterstützung und Grenzen](docs/FEATURES.md).
+SQLite speichert den Aufgabenstand. Der Tracker braucht keinen Modell-API-Key. Ein Beleg gilt für seinen Prüfumfang; Actor-Namen sind keine Authentifizierung. [Unterstützung und Grenzen](../FEATURES.md).
 
-[WOOP-Beispiel](docs/WOOP.md) · [Agentenanbindung](docs/V1-INTEGRATIONS.md) · [Prüfungen](docs/VALIDATION.md) · [Befehlskatalog](docs/OPERATIONS.md) · [MIT-Lizenz](LICENSE)
+[WOOP-Beispiel](../WOOP.md) · [Agentenanbindung](../V1-INTEGRATIONS.md) · [Prüfungen](../VALIDATION.md) · [Befehlskatalog](../OPERATIONS.md) · [MIT-Lizenz](../../LICENSE)

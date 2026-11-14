@@ -1,4 +1,4 @@
-> Reference-era guide. For Superiss 1.1 entry points and supported features, see [the current feature table](docs/FEATURES.md). Commands for the macOS runner/service use `sis reference` or explicit `SIS_IMPL=rs|py`.
+> Reference-era guide. For Superiss 1.1 entry points and supported features, see [the current feature table](../FEATURES.md). Commands for the macOS runner/service use `sis reference` or explicit `SIS_IMPL=rs|py`.
 
 # Superiss-Dienst
 

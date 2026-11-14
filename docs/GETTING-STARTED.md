@@ -57,7 +57,7 @@ inspect `sis context --db /absolute/project.db` to confirm the actual owner.
 
 SQLite and FTS5 remain authoritative. sqlite-vec is a disposable, opt-in search projection built with `search_index action=build`; DuckDB remains an explicit analytics snapshot. Check a copy of each project database and the current owner receipt before a cutover. Existing 1.4 clients cannot write through a 1.5.1 daemon and 1.5.1 clients reject 1.4 before mutation. Allow running claims and their heartbeats to finish, then stop only the verified owner with its old launcher. Retain the old release and switch only after the new owner responds with `version: 1.5.1`, the original `project_id` and a passing read/claim/proof smoke. Roll back to the retained release only after stopping the new owner safely. Changing a CLI symlink does not change a running process.
 
-The historical macOS runner/service remains explicit through `sis reference run` / `sis reference service`. Its platform and execution contracts are described in [the reference service guide](../SERVICE.md). [Current validation](VALIDATION.md).
+The historical macOS runner/service remains explicit through `sis reference run` / `sis reference service`. Its platform and execution contracts are described in [the reference service guide](reference/SERVICE.md). [Current validation](VALIDATION.md).
 
 ## Upgrade to 1.3
 

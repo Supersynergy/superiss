@@ -1,4 +1,4 @@
-> Reference-era guide. For Superiss 1.1 entry points and supported features, see [the current feature table](docs/FEATURES.md). Commands for the macOS runner/service use `sis reference` or explicit `SIS_IMPL=rs|py`.
+> Reference-era guide. For Superiss 1.1 entry points and supported features, see [the current feature table](../FEATURES.md). Commands for the macOS runner/service use `sis reference` or explicit `SIS_IMPL=rs|py`.
 
 # Superiss 0.9.1: Vertrag und Protokoll
 
@@ -8,9 +8,9 @@ ist das gemeinsame Eingabeschema für native MCP-Adapter und Node-Bridge.
 Administrative Zustandsimporte sind kein Beleg für eine neue Abnahme.
 
 Der Store verwendet Schema 8. Aktuelle Mehrfach-Runner-Regeln und die Migration
-aus Schema 7 sind in [MULTIWORKER.md](MULTIWORKER.md) beschrieben. Der explizite
+aus Schema 7 sind in [docs/reference/MULTIWORKER.md](MULTIWORKER.md) beschrieben. Der explizite
 lokale Ablauf und der Dienst ergänzen diesen Kernvertrag; ihre Grenzen stehen
-in [ZERO-RECOVERY.md](ZERO-RECOVERY.md) und [SERVICE.md](SERVICE.md).
+in [docs/reference/ZERO-RECOVERY.md](ZERO-RECOVERY.md) und [docs/reference/SERVICE.md](SERVICE.md).
 
 ## Speicher und Identität
 
