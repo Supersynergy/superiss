@@ -102,7 +102,37 @@ export function git(cwd: string, ...args: string[]): string | null {
   const child = spawnSync('git', ['-C', cwd, ...args], { encoding: 'utf8', timeout: 10000, maxBuffer: 4 * 1024 * 1024 });
   return child.status === 0 ? child.stdout : null;
 }
-export function localZeroAvailable(): boolean { try { if (process.platform !== 'darwin') return false; accessSync('/usr/bin/sandbox-exec',constants.X_OK); return true; } catch { return false; } }
+// Linux local-zero uses bubblewrap when present and user namespaces actually work; otherwise it fails closed.
+let linuxSandbox: string | null | undefined;
+function bubblewrap(): string | null {
+  if (linuxSandbox !== undefined) return linuxSandbox;
+  linuxSandbox = null;
+  const configured = process.env.SIS_BWRAP;
+  for (const candidate of configured ? [configured] : ['/usr/bin/bwrap','/usr/local/bin/bwrap']) {
+    try { accessSync(candidate,constants.X_OK); } catch { continue; }
+    const probe = spawnSync(candidate,['--die-with-parent','--unshare-all','--ro-bind','/','/','--proc','/proc','--dev','/dev','/bin/true'],{timeout:5000,stdio:'ignore'});
+    if (probe.status === 0) { linuxSandbox = candidate; break; }
+  }
+  return linuxSandbox;
+}
+export function localZeroAvailable(): boolean {
+  if (process.platform === 'linux') return bubblewrap() !== null;
+  try { if (process.platform !== 'darwin') return false; accessSync('/usr/bin/sandbox-exec',constants.X_OK); return true; } catch { return false; }
+}
+export const localZeroRequirement = 'local_zero requires macOS sandbox-exec or Linux bubblewrap with working user namespaces';
+// Oldest daemon a newer client may talk to. Same major, same protocol, and the daemon must advertise the operation.
+export const COMPAT_FLOOR = '1.5.0';
+export const opAliases: Record<string,string> = { why:'admit', q:'create', query:'list', next:'ready', goal_create:'goal', subgoal:'sub', tree:'goal_tree', merge_slot:'slot_acquire', tag:'label', comment:'note', find_duplicates:'dup_scan' };
+function semver(value: unknown): number[] | null { const m = /^(\d+)\.(\d+)\.(\d+)/u.exec(typeof value === 'string' ? value : ''); return m ? m.slice(1).map(Number) : null; }
+export function runtimeCompatible(caps: Obj, version: string, cmd?: string, aliases: Record<string,string> = opAliases): boolean {
+  if (caps.version === version) return true;
+  const daemon = semver(caps.version), own = semver(version), floor = semver(COMPAT_FLOOR)!;
+  if (!daemon || !own || daemon[0] !== own[0] || !Array.isArray(caps.operations)) return false;
+  for (let i = 0; i < 3; i++) { if (daemon[i] > floor[i]) break; if (daemon[i] < floor[i]) return false; }
+  if (cmd === undefined) return true;
+  const name = cmd.replaceAll('-','_'), ops = caps.operations as Value[];
+  return ops.includes(name) || ops.includes(aliases[name] ?? name);
+}
 function controllerLock(): number | undefined {
   const value=process.env.SIS_CONTROLLER_LOCK_FD;if(value===undefined)return;
   if(!/^\d+$/u.test(value)||!Number.isSafeInteger(Number(value))||Number(value)<3||Number(value)>2147483647)fail('bad_args','SIS_CONTROLLER_LOCK_FD must reference an open regular lock file');
@@ -121,9 +151,15 @@ export function execute(command: string, cwd: string, seconds: number, localZero
   const fd=controllerLock();
   for (const key of ['SIS_ADMIN_TOKEN','SIS_SOCK','SIS_DIRECT','SIS_DB','SIS_CWD_DB','SIS_CONTROLLER_LOCK_FD','SIS_SERVICE_LOCK_FD']) delete env[key];
   let binary='/bin/sh',args=['-c',command];
-  const execution:Obj={mode:'local_zero',sandbox:'macos-seatbelt',network:'denied',ipc:'denied',writes:'cwd',credential_environment:'cleared'};
-  if(localZero){
-    if(!localZeroAvailable())fail('local_zero_unavailable','local_zero requires macOS sandbox-exec');
+  const execution:Obj={mode:'local_zero',sandbox:process.platform==='linux'?'linux-bubblewrap':'macos-seatbelt',network:'denied',ipc:'denied',writes:'cwd',credential_environment:'cleared'};
+  if(localZero&&process.platform==='linux'){
+    const bwrap=bubblewrap();if(!bwrap)fail('local_zero_unavailable',localZeroRequirement);
+    const real=realpathSync(cwd);
+    // Order matters: hide home, runtime sockets and temp first, then bind only the task directory writable.
+    binary=bwrap;args=['--die-with-parent','--new-session','--unshare-all','--ro-bind','/','/','--proc','/proc','--dev','/dev',...['/home','/root','/run','/tmp','/var/tmp','/var/run','/srv','/mnt','/media','/var/lib','/var/log','/var/mail','/var/spool','/var/backups'].flatMap(p=>{try{return lstatSync(p).isDirectory()?['--tmpfs',p]:[];}catch{return [];}}),'--bind',real,real,'--chdir',real,'--clearenv','--setenv','PATH','/usr/bin:/bin:/usr/sbin:/sbin','--setenv','HOME',real,'--setenv','TMPDIR',real,'--setenv','LANG','C','--setenv','LC_ALL','C','/bin/sh','-c',command];
+    env={PATH:'/usr/bin:/bin:/usr/sbin:/sbin'};
+  } else if(localZero){
+    if(!localZeroAvailable())fail('local_zero_unavailable',localZeroRequirement);
     const quoted=JSON.stringify(realpathSync(cwd));
     const profile='(version 1) (deny default) (allow process-fork process-exec sysctl-read file-read*) (deny syscall-unix (syscall-number 147)) (deny syscall-unix (syscall-number 82)) (deny syscall-unix (syscall-number 244)) (allow file-write* (subpath '+quoted+')) (deny file-read* (require-all (require-any (subpath "/Users") (subpath "/private/var/root")) (require-not (subpath '+quoted+'))))';
     binary='/usr/bin/sandbox-exec';args=['-p',profile,'/bin/sh','-c',command];env={PATH:'/usr/bin:/bin:/usr/sbin:/sbin',HOME:cwd,TMPDIR:cwd,LANG:'C',LC_ALL:'C'};

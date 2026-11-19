@@ -2,15 +2,15 @@ import { appendFileSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync
 import { basename, dirname, join, resolve } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { StoreDatabase } from './store.ts';
-import { actor, admin, array, canonical, childWhere, decode, digest, encoding, execute, fail, fingerprint, integer, localZeroAvailable, now, number, object, paths, redact, required, rootDirectory, SisError, text, tokenCount, ttl, uid, type Obj, type Value } from './util.ts';
+import { actor, admin, array, canonical, childWhere, decode, digest, encoding, execute, fail, fingerprint, integer, localZeroAvailable, localZeroRequirement, now, opAliases, number, object, paths, redact, required, rootDirectory, SisError, text, tokenCount, ttl, uid, type Obj, type Value } from './util.ts';
 import { extension } from './extension.ts';
 import { VERSION } from '../runtime.ts';
 import { woopPlan, WOOP_STAGES } from './woop.ts';
 
 export interface Context { actor: string; explicit: boolean; idem: string | null; run_id: string | null; payload_hash: string }
 export const registry = array(object(JSON.parse(readFileSync(join(rootDirectory,'ops.json'),'utf8'))).ops).map(object);
-export const mutations = new Set('create q update admin_update dep dep_remove claim claim_next acquire heartbeat unclaim reclaim close reopen delete defer undefer label rename note changes checkpoint handoff cancel cancel_ack remember import batch budget_claim outbox_done outbox_fail compact gate slot_acquire slot_release merge_slot goal sub plan woop attest cost_add outbox_export sync_import'.split(' '));
-const aliases: Record<string,string> = { q:'create', query:'list', next:'ready', goal_create:'goal', subgoal:'sub', tree:'goal_tree', merge_slot:'slot_acquire', tag:'label', comment:'note', find_duplicates:'dup_scan' };
+export const mutations = new Set('create q update admin_update dep dep_remove claim claim_next acquire heartbeat unclaim reclaim close reopen delete defer undefer label rename note changes checkpoint handoff cancel cancel_ack remember import batch budget_claim outbox_done outbox_fail compact gate slot_acquire slot_release merge_slot goal sub plan woop attest cost_add outbox_export sync_import recur recur_tick unpark'.split(' '));
+export const aliases: Record<string,string> = opAliases;
 const issueFields = 'id title status priority type owner oracle_cmd allowed_paths lane budget_eur acceptance desc lease_until lease_epoch claim_actor created_at closed_at defer_until expires_at'.split(' ');
 const editable = new Set('title priority type owner oracle_cmd allowed_paths lane budget_eur acceptance desc meta_json defer_until expires_at'.split(' '));
 const statuses = ['open','in_progress','blocked','deferred','closed','cancelled'];
@@ -18,6 +18,18 @@ const ignoredSnapshots = new Set('heartbeat remember outbox_done outbox_fail gat
 const blocked = `NOT EXISTS(SELECT 1 FROM deps d LEFT JOIN issues b ON b.id=d.depends_on WHERE d.issue=i.id AND COALESCE(d.type,'blocks')='blocks' AND COALESCE(b.status,'open')!='closed') AND NOT EXISTS(SELECT 1 FROM deps d LEFT JOIN gates g ON g.name=d.depends_on WHERE d.issue=i.id AND d.type='gate' AND COALESCE(g.state,'closed')!='open')`;
 const ready = `(i.status='open' OR (i.status='deferred' AND i.defer_until IS NOT NULL AND i.defer_until<=?)) AND (i.defer_until IS NULL OR i.defer_until<=?) AND (i.expires_at IS NULL OR i.expires_at>?) AND i.type NOT IN ('goal','epic') AND i.oracle_cmd IS NOT NULL AND trim(i.oracle_cmd)!='' AND NOT EXISTS(SELECT 1 FROM cancellations x WHERE x.issue=i.id AND x.requested!=0) AND NOT EXISTS(SELECT 1 FROM issues child WHERE json_extract(child.meta_json,'$.parent')=i.id OR (child.id LIKE i.id||'.%' AND instr(substr(child.id,length(i.id)+2),'.')=0))`;
 const instanceId = uid('sis-instance-');
+// Parking: a task with max_failures failed proofs since its last unpark/reopen (cumulative, passes do not reset) is held.
+// JS and SQL apply the same rule: integer 1..1000 enables, anything else (absent: SIS_MAX_FAILURES) disables.
+function defaultMaxFailures(): number { const n = Number(process.env.SIS_MAX_FAILURES ?? 0); return Number.isSafeInteger(n) && n > 0 && n <= 1000 ? n : 0; }
+export function maxFailures(raw: unknown): number { if (raw === undefined || raw === null) return defaultMaxFailures(); const n = typeof raw === 'number' ? Math.trunc(raw) : Number.NaN; return Number.isSafeInteger(n) && n > 0 && n <= 1000 ? n : 0; }
+const failureCount = `(SELECT COUNT(*) FROM proofs p WHERE p.issue=i.id AND p.passed=0 AND p.rowid>MAX(COALESCE((SELECT CAST(v AS INTEGER) FROM kv WHERE k='unpark:'||i.id),0),COALESCE((SELECT CAST(v AS INTEGER) FROM kv WHERE k='park:baseline'),0)))`;
+function notParked(): string {
+  const raw = `json_extract(i.meta_json,'$.max_failures')`;
+  const limit = `(CASE WHEN ${raw} IS NULL THEN ${defaultMaxFailures()} WHEN json_type(i.meta_json,'$.max_failures') IN ('integer','real') AND CAST(${raw} AS INTEGER) BETWEEN 1 AND 1000 THEN CAST(${raw} AS INTEGER) ELSE 0 END)`;
+  return `NOT (${limit}>0 AND ${failureCount}>=${limit})`;
+}
+function validateMaxFailures(meta: unknown): void { const raw = object(meta).max_failures; if (raw !== undefined && raw !== null && (!Number.isSafeInteger(raw) || Number(raw) < 0 || Number(raw) > 1000)) fail('bad_args','meta.max_failures must be an integer 0..1000'); }
+const recurName = /^[a-z0-9][a-z0-9_-]{0,63}$/u;
 function parameter(value: unknown): string | number | null | Uint8Array { if (value == null) return null; if (typeof value === 'string' || typeof value === 'number' || value instanceof Uint8Array) return value; if (typeof value === 'boolean') return Number(value); return canonical(value); }
 
 export class Engine {
@@ -148,6 +160,103 @@ export class Engine {
     } catch { /* Unavailable source cannot prove a checkpoint current. */ }
     return {...checkpoint,artifacts:decode(checkpoint.artifacts,[]),source_stale:sourceStale,stale:checkpoint.revision !== revision || sourceStale};
   }
+  parked(task: Obj): {parked: boolean; failures: number; limit: number} {
+    const limit = maxFailures(object(task.meta).max_failures);
+    if (!limit) return {parked:false,failures:0,limit:0};
+    const failures = Number(this.row(`SELECT ${failureCount} n FROM (SELECT ? id) i`,task.id)?.n ?? 0);
+    return {parked:failures>=limit,failures,limit};
+  }
+  // Read-only admission: every non-terminal task with the exact reasons it is or is not claimable.
+  admit(a: Obj): Obj {
+    const limit = integer(a.limit,'limit',500,1,5000), t = now();
+    const tasks = a.id ? [this.issue(a.id)] : this.issues("SELECT * FROM issues WHERE status NOT IN ('closed','cancelled') ORDER BY priority,created_at,id LIMIT ?",limit);
+    const admitted: Obj[] = [], held: Obj[] = [], summary: Record<string,number> = {};
+    for (const task of tasks) {
+      const reasons: Obj[] = [], meta = object(task.meta);
+      if (task.status === 'closed' || task.status === 'cancelled') reasons.push({code:'terminal',status:task.status ?? null});
+      if (task.type === 'goal' || task.type === 'epic') reasons.push({code:'container'});
+      else if (this.row(`SELECT 1 FROM issues i WHERE ${childWhere()}`,task.id,task.id,task.id)) reasons.push({code:'has_children'});
+      if (!text(task.oracle_cmd).trim()) reasons.push({code:'missing_oracle'});
+      if (task.status === 'in_progress' && Number(task.lease_until ?? 0) > t) reasons.push({code:'claimed',actor:task.claim_actor ?? null,lease_until:task.lease_until ?? null});
+      if (task.status === 'blocked') reasons.push({code:'status_blocked'});
+      if (task.status === 'deferred' && task.defer_until == null) reasons.push({code:'deferred'});
+      else if (Number(task.defer_until ?? 0) > t) reasons.push({code:'deferred_until',until:task.defer_until ?? null});
+      if (task.expires_at != null && Number(task.expires_at) <= t) reasons.push({code:'expired'});
+      if (this.cancelled(task.id)) reasons.push({code:'cancel_requested'});
+      const blockers = array(this.contract(task.id).blocked_by);
+      if (blockers.length) reasons.push({code:'blocked_by',ids:blockers});
+      const park = this.parked(task);
+      if (park.parked) reasons.push({code:'parked',failures:park.failures,limit:park.limit});
+      if (meta.local_zero === true && task.budget_eur !== 0) reasons.push({code:'local_zero_budget'});
+      if (meta.local_zero === true && !localZeroAvailable()) reasons.push({code:'local_zero_unavailable'});
+      if (a.lane != null && a.lane !== task.lane) reasons.push({code:'lane',lane:task.lane ?? null});
+      const row: Obj = {id:task.id ?? null,title:task.title ?? null,priority:task.priority ?? null,status:task.status ?? null,lane:task.lane ?? null};
+      if (!reasons.length) admitted.push(row);
+      else { held.push({...row,reasons}); for (const r of reasons) { const code = text(r.code); summary[code] = (summary[code] ?? 0)+1; } }
+    }
+    return {admitted,held,summary,checked:tasks.length,truncated:!a.id && tasks.length === limit};
+  }
+  unparkMark(id: Value | undefined): void { this.run('INSERT INTO kv(k,v) VALUES(?,?) ON CONFLICT(k) DO UPDATE SET v=excluded.v','unpark:'+text(id),String(this.row('SELECT COALESCE(MAX(rowid),0) n FROM proofs WHERE issue=?',id)?.n ?? 0)); }
+  private recurrences(): Obj[] { return this.rows("SELECT v FROM kv WHERE k LIKE 'recur:%' ORDER BY k").map(r=>object(decode(r.v))); }
+  // Reject at definition time everything create() would reject later, so a stored template can never wedge the scheduler.
+  private recurTemplate(value: unknown): Obj {
+    if (value === null || typeof value !== 'object' || Array.isArray(value)) fail('bad_args','template object required');
+    const t = object(value);
+    for (const key of ['id','status','parent','actor','admin_token','idem','run_id']) if (Object.hasOwn(t,key)) fail('bad_args',`template must not set ${key}`);
+    if (!text(t.title).trim()) fail('bad_args','template.title required');
+    if (typeof t.oracle_cmd !== 'string' || !t.oracle_cmd.trim()) fail('missing_oracle','recurring template needs an executable oracle_cmd');
+    for (const key of ['type','owner','lane','acceptance','desc']) if (t[key] != null && typeof t[key] !== 'string') fail('bad_args',`template.${key} must be a string`);
+    if (t.type === 'goal' || t.type === 'epic') fail('bad_args','recurring templates create executable tasks');
+    integer(t.priority ?? t.prio,'priority',2,-2147483648);
+    if (t.budget_eur != null) number(t.budget_eur,'budget_eur',undefined,0);
+    // verify() requires an explicit scope; a template without one would only ever produce unverifiable tasks.
+    if (!paths(t.allowed_paths).length) fail('missing_scope','recurring template needs explicit allowed_paths');
+    for (const key of ['defer_until','expires_at','ttl_secs']) if (t[key] != null) number(t[key],key,undefined,0);
+    if (t.meta !== undefined && (t.meta === null || typeof t.meta !== 'object' || Array.isArray(t.meta))) fail('bad_args','template.meta must be an object');
+    validateMaxFailures(t.meta);
+    return t;
+  }
+  private recur(a: Obj,c: Context): Value {
+    const name = required(a,'name'); if (!recurName.test(name)) fail('bad_args','name must match [a-z0-9][a-z0-9_-]{0,63}');
+    const key = 'recur:'+name, old = this.row('SELECT v FROM kv WHERE k=?',key);
+    if (a.delete === true) { if (!old) fail('not_found','recurrence'); this.run('DELETE FROM kv WHERE k=?',key); this.emit('recur',null,c,{name,deleted:true}); return {name,deleted:true}; }
+    const previous = old ? object(decode(old.v)) : undefined;
+    if (previous && a.template === undefined && a.every_secs === undefined) {
+      const next: Obj = {...previous,enabled:a.enabled !== false,last_error:null}; this.run('UPDATE kv SET v=? WHERE k=?',canonical(next),key); this.emit('recur',null,c,{name,enabled:next.enabled}); return next;
+    }
+    const every = integer(a.every_secs,'every_secs',undefined,60,31536000), template = this.recurTemplate(a.template);
+    const anchor = Math.floor(a.start_at === undefined ? now() : number(a.start_at,'start_at',undefined,0));
+    const spec: Obj = {name,every_secs:every,anchor,next_at:anchor,template,enabled:a.enabled !== false,overlap:a.overlap === true,last_issue:previous?.last_issue ?? null,last_error:null,created_by:c.actor,updated_at:now()};
+    this.run('INSERT INTO kv(k,v) VALUES(?,?) ON CONFLICT(k) DO UPDATE SET v=excluded.v',key,canonical(spec)); this.emit('recur',null,c,{name,every_secs:every,enabled:spec.enabled});
+    return spec;
+  }
+  private recurTick(a: Obj,c: Context): Value {
+    // An explicit clock may only look back or at most one minute ahead; it can never push schedules into the future.
+    const t = a.now === undefined ? now() : Math.min(number(a.now,'now',undefined,0),now()+60), created: Value[] = [], skipped: Obj[] = [];
+    for (const spec of this.recurrences()) {
+      if (spec.enabled !== true || Number(spec.next_at) > t) continue;
+      const every = Number(spec.every_secs), anchor = Number(spec.anchor), name = text(spec.name);
+      if (!Number.isSafeInteger(every) || every < 60 || !Number.isFinite(anchor)) continue;
+      // Ids name the absolute slot start, so replacing or re-creating a schedule never collides with other boundaries.
+      const slot = Math.floor((t-anchor)/every), boundary = anchor+slot*every, id = `${name}-${boundary}`;
+      const next: Obj = {...spec,next_at:boundary+every};
+      const last = spec.last_issue ? this.row('SELECT status FROM issues WHERE id=?',spec.last_issue) : undefined;
+      if (this.row('SELECT 1 FROM issues WHERE id=?',id)) skipped.push({name,reason:'exists',id});
+      else if (spec.overlap !== true && last && !['closed','cancelled'].includes(text(last.status))) skipped.push({name,reason:'previous_open',id:spec.last_issue ?? null});
+      else {
+        const template = object(spec.template);
+        try { this.operation('create',{...template,id,meta:{...object(template.meta),recurrence:name,slot_start:boundary}},c); next.last_issue = id; created.push(id); }
+        catch (error) {
+          // One broken spec is disabled with its reason; the others keep running.
+          const message = error instanceof Error ? error.message : String(error);
+          next.enabled = false; next.last_error = message.slice(0,500); skipped.push({name,reason:'error',error:next.last_error});
+        }
+      }
+      this.run('UPDATE kv SET v=? WHERE k=?',canonical(next),'recur:'+name);
+    }
+    if (created.length || skipped.length) this.emit('recur_tick',null,c,{created,skipped});
+    return {created,skipped,at:t};
+  }
   brief(a: Obj): Obj {
     const task = this.contract(required(a,'id')), enc = encoding(a);
     const max = a.max_tokens === undefined ? undefined : integer(a.max_tokens,'max_tokens',undefined,1);
@@ -177,6 +286,7 @@ export class Engine {
     } else if (this.row(`SELECT 1 FROM issues i WHERE ${childWhere()}`,task.id,task.id,task.id)) return false;
     if (!text(task.oracle_cmd).trim() || Number(task.defer_until ?? 0) > now() || task.status === 'deferred' && task.defer_until == null || task.expires_at != null && Number(task.expires_at) <= now()) return false;
     if (a.lane != null && a.lane !== task.lane) return false;
+    if (this.parked(task).parked) return false;
     if (a.goal != null && !this.row(`WITH RECURSIVE sub(x) AS (SELECT ? UNION SELECT i.id FROM issues i JOIN sub s ON json_extract(i.meta_json,'$.parent')=s.x OR (i.id LIKE s.x||'.%' AND instr(substr(i.id,length(s.x)+2),'.')=0)) SELECT 1 FROM sub WHERE x=?`,a.goal,task.id)) return false;
     return this.row(`SELECT 1 FROM issues i WHERE i.id=? AND ${blocked}`,task.id) !== undefined;
   }
@@ -205,7 +315,7 @@ export class Engine {
     if(object(task.meta).local_zero!==true)return false;
     if(task.budget_eur!==0)fail('local_zero_budget','local_zero requires budget_eur exactly 0');
     if(this.recordedCost(task.id)>0)fail('budget_exceeded','local_zero refuses recorded positive costs');
-    if(!localZeroAvailable())fail('local_zero_unavailable','local_zero requires macOS sandbox-exec');
+    if(!localZeroAvailable())fail('local_zero_unavailable',localZeroRequirement);
     return true;
   }
   deliveryFence(a: Obj,state?: string): Obj | undefined {
@@ -225,6 +335,7 @@ export class Engine {
   }
   async verify(a: Obj,c: Context): Promise<Value> {
     const task = this.active(a,c); this.expected(a);const localZero=this.localZero(task);
+    const park = this.parked(task); if (park.parked) fail('parked',`task parked after ${park.failures} failed proofs; unpark before another attempt`);
     const oracle = text(task.oracle_cmd); if (!oracle.trim()) fail('missing_oracle','executable oracle required');
     const revision = this.revision(a.id), before = fingerprint(task,required(a,'cwd'),this.dbPath);
     const result = await execute(oracle,before.cwd,integer(a.timeout_secs,'timeout_secs',10,1,300),localZero);
@@ -233,8 +344,9 @@ export class Engine {
       if (revision !== this.revision(a.id) || before.source_hash !== after.source_hash) fail('stale_proof','contract or source changed during verification');
       const proof = uid('proof-'), passed = result.exit_code === 0 && !result.timed_out;
       this.run('INSERT INTO proofs(proof_id,issue,actor,epoch,revision,source_hash,cwd,oracle,exitcode,passed,timed_out,output,review_receipt) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)',proof,a.id,c.actor,a.epoch,revision,before.source_hash,before.cwd,oracle,result.exit_code,passed,result.timed_out,result.output,canonical(redact(a.review_receipt ?? null)));
-      const out = {proof_id:proof,passed,exit_code:result.exit_code,timed_out:result.timed_out,revision,source_hash:before.source_hash,...(result.execution?{execution:result.execution}:{})};
+      const out: Obj = {proof_id:proof,passed,exit_code:result.exit_code,timed_out:result.timed_out,revision,source_hash:before.source_hash,...(result.execution?{execution:result.execution}:{})};
       this.emit('verify',a.id ?? null,c,out); this.run('UPDATE agent_state SET last_error=? WHERE issue=?',passed ? null : result.output,a.id);
+      if (!passed) { const after = this.parked(current); if (after.parked) { out.parked = true; this.emit('parked',a.id ?? null,c,{failures:after.failures,limit:after.limit}); } }
       return this.save('verify',c,out);
     });
   }
@@ -310,7 +422,7 @@ export class Engine {
     return {ok:true};
   }
   private list(a: Obj,readyOnly = false,countOnly = false): Value {
-    let where = readyOnly ? ` WHERE ${ready} AND ${blocked}` : ' WHERE 1=1';
+    let where = readyOnly ? ` WHERE ${ready} AND ${blocked} AND ${notParked()}` : ' WHERE 1=1';
     const params: unknown[] = readyOnly ? [now(),now(),now()] : [];
     for (const key of readyOnly ? ['lane'] : ['status','type','lane','owner','priority']) if (a[key] != null) { where += ` AND i.${key}=?`; params.push(key === 'priority' ? integer(a[key],'priority',undefined,-2147483648) : a[key]); }
     if (a.label != null) { where += " AND EXISTS(SELECT 1 FROM json_each(i.meta_json,'$.labels') l WHERE l.value=?)"; params.push(a.label); }
@@ -340,7 +452,7 @@ export class Engine {
         if (a.budget_eur != null) number(a.budget_eur,'budget_eur',undefined,0);
         if (a.allowed_paths !== undefined) paths(a.allowed_paths);
         if(a.meta!==undefined&&(a.meta===null||typeof a.meta!=='object'||Array.isArray(a.meta)))fail('bad_args','meta must be an object');
-        const meta = {...object(a.meta)}; if (a.parent) meta.parent = a.parent;
+        validateMaxFailures(a.meta); const meta = {...object(a.meta)}; if (a.parent) meta.parent = a.parent;
         this.run('INSERT INTO issues(id,title,"desc",type,priority,status,owner,oracle_cmd,allowed_paths,lane,budget_eur,acceptance,created_at,meta_json,lease_epoch,defer_until,expires_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,0,?,?)',id,title,a.desc ?? a.descr ?? '',a.type ?? 'task',integer(a.priority ?? a.prio,'priority',2,-2147483648),a.status === 'deferred' ? 'deferred' : 'open',a.owner,a.oracle_cmd,a.allowed_paths,a.lane,a.budget_eur,a.acceptance,now(),canonical(meta),a.defer_until,a.expires_at ?? (a.ttl_secs != null ? now()+number(a.ttl_secs,'ttl_secs',undefined,0) : null));
         this.emit('create',id,c,{title}); return {id};
       }
@@ -358,9 +470,10 @@ export class Engine {
         if (task.status === 'in_progress' && cmd !== 'admin_update') this.active(a,c);
         if (changes.allowed_paths !== undefined) paths(changes.allowed_paths);
         if (changes.budget_eur != null) number(changes.budget_eur,'budget_eur',undefined,0);
+        if (Object.hasOwn(changes,'meta_json')) validateMaxFailures(typeof changes.meta_json === 'string' ? decode(changes.meta_json) : changes.meta_json);
         if(cmd!=='admin_update'){
           if(Object.hasOwn(changes,'budget_eur')&&task.budget_eur!=null&&(changes.budget_eur==null||Number(changes.budget_eur)>Number(task.budget_eur)))fail('over_budget','worker budget cannot increase');
-          if(Object.hasOwn(changes,'meta_json')){const meta=typeof changes.meta_json==='string'?decode(changes.meta_json):changes.meta_json;if(meta===null||typeof meta!=='object'||Array.isArray(meta))fail('bad_args','meta must be an object');for(const key of ['controller','local_zero','execution','budget_gate','review_required','attest_required'])if(canonical(object(meta)[key])!==canonical(object(task.meta)[key]))fail('protected_field','security metadata requires admin_update');}
+          if(Object.hasOwn(changes,'meta_json')){const meta=typeof changes.meta_json==='string'?decode(changes.meta_json):changes.meta_json;if(meta===null||typeof meta!=='object'||Array.isArray(meta))fail('bad_args','meta must be an object');for(const key of ['controller','local_zero','execution','budget_gate','review_required','attest_required','max_failures'])if(canonical(object(meta)[key])!==canonical(object(task.meta)[key]))fail('protected_field','security metadata requires admin_update');}
         }
         this.expected(a);
         const keys = Object.keys(changes); this.run('UPDATE issues SET '+keys.map(k=>`"${k}"=?`).join(',')+' WHERE id=?',...keys.map(k=>changes[k]),a.id);
@@ -390,15 +503,17 @@ export class Engine {
       }
       case 'close': return this.close(a,c);
       case 'reopen': {
-        const task = this.issue(required(a,'id')), who = this.who(a,c); if (who !== task.owner && who !== object(task.meta).controller) admin(a);
+        const task = this.issue(required(a,'id')), who = this.who(a,c); if (who !== task.owner && who !== object(task.meta).controller || this.parked(task).parked && who !== object(task.meta).controller) admin(a);
         if (a.epoch !== undefined && integer(a.epoch,'epoch') !== task.lease_epoch) fail('stale_fence','epoch differs');
-        this.run("UPDATE issues SET status='open',closed_at=NULL,claim_actor=NULL,lease_until=NULL,lease_epoch=lease_epoch+1 WHERE id=?",a.id); this.run('DELETE FROM claims WHERE issue=?',a.id); this.run('INSERT INTO cancellations(issue,requested,actor,ts) VALUES(?,0,?,?) ON CONFLICT(issue) DO UPDATE SET requested=0',a.id,who,now()); this.emit(cmd,a.id ?? null,c,{reason:a.reason ?? null}); return {ok:true};
+        this.run("UPDATE issues SET status='open',closed_at=NULL,claim_actor=NULL,lease_until=NULL,lease_epoch=lease_epoch+1 WHERE id=?",a.id); this.run('DELETE FROM claims WHERE issue=?',a.id); this.run('INSERT INTO cancellations(issue,requested,actor,ts) VALUES(?,0,?,?) ON CONFLICT(issue) DO UPDATE SET requested=0',a.id,who,now());
+        // Only the controller or an admin may reset the failure count; an owner reopen keeps it.
+        if (who === object(task.meta).controller || a.admin_token !== undefined && (admin(a), true)) this.unparkMark(a.id); this.emit(cmd,a.id ?? null,c,{reason:a.reason ?? null}); return {ok:true};
       }
       case 'delete': case 'defer': case 'undefer': case 'rename': {
         const id = cmd === 'rename' ? required(a,'from') : required(a,'id'), task = this.issue(id);
         if (task.status === 'in_progress') this.active({...a,id},c,true);
-        if (cmd === 'delete') { this.run('DELETE FROM deps WHERE issue=? OR depends_on=?',id,id); this.run('DELETE FROM claims WHERE issue=?',id); this.run('DELETE FROM issues WHERE id=?',id); }
-        else if (cmd === 'rename') { const to = required(a,'to'); if (this.row('SELECT id FROM issues WHERE id=?',to)) fail('exists',to); this.run('UPDATE issues SET id=? WHERE id=?',to,id); this.run("UPDATE issues SET meta_json=json_set(meta_json,'$.parent',?) WHERE json_extract(meta_json,'$.parent')=?",to,id); this.run('UPDATE deps SET issue=? WHERE issue=?',to,id); this.run('UPDATE deps SET depends_on=? WHERE depends_on=?',to,id); this.run('UPDATE claims SET issue=? WHERE issue=?',to,id); this.emit(cmd,to,c,{from:id}); return {id:to}; }
+        if (cmd === 'delete') { this.unparkMark(id); this.run('DELETE FROM deps WHERE issue=? OR depends_on=?',id,id); this.run('DELETE FROM claims WHERE issue=?',id); this.run('DELETE FROM issues WHERE id=?',id); }
+        else if (cmd === 'rename') { const to = required(a,'to'); if (this.row('SELECT id FROM issues WHERE id=?',to)) fail('exists',to); this.run('UPDATE issues SET id=? WHERE id=?',to,id); this.run("UPDATE issues SET meta_json=json_set(meta_json,'$.parent',?) WHERE json_extract(meta_json,'$.parent')=?",to,id); this.run('UPDATE deps SET issue=? WHERE issue=?',to,id); this.run('UPDATE deps SET depends_on=? WHERE depends_on=?',to,id); this.run('UPDATE claims SET issue=? WHERE issue=?',to,id); this.run('UPDATE proofs SET issue=? WHERE issue=?',to,id); this.run('DELETE FROM kv WHERE k=?','unpark:'+to); this.run('UPDATE kv SET k=? WHERE k=?','unpark:'+to,'unpark:'+id); this.emit(cmd,to,c,{from:id}); return {id:to}; }
         else this.run('UPDATE issues SET status=?,defer_until=? WHERE id=?',cmd === 'defer' ? 'deferred' : 'open',cmd === 'defer' ? a.until ?? a.defer_until : null,id);
         this.emit(cmd,id,c,{}); return {ok:true};
       }
@@ -424,7 +539,7 @@ export class Engine {
       case 'contract': { const task = this.contract(required(a,'id')); return {contract_text:JSON.stringify(JSON.parse(canonical(task)),null,2),revision:task.revision,task,structured:task,anchors:[],priors:null}; }
       case 'brief': return this.brief(a);
       case 'tokens': { const input = typeof a.text === 'string' ? a.text : fail('bad_args','text required'), enc = encoding(a); return {tokens:tokenCount(input,enc),encoding:enc,exact:true,algorithm:'tiktoken',billing:false}; }
-      case 'capabilities': return {local_zero_execution:localZeroAvailable(),outbox_delivery_leases:true,watch_wait_frames:1,version:VERSION,implementation:'typescript',typescript:'7.1',protocol:2,schema:7,schema_version:Number(this.row('PRAGMA user_version')?.user_version),project_id:this.row("SELECT v FROM kv WHERE k='project_id'")?.v,operations:registry.map(op=>op.name ?? null),encodings:['o200k_base','cl100k_base'],proof_receipts:true,billing:false,token_billing:false,durability:this.row('PRAGMA synchronous')?.synchronous,...(a.schemas === true ? {ops:registry} : {})};
+      case 'capabilities': return {local_zero_execution:localZeroAvailable(),outbox_delivery_leases:true,watch_wait_frames:1,version:VERSION,implementation:'typescript',typescript:'7.1',protocol:2,schema:7,schema_version:Number(this.row('PRAGMA user_version')?.user_version),project_id:this.row("SELECT v FROM kv WHERE k='project_id'")?.v,operations:registry.map(op=>op.name ?? null),encodings:['o200k_base','cl100k_base'],proof_receipts:true,parking:true,recurrence:true,admission:true,billing:false,token_billing:false,durability:this.row('PRAGMA synchronous')?.synchronous,...(a.schemas === true ? {ops:registry} : {})};
       case 'context': { const caps = object(this.operation('capabilities',a,c)); return {project_id:caps.project_id,pid:process.pid,instance_id:instanceId,db_path:resolve(this.dbPath),capabilities:caps,stats:this.operation('stats',a,c)}; }
       case 'watch': return {events:this.events(undefined,integer(a.after,'after',0),integer(a.limit,'limit',1000,1,1000))};
       case 'lint': return {needs_oracle:this.rows("SELECT id,title FROM issues WHERE status!='closed' AND (oracle_cmd IS NULL OR oracle_cmd='') AND (acceptance IS NULL OR acceptance='') ORDER BY priority").map(r=>({...r,missing:['oracle_cmd','acceptance']}))};
@@ -432,7 +547,7 @@ export class Engine {
       case 'statuses': return statuses;
       case 'prime': return {protocol:'Superiss protocol 2; explicit project DB; NDJSON Unix socket or CLI',loop:'acquire -> work inside contract -> verify -> close(proof_id) -> readback',rules:['heartbeat before expiry','no mutation retry after uncertain transport','mandatory acceptance survives token budgets'],capabilities:this.operation('capabilities',{},c)};
       case 'orphans': return this.issues("WITH RECURSIVE live(id) AS (SELECT i.id FROM issues i WHERE i.status='open' AND (i.type='epic' OR NOT EXISTS(SELECT 1 FROM deps d WHERE d.issue=i.id)) UNION SELECT d.issue FROM deps d JOIN live l ON d.depends_on=l.id JOIN issues s ON s.id=d.issue WHERE s.status='open') SELECT * FROM issues WHERE status='open' AND id NOT IN(SELECT id FROM live)");
-      case 'stats': { const by = Object.fromEntries(this.rows('SELECT status,COUNT(*) n FROM issues GROUP BY status').map(r=>[text(r.status),r.n])); return {total:Number(this.row('SELECT COUNT(*) n FROM issues')?.n),open:by.open ?? 0,in_progress:by.in_progress ?? 0,closed:by.closed ?? 0,deferred:by.deferred ?? 0,blocked:this.row(`SELECT COUNT(*) n FROM issues i WHERE status='open' AND NOT(${blocked})`)?.n,ready:this.row(`SELECT COUNT(*) n FROM issues i WHERE ${ready} AND ${blocked}`,now(),now(),now())?.n,pending_outbox:this.row("SELECT COUNT(*) n FROM outbox WHERE state='pending'")?.n}; }
+      case 'stats': { const by = Object.fromEntries(this.rows('SELECT status,COUNT(*) n FROM issues GROUP BY status').map(r=>[text(r.status),r.n])); return {total:Number(this.row('SELECT COUNT(*) n FROM issues')?.n),open:by.open ?? 0,in_progress:by.in_progress ?? 0,closed:by.closed ?? 0,deferred:by.deferred ?? 0,blocked:this.row(`SELECT COUNT(*) n FROM issues i WHERE status='open' AND NOT(${blocked})`)?.n,ready:this.row(`SELECT COUNT(*) n FROM issues i WHERE ${ready} AND ${blocked} AND ${notParked()}`,now(),now(),now())?.n,parked:this.row(`SELECT COUNT(*) n FROM issues i WHERE i.status NOT IN ('closed','cancelled') AND NOT ${notParked()}`)?.n,pending_outbox:this.row("SELECT COUNT(*) n FROM outbox WHERE state='pending'")?.n}; }
       case 'review': return {stats:this.operation('stats',a,c),needs_oracle:object(this.operation('lint',a,c)).needs_oracle,stale:this.operation('stale',a,c),gates:this.operation('gate_list',a,c),slots:this.operation('slot_list',a,c),orphans:this.operation('orphans',a,c),pending_outbox:this.row("SELECT COUNT(*) n FROM outbox WHERE state='pending'")?.n};
       case 'stale': return this.issues("SELECT * FROM issues WHERE status='in_progress' AND lease_until<? ORDER BY lease_until",a.now ?? now());
       case 'remember': { const key = required(a,'key'); this.run('INSERT INTO memories(key,value,updated_at) VALUES(?,?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=excluded.updated_at',key,typeof a.value === 'string' ? a.value : canonical(a.value ?? null),now()); this.emit(cmd,null,c,{key}); return {ok:true}; }
@@ -460,6 +575,19 @@ export class Engine {
       case 'goal_done': { const id = required(a,'id'), task = this.issue(id); const rows = this.rows(`WITH RECURSIVE sub(x) AS (SELECT i.id FROM issues i WHERE ${childWhere()} UNION SELECT i.id FROM issues i JOIN sub s ON json_extract(i.meta_json,'$.parent')=s.x OR (i.id LIKE s.x||'.%' AND instr(substr(i.id,length(s.x)+2),'.')=0)) SELECT id FROM issues WHERE id IN(SELECT x FROM sub) AND status!='closed' ORDER BY id`,id,id,id); return {id,done:rows.length===0,open:rows.map(r=>r.id ?? null),oracle_cmd:task.oracle_cmd,hint:rows.length ? 'children still open' : 'subtree closed; verify final oracle'}; }
       case 'epic': { const task = this.issue(required(a,'id')), children = array(this.operation('children',a,c)), counts: Obj = {total:children.length}; for (const child of children) { const key = text(object(child).status,'open'); counts[key]=Number(counts[key] ?? 0)+1; } counts.pct_done=children.length ? Math.floor(Number(counts.closed ?? 0)*100/children.length) : 0; return {issue:task,children,counts}; }
       case 'snapshot': return this.snapshot();
+      case 'admit': return this.admit(a);
+      case 'recur': return this.recur(a,c);
+      case 'recur_tick': return this.recurTick(a,c);
+      case 'recur_list': return this.recurrences();
+      case 'unpark': {
+        if (a.all === true) {
+          // Enabling parking on an existing store: only failures recorded after this baseline count.
+          admin(a); required(a,'reason'); const baseline = Number(this.row('SELECT COALESCE(MAX(rowid),0) n FROM proofs')?.n ?? 0);
+          this.run('INSERT INTO kv(k,v) VALUES(?,?) ON CONFLICT(k) DO UPDATE SET v=excluded.v','park:baseline',String(baseline)); this.emit(cmd,null,c,{all:true,baseline,reason:a.reason ?? null}); return {ok:true,baseline};
+        }
+        const task = this.issue(required(a,'id')), who = this.who(a,c); if (who !== object(task.meta).controller) admin(a);
+        required(a,'reason'); const before = this.parked(task); this.unparkMark(a.id); this.emit(cmd,a.id ?? null,c,{reason:a.reason ?? null,failures:before.failures}); return {ok:true,was_parked:before.parked};
+      }
       default: return extension(this,cmd,a,c);
     }
   }

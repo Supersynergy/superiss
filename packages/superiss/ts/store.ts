@@ -29,6 +29,7 @@ CREATE INDEX IF NOT EXISTS idx_events_ts ON events(ts);
 CREATE INDEX IF NOT EXISTS idx_deps_issue ON deps(issue);
 CREATE INDEX IF NOT EXISTS idx_deps_on ON deps(depends_on);
 CREATE INDEX IF NOT EXISTS idx_issues_status ON issues(status,priority);
+CREATE INDEX IF NOT EXISTS idx_proofs_issue ON proofs(issue,passed);
 `;
 const fts = `
 DROP TRIGGER IF EXISTS issues_fts_ai;

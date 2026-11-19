@@ -234,7 +234,7 @@ test('MCP initialization advertises the current runtime version', async () => {
   const root = mkdtempSync(join(tmpdir(), 'sis-mcp-version-'));
   try {
     const reply = await runMcpCreate(join(root, 'tasks.db'), join(root, 'absent.sock'), { jsonrpc: '2.0', id: 1, method: 'initialize', params: {} });
-    assert.equal(object(object(reply.result).serverInfo).version, '1.5.2');
+    assert.equal(object(object(reply.result).serverInfo).version, '1.6.0');
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 
@@ -262,7 +262,8 @@ test('incompatible daemon contracts are rejected before mutation on the same con
   const root = mkdtempSync(join(tmpdir(), 'sis-ts-identity-')), db = join(root, 'project.db'), sock = join(root, 'daemon.sock');
   writeFileSync(db, '');
   try {
-    for (const [protocol, receipts, version, expected] of [[1, true, '1.5.2', 'reject'], [2, false, '1.5.2', 'reject'], [2, true, '0.9.0', 'reject'], [2, true, '1.0.0', 'reject'], [2, true, '1.1.0', 'reject'], [2, true, '1.2.0', 'reject'], [2, true, '1.3.0', 'reject'], [2, true, '1.4.0', 'reject'], [2, true, '1.5.0', 'reject'], [2, true, '1.5.1', 'reject'], [2, true, undefined, 'reject'], [2, true, '1.5.2', 'accept'], [2, true, '1.5.2', 'uncertain']] as const) {
+    for (const [protocol, receipts, version, expected] of [[1, true, '1.6.0', 'reject'], [2, false, '1.6.0', 'reject'], [2, true, '0.9.0', 'reject'], [2, true, '1.0.0', 'reject'], [2, true, '1.1.0', 'reject'], [2, true, '1.2.0', 'reject'], [2, true, '1.3.0', 'reject'], [2, true, '1.4.0', 'reject'], [2, true, '1.5.0', 'reject'], [2, true, '1.5.1', 'reject'], [2, true, undefined, 'reject'], [2, true, '1.6.0', 'accept'], [2, true, '1.6.0', 'uncertain'], [2, true, '1.5.1', 'accept-compatible'], [2, true, '1.5.1', 'reject-missing-op']] as const) {
+      const expectedOps = expected === 'accept-compatible' ? ['create'] : expected === 'reject-missing-op' ? ['ready'] : undefined;
       const commands: string[] = []; let connections = 0;
       const server = createServer(socket => {
         connections++; let identified = false, data = '';
@@ -272,7 +273,7 @@ test('incompatible daemon contracts are rejected before mutation on the same con
             const req = object(JSON.parse(data.slice(0, end))); data = data.slice(end + 1); commands.push(String(req.cmd));
             if (req.cmd === 'context') {
               identified = true;
-              socket.write(JSON.stringify({ ok: true, data: { db_path: realpathSync(db), project_id: 'fixture-project', capabilities: { protocol, proof_receipts: receipts, version } } }) + '\n');
+              socket.write(JSON.stringify({ ok: true, data: { db_path: realpathSync(db), project_id: 'fixture-project', capabilities: { protocol, proof_receipts: receipts, version, ...(version === '1.5.1' && receipts && protocol === 2 && expectedOps ? { operations: expectedOps } : {}) } } }) + '\n');
             } else if (expected === 'uncertain') socket.destroy();
             else socket.write(JSON.stringify({ ok: identified, data: { id: 'created' } }) + '\n');
           }
@@ -282,11 +283,11 @@ test('incompatible daemon contracts are rejected before mutation on the same con
       chmodSync(sock, 0o600);
       try {
         const result = await runCli(db, sock, 'create', { id: 'created', title: 'Test' });
-        if (expected === 'accept') {
+        if (expected === 'accept' || expected === 'accept-compatible') {
           assert.equal(result.code, 0, result.err);
           assert.equal(connections, 1, 'identity and mutation must share one connection');
           assert.deepEqual(commands, ['context', 'create']);
-        } else if (expected === 'reject') {
+        } else if (expected === 'reject' || expected === 'reject-missing-op') {
           assert.notEqual(result.code, 0);
           assert.deepEqual(commands, ['context'], 'no mutation may reach an incompatible daemon');
           const mcp = await runMcpCreate(db, sock);
@@ -317,7 +318,7 @@ test('CLI watch --follow streams successive batches and requires a daemon', asyn
       data += chunk.toString(); let end: number;
       while ((end = data.indexOf('\n')) >= 0) {
         const req = object(JSON.parse(data.slice(0, end))); data = data.slice(end + 1);
-        if (req.cmd === 'context') socket.write(JSON.stringify({ ok: true, data: { db_path: realpathSync(db), capabilities: { protocol: 2, proof_receipts: true, version: '1.5.2' } } }) + '\n');
+        if (req.cmd === 'context') socket.write(JSON.stringify({ ok: true, data: { db_path: realpathSync(db), capabilities: { protocol: 2, proof_receipts: true, version: '1.6.0' } } }) + '\n');
         else if (req.cmd === 'watch' && object(req.args).follow === true) socket.end([
           JSON.stringify({ ok: true, data: { events: [] }, more: true }),
           JSON.stringify({ ok: true, data: { events: [{ seq: 7 }] }, more: true }),

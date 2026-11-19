@@ -1,5 +1,5 @@
 {
-  "version": "1.5.2",
+  "version": "1.6.0",
   "protocol": 2,
   "ops": [
     {
@@ -1190,7 +1190,10 @@
           },
           "mode": {
             "type": "string",
-            "enum": ["lexical", "hybrid"]
+            "enum": [
+              "lexical",
+              "hybrid"
+            ]
           }
         },
         "required": [
@@ -1206,7 +1209,10 @@
         "properties": {
           "action": {
             "type": "string",
-            "enum": ["status", "build"]
+            "enum": [
+              "status",
+              "build"
+            ]
           }
         }
       }
@@ -1344,7 +1350,7 @@
     },
     {
       "name": "changes",
-      "description": "Record a compact file-edit summary for a task: path, +adds/-dels and hunk line ranges from the real git worktree (sis changes <id> [--repo P] [--base R] [--patch]). Append-only evidence \u2014 no code stored unless --patch snapshots a bounded diff. Identical consecutive diffs dedup unless force:true. sis close records the same automatically.",
+      "description": "Record a compact file-edit summary for a task: path, +adds/-dels and hunk line ranges from the real git worktree (sis changes <id> [--repo P] [--base R] [--patch]). Append-only evidence — no code stored unless --patch snapshots a bounded diff. Identical consecutive diffs dedup unless force:true. sis close records the same automatically.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -1581,7 +1587,7 @@
     },
     {
       "name": "who",
-      "description": "Dirty-worktree attribution: maps each dirty/untracked path in a git repo to the recorded changes event (claim/actor) that produced it. Orphaned paths with no matching event surface explicitly \u2014 answers 'wem gehoert dieser Stand?'.",
+      "description": "Dirty-worktree attribution: maps each dirty/untracked path in a git repo to the recorded changes event (claim/actor) that produced it. Orphaned paths with no matching event surface explicitly — answers 'wem gehoert dieser Stand?'.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -3036,7 +3042,7 @@
     },
     {
       "name": "attest",
-      "description": "Attach a structured machine-checkable attestation (junit/coverage/smoke/artifact/custom/run) to the active claim, bound to contract revision and source fingerprint. kind:\"run\" executes cmd store-side \u2014 the receipt is not forgeable client-side. Required kinds via meta.attest_required are enforced at close.",
+      "description": "Attach a structured machine-checkable attestation (junit/coverage/smoke/artifact/custom/run) to the active claim, bound to contract revision and source fingerprint. kind:\"run\" executes cmd store-side — the receipt is not forgeable client-side. Required kinds via meta.attest_required are enforced at close.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -3230,7 +3236,7 @@
     },
     {
       "name": "learn",
-      "description": "Honest learning aggregates over the ledger: attest/proof pass rates, cost (cents/tokens) and time-to-accepted grouped by actor|wave|kind|issue \u2014 the posterior for bandit/routing decisions, no invented score.",
+      "description": "Honest learning aggregates over the ledger: attest/proof pass rates, cost (cents/tokens) and time-to-accepted grouped by actor|wave|kind|issue — the posterior for bandit/routing decisions, no invented score.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -3259,7 +3265,7 @@
     },
     {
       "name": "sync_import",
-      "description": "Admin: merge a sis-sync bundle \u2014 issue/deps upsert, memory LWW by updated_at, receipts by primary key; live claims are never overwritten and report as conflicts.",
+      "description": "Admin: merge a sis-sync bundle — issue/deps upsert, memory LWW by updated_at, receipts by primary key; live claims are never overwritten and report as conflicts.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -3373,6 +3379,109 @@
           "actor",
           "epoch",
           "proof_id"
+        ]
+      }
+    },
+    {
+      "name": "admit",
+      "description": "Read-only admission report: every non-terminal task as admitted or held with machine-readable reasons (missing_oracle, blocked_by, deferred, parked, claimed, local_zero_unavailable, ...). Alias why.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "lane": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 5000
+          }
+        }
+      }
+    },
+    {
+      "name": "recur",
+      "description": "Create, replace, toggle or delete a recurring task template. Instances are created by recur_tick or the daemon scheduler; missed slots collapse into one; by default no new instance while the previous one is open.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$"
+          },
+          "every_secs": {
+            "type": "integer",
+            "minimum": 60,
+            "maximum": 31536000
+          },
+          "template": {
+            "type": "object",
+            "description": "create arguments; title and oracle_cmd required; id/status/parent forbidden"
+          },
+          "start_at": {
+            "type": "number",
+            "minimum": 0
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "overlap": {
+            "type": "boolean"
+          },
+          "delete": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "name"
+        ]
+      }
+    },
+    {
+      "name": "recur_tick",
+      "description": "Materialize due recurrences as tasks with deterministic ids <name>-<slot_start>; idempotent per slot.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "now": {
+            "type": "number",
+            "minimum": 0
+          }
+        }
+      }
+    },
+    {
+      "name": "recur_list",
+      "description": "List recurring task templates with next_at and last_issue.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {}
+      }
+    },
+    {
+      "name": "unpark",
+      "description": "Controller or admin re-admits a task parked after max_failures failed proofs; reason required. all:true (admin) sets a store-wide baseline so only failures recorded afterwards count, for enabling parking on an existing store.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "admin_token": {
+            "type": "string"
+          },
+          "all": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "reason"
         ]
       }
     }

@@ -1,6 +1,6 @@
-# Core operation catalog — 1.5.2
+# Core operation catalog — 1.6.0
 
-Generated from [the current registry](../packages/superiss/ops.json). **90 core operations**, protocol 2. The eleven forge tools are listed in [the forge guide](SISF.md). The retained root registry belongs to the 0.9 reference.
+Generated from [the current registry](../packages/superiss/ops.json). **95 core operations**, protocol 2. The eleven forge tools are listed in [the forge guide](SISF.md). The retained root registry belongs to the 0.9 reference.
 
 | Operation | Contract | Required fields |
 | --- | --- | --- |
@@ -94,3 +94,17 @@ Generated from [the current registry](../packages/superiss/ops.json). **90 core 
 | `analytics` | Read a consistent, explicitly watermarked SQLite snapshot using an isolated DuckDB 2 process; never authoritative for claims or proofs. |  |
 | `analytics_status` | Observe the bounded analytics worker without starting a report. |  |
 | `close_check` | Read-only preflight of the complete close contract: current source, proof, actor, epoch, lease, review, evidence and budget. Does not close or reserve the task. | `id`, `actor`, `epoch`, `proof_id` |
+| `admit` | Read-only admission report: every non-terminal task as admitted or held with machine-readable reasons (`missing_oracle`, `blocked_by`, `deferred`, `deferred_until`, `claimed`, `has_children`, `container`, `expired`, `cancel_requested`, `parked`, `local_zero_budget`, `local_zero_unavailable`, `lane`). Alias `why`. |  |
+| `recur` | Create, replace, toggle or delete a recurring task template (`every_secs` 60 s to 1 year, `template` with `title` and `oracle_cmd`). Instances are created by `recur_tick` or the daemon scheduler; missed slots collapse into one; by default no new instance while the previous one is open (`overlap:true` allows it). | `name` |
+| `recur_tick` | Materialize due recurrences as tasks with deterministic ids `<name>-<slot_start>`; idempotent per slot. The daemon runs it every `SIS_TICK_SECS` (default 30, `0` disables). |  |
+| `recur_list` | List recurring task templates with `next_at` and `last_issue`. |  |
+| `unpark` | Controller or admin re-admits a task parked after `max_failures` failed proofs (`meta.max_failures`, default `SIS_MAX_FAILURES`, `0` = unlimited). A controller/admin `reopen` also resets the count. `all:true` (admin) sets a store-wide baseline so only later failures count. | `reason` |
+
+## 24/7 operation
+
+- **Admission instead of guessing.** Workers that find no work run `sis admit --db PATH` and act on the summary: an idle queue with 400 `deferred` tasks needs contracts, not more workers.
+- **Parking stops retry loops.** With `SIS_MAX_FAILURES=3` (the generated units set it) a task with three failed proofs since the last unpark or reopen is no longer granted, `verify` refuses with `parked`, and a `parked` event is emitted for notification. A worker cannot raise `meta.max_failures`. On an existing store run `sis unpark all=true reason=... admin_token=...` once before setting `SIS_MAX_FAILURES`, otherwise historical failed proofs park tasks immediately.
+- **Recurring work without an LLM poller.** `sis recur name=nightly every_secs=86400 template='{"title":"Nightly gate","oracle_cmd":"just check"}'` plus a running daemon creates one task per day. Use `watch` to wake agents on `recur_tick` events instead of polling `ready`.
+- **Service on any host.** `sis unit kind=systemd user=NAME bin=/opt/superiss/bin/sis --db PATH --sock PATH` prints a hardened systemd unit (`Restart=always`, graceful 330 s drain); `kind=launchd` prints a KeepAlive plist. Installing it stays an explicit admin step. Put the socket next to the database, not under a private `/tmp`.
+- **Rolling upgrades.** A newer client accepts a same-major daemon from 1.5.0 on when that daemon advertises the requested operation; otherwise it refuses with `runtime_version_mismatch` before dispatch. Parking and recurrences are enforced by the daemon: check `capabilities.parking` and `capabilities.recurrence` before relying on them during a rolling upgrade. Lifecycle commands (`up`, `status`, `down`) still require the exact version.
+- **Linux local-zero.** `meta.local_zero` runs in bubblewrap (`--unshare-all`, read-only root, tmpfs over `/home`, `/root`, `/run`, `/tmp`, `/srv`, `/mnt`, `/media` and the private parts of `/var`; `/etc`, `/opt` and `/usr` stay readable, only the task directory writable). On Ubuntu 24.04 unprivileged user namespaces are restricted by AppArmor; allow them for bwrap only with `/etc/apparmor.d/bwrap` (`profile bwrap /usr/bin/bwrap flags=(unconfined) { userns, }`). Without a working sandbox local-zero fails closed.

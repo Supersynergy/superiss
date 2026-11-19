@@ -45,7 +45,7 @@ try {
   }
   const caps = run('capabilities');
   assert.equal(caps.version, VERSION); assert.equal(caps.protocol, 2); assert.equal(caps.proof_receipts, true);
-  assert.ok(Array.isArray(caps.operations)); assert.equal(caps.operations.length, 90);
+  assert.ok(Array.isArray(caps.operations)); assert.equal(caps.operations.length, 95);
   checks.push('relocated-launcher-version-and-contract');
   for (const [args, expected] of [
     [['--help'], 'search_index'],

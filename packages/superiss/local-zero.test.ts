@@ -5,8 +5,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import { Engine } from './engine.ts';
-import { object, type Obj } from './ts/util.ts';
-const localZeroAvailable = process.platform === 'darwin' && existsSync('/usr/bin/sandbox-exec');
+import { localZeroAvailable as sandboxAvailable, object, type Obj } from './ts/util.ts';
+const localZeroAvailable = sandboxAvailable();
 
 async function fixture(patch: Obj = {}) {
   const root = realpathSync(mkdtempSync(join(tmpdir(), 'sis-zero-'))), db = join(root, 'tasks.db');
@@ -26,7 +26,7 @@ test('local-zero contract binds budget and security metadata and advertises exec
     const revision = contract.revision;
     f.engine.run('UPDATE issues SET budget_eur=1 WHERE id=?', 'job');
     assert.notEqual(object(object(await f.engine.dispatch('contract', { id: 'job' })).task).revision, revision);
-    assert.equal(object(await f.engine.dispatch('capabilities')).local_zero_execution, process.platform === 'darwin' && existsSync('/usr/bin/sandbox-exec'));
+    assert.equal(object(await f.engine.dispatch('capabilities')).local_zero_execution, localZeroAvailable);
   } finally { await f.close(); }
 });
 
@@ -62,7 +62,7 @@ test('unsupported local-zero execution fails closed without writing an effect', 
   } finally { await f.close(); }
 });
 
-test('local-zero keeps credentials absent and denies filesystem escapes and network access', { skip: process.platform !== 'darwin' }, async () => {
+test('local-zero keeps credentials absent and denies filesystem escapes and network access', { skip: !localZeroAvailable }, async () => {
   const outside = realpathSync(mkdtempSync(join(tmpdir(), 'sis-outside-'))), f = await fixture();
   const old = process.env.SIS_TEST_CREDENTIAL; process.env.SIS_TEST_CREDENTIAL = 'must-not-reach-child';
   let received = 0; const server = createServer((_req, res) => { received++; res.end('unexpected'); });
@@ -80,7 +80,7 @@ test('local-zero keeps credentials absent and denies filesystem escapes and netw
 });
 
 test('close_check preserves zero-budget and local-zero cost gates without closing the task', async () => {
-  const policies: Obj[] = [{ budget_gate: true }, ...(process.platform === 'darwin' ? [{ local_zero: true }] : [])];
+  const policies: Obj[] = [{ budget_gate: true }, ...(localZeroAvailable ? [{ local_zero: true }] : [])];
   for (const meta of policies) {
     const f = await fixture({ meta });
     try {

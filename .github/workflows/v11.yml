@@ -1,4 +1,4 @@
-name: Superiss 1.5.2
+name: Superiss 1.6.0
 on:
   push:
     branches: [main]
@@ -29,6 +29,15 @@ jobs:
           echo "SIS_TYPE_ROOTS=$GITHUB_WORKSPACE/.cache/v11-tools/node_modules/@types" >> "$GITHUB_ENV"
       - name: Current core, forge, protocol and relocatable package
         run: bun tools/check-v11.ts
+      - name: Linux local-zero sandbox with bubblewrap
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get install -y --no-install-recommends bubblewrap
+          # Ubuntu 24.04 restricts unprivileged user namespaces; allow them for bwrap only.
+          printf 'abi <abi/4.0>,\ninclude <tunables/global>\nprofile bwrap /usr/bin/bwrap flags=(unconfined) {\n  userns,\n}\n' | sudo tee /etc/apparmor.d/bwrap >/dev/null
+          sudo apparmor_parser -r /etc/apparmor.d/bwrap
+          bun -e "import {localZeroAvailable} from './packages/superiss/ts/util.ts'; if (!localZeroAvailable()) { console.error('bubblewrap unusable'); process.exit(1); }"
+          bun test packages/superiss/local-zero.test.ts packages/superiss/orchestration.test.ts --bail
   worktrunk:
     runs-on: ubuntu-latest
     timeout-minutes: 10

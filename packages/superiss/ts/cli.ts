@@ -6,7 +6,7 @@ import { basename, dirname, join, resolve } from 'node:path';
 import { Engine, registry, type Context } from '../engine.ts';
 import { VERSION } from '../runtime.ts';
 import { copySqlite } from '../bridge.ts';
-import { array, canonical, decode, digest, fail, git, object, required, SisError, text, uid, type Obj, type Value } from './util.ts';
+import { array, canonical, decode, digest, fail, git, object, required, runtimeCompatible, SisError, text, uid, type Obj, type Value } from './util.ts';
 import { startHttp } from './http.ts';
 import { collectChanges } from './git.ts';
 import { setTimeout as delay } from 'node:timers/promises';
@@ -23,7 +23,7 @@ function help(topic = ''): string {
   };
   if (topic && pages[topic]) return pages[topic];
   if (topic) return `No dedicated help for ${topic}. Use sis capabilities schemas=true --db PATH or docs/OPERATIONS.md.`;
-  return 'sis <operation> [JSON | key=value ...] --db PATH [--actor NAME] [--idem KEY]\nsis serve --db PATH --sock PATH\nsis mcp --db PATH [--tool NAME] [--mcp-headers]\nsis help search|search_index|analytics|rpc\nSQLite/FTS5 is the authority; sqlite-vec is optional search; DuckDB is snapshot analytics.\nRepeated agent calls: sis rpc --db PATH. TypeScript 7.1 / Bun.';
+  return 'sis <operation> [JSON | key=value ...] --db PATH [--actor NAME] [--idem KEY]\nsis serve --db PATH --sock PATH\nsis unit [kind=systemd|launchd] [user=NAME] [bin=PATH] --db PATH --sock PATH\nsis mcp --db PATH [--tool NAME] [--mcp-headers]\nsis help search|search_index|analytics|rpc\nSQLite/FTS5 is the authority; sqlite-vec is optional search; DuckDB is snapshot analytics.\nRepeated agent calls: sis rpc --db PATH. TypeScript 7.1 / Bun.';
 }
 function options(): Options {
   const result: Options={cmd:'serve',payload:[],headers:false,tools:[]}; let selected=false;
@@ -67,7 +67,7 @@ function payload(opt: Options): Value {
     if (value.startsWith('@')) return JSON.parse(readFileSync(value.slice(1),'utf8')) as Value;
     if (value.startsWith('{') || value.startsWith('[')) return JSON.parse(value) as Value;
   }
-  const shortcuts: Record<string,string[]>={acquire:['actor'],tokens:['text'],verify:['id','actor','epoch','cwd'],checkpoint:['id','actor','epoch','text','next_step'],handoff:['id','actor','epoch','text','next_step'],claim:['id','actor','epoch'],heartbeat:['id','actor','epoch'],close_check:['id','actor','epoch'],close:['id','actor','epoch'],unclaim:['id','actor','epoch'],claim_next:['actor'],dep:['issue','depends_on'],dep_remove:['issue','depends_on'],rename:['from','to'],gate:['name','state'],slot_acquire:['name','actor'],slot_release:['name','actor','epoch'],q:['title'],create:['title'],goal:['name','objective'],sub:['parent','title'],plan:['name'],next:['goal'],note:['id','text'],defer:['id','until'],label:['id','add'],recall:['key'],search:['q'],import:['path'],sync_import:['path'],attest:['id','actor','epoch','kind','path'],cost_add:['issue'],learn:['group_by','since'],outbox_export:['format'],remember:['key','value'],budget_claim:['issue','eur'],outbox_done:['id','err'],outbox_fail:['id','err'],ready:['lane']};
+  const shortcuts: Record<string,string[]>={acquire:['actor'],tokens:['text'],verify:['id','actor','epoch','cwd'],checkpoint:['id','actor','epoch','text','next_step'],handoff:['id','actor','epoch','text','next_step'],claim:['id','actor','epoch'],heartbeat:['id','actor','epoch'],close_check:['id','actor','epoch'],close:['id','actor','epoch'],unclaim:['id','actor','epoch'],claim_next:['actor'],dep:['issue','depends_on'],dep_remove:['issue','depends_on'],rename:['from','to'],gate:['name','state'],slot_acquire:['name','actor'],slot_release:['name','actor','epoch'],q:['title'],create:['title'],goal:['name','objective'],sub:['parent','title'],plan:['name'],next:['goal'],note:['id','text'],defer:['id','until'],label:['id','add'],recall:['key'],search:['q'],import:['path'],sync_import:['path'],attest:['id','actor','epoch','kind','path'],cost_add:['issue'],learn:['group_by','since'],outbox_export:['format'],remember:['key','value'],budget_claim:['issue','eur'],outbox_done:['id','err'],outbox_fail:['id','err'],ready:['lane'],admit:['id'],why:['id'],recur:['name'],unpark:['id','reason']};
   const result: Obj={}, positionals: string[]=[]; let noFlags=false;
   const parse=(value: string): Value=>{try{return JSON.parse(value) as Value;}catch{return value;}};
   for (let i=0;i<opt.payload.length;i++) {
@@ -129,7 +129,7 @@ async function socketCall(path: string, db: string, req: Obj, onFrame?: (frame: 
         let sameDb = false;
         try { sameDb = typeof info.db_path === 'string' && realpathSync(info.db_path) === realpathSync(db); } catch { /* A missing or inaccessible database is not trusted. */ }
         if (reply.ok !== true || !sameDb || caps.protocol !== 2 || caps.proof_receipts !== true || bytes.length) return done(new SisError('project_binding_mismatch','socket identity mismatch: project, protocol 2 and proof receipts required'));
-        if (caps.version !== VERSION) return done(new SisError('runtime_version_mismatch',`Expected Superiss ${VERSION}, found ${String(caps.version ?? 'unknown')}; upgrade the owned daemon explicitly; no direct retry`));
+        if (!runtimeCompatible(caps,VERSION,text(req.cmd))) return done(new SisError('runtime_version_mismatch',`Expected Superiss ${VERSION} or a same-major daemon >= floor offering ${text(req.cmd)}, found ${String(caps.version ?? 'unknown')}; upgrade the owned daemon explicitly; no direct retry`));
         if (req.cmd === 'context') return done(undefined,reply);
         identity = false; socket.setTimeout(onFrame ? 0 : requestTimeout(req)); socket.write(canonical(req)+'\n');
         return;
@@ -171,6 +171,30 @@ function lockSocket(path: string): { fd: number; library: LockLibrary } {
     if (!locked.isFile() || locked.dev !== opened.dev || locked.ino !== opened.ino) fail('socket_in_use','socket lock changed while acquiring');
     return {fd,library};
   } catch (error) { if (fd !== undefined) closeSync(fd); library.close(); throw error; }
+}
+// Service definition for any host: systemd on Linux, launchd on macOS. Printed only; installing it stays an explicit admin step.
+function unitFile(a: Obj,db: string,sock: string): string {
+  const kind = text(a.kind,process.platform === 'darwin' ? 'launchd' : 'systemd');
+  const bin = text(a.bin,process.env.SIS_LAUNCHER ?? (process.platform === 'darwin' ? join(process.env.HOME ?? '/','.local/bin/sis') : '/usr/local/bin/sis'));
+  const name = text(a.name,'superiss-'+digest(db).slice(0,10)), root = basename(dirname(db)) === '.sis' ? dirname(dirname(db)) : dirname(db);
+  const tick = Number(a.tick_secs ?? 30), failures = Number(a.max_failures ?? 3);
+  if (!Number.isInteger(tick) || tick < 0 || !Number.isInteger(failures) || failures < 0) fail('bad_args','tick_secs and max_failures must be non-negative integers');
+  if (!/^[A-Za-z0-9_.@-]{1,128}$/u.test(name)) fail('bad_args','invalid unit name');
+  const env: Record<string,string> = {SIS_TICK_SECS:String(tick),SIS_MAX_FAILURES:String(failures),...Object.fromEntries(Object.entries(object(a.env)).map(([k,v])=>[k,text(v)]))};
+  for (const key of Object.keys(env)) if (!/^[A-Z_][A-Z0-9_]*$/u.test(key) || key === 'SIS_ADMIN_TOKEN') fail('bad_args',`environment key ${key} not allowed in a unit`);
+  const argv = [bin,'serve','--db',db,'--sock',sock];
+  if (kind === 'systemd') {
+    if (a.user !== undefined && !/^[a-z_][a-z0-9_-]{0,31}$/u.test(text(a.user))) fail('bad_args','invalid user name');
+    // systemd expands % specifiers and $ variables even inside quotes.
+    const q = (v: string) => { if (/[\n\r]/u.test(v)) fail('bad_args','newline not allowed in unit values'); return JSON.stringify(v).replaceAll('%','%%').replaceAll('$','$$$$'); };
+    // WorkingDirectory= takes the raw rest of the line; quotes would make it relative.
+    const raw = (v: string) => { if (/[\n\r]/u.test(v)) fail('bad_args','newline not allowed in unit values'); return v.replaceAll('%','%%'); };
+    const user = a.user === undefined ? '' : `User=${text(a.user)}\n`, scope = a.scope === 'user' ? 'default.target' : 'multi-user.target';
+    return `# ${name}.service — generated by sis ${VERSION}\n[Unit]\nDescription=Superiss daemon ${db}\nAfter=network-online.target\nWants=network-online.target\n\n[Service]\nType=simple\n${user}WorkingDirectory=${raw(root)}\nExecStart=${argv.map(q).join(' ')}\n${Object.entries(env).map(([k,v])=>`Environment=${JSON.stringify(raw(`${k}=${v}`))}`).join('\n')}\nRestart=always\nRestartSec=5\nKillSignal=SIGTERM\nTimeoutStopSec=330\nUMask=0077\nNoNewPrivileges=yes\nProtectSystem=full\n\n[Install]\nWantedBy=${scope}`;
+  }
+  if (kind !== 'launchd') fail('bad_args','kind must be systemd or launchd');
+  const x = (v: string) => v.replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;');
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">\n<plist version="1.0"><dict>\n<key>Label</key><string>${x('ai.superiss.'+name)}</string>\n<key>ProgramArguments</key><array>${argv.map(v=>`<string>${x(v)}</string>`).join('')}</array>\n<key>WorkingDirectory</key><string>${x(root)}</string>\n<key>EnvironmentVariables</key><dict>${Object.entries(env).map(([k,v])=>`<key>${x(k)}</key><string>${x(v)}</string>`).join('')}</dict>\n<key>RunAtLoad</key><true/>\n<key>KeepAlive</key><true/>\n<key>ThrottleInterval</key><integer>5</integer>\n<key>ExitTimeOut</key><integer>330</integer>\n<key>StandardErrorPath</key><string>${x(join(dirname(db),name+'.log'))}</string>\n</dict></plist>`;
 }
 async function serve(engine: Engine,path: string): Promise<void> {
   const lock = lockSocket(path), timers = new Set<ReturnType<typeof setInterval>>();
@@ -263,6 +287,17 @@ async function serve(engine: Engine,path: string): Promise<void> {
       })();
     });
     process.once('exit',cleanup);
+    // Built-in scheduler: materialize due recurrences without an external poller. SIS_TICK_SECS=0 disables it.
+    const tickSecs = process.env.SIS_TICK_SECS === undefined ? 30 : Number(process.env.SIS_TICK_SECS);
+    if (Number.isFinite(tickSecs) && tickSecs > 0) {
+      const tick = setInterval(() => {
+        if (draining) return;
+        try { if (!engine.row("SELECT 1 FROM kv WHERE k LIKE 'recur:%' AND json_valid(v) AND json_extract(v,'$.enabled')=1 AND json_extract(v,'$.next_at')<=? LIMIT 1",Date.now()/1000)) return; }
+        catch (error) { process.stderr.write(`scheduler check failed: ${error instanceof Error ? error.message : String(error)}\n`); return; }
+        void tracked({cmd:'recur_tick',args:{},actor:'sis-scheduler'});
+      },Math.max(5,tickSecs)*1000);
+      tick.unref(); timers.add(tick);
+    }
     // Readiness is published only after graceful-stop handlers are installed.
     process.stderr.write(`serving ${path}\n`);
   } catch (error) { if (server.listening) server.close(); cleanup(); throw error; }
@@ -320,6 +355,7 @@ async function main(): Promise<void> {
   const pending: string[]=[]; let parent=db; while (!existsSync(parent)) { pending.unshift(basename(parent)); parent=dirname(parent); } db=join(realpathSync(parent),...pending);
   if (opt.cmd === 'migrate_copy') { const args = object(payload(opt)); if (Object.keys(args).some(key => key !== 'source')) fail('bad_args','migrate_copy accepts only source'); console.log(canonical(copySqlite(required(args,'source'),db))); return; }
   const sock=opt.sock || process.env.SIS_SOCK || '/tmp/sis-'+digest(db).slice(0,20)+'.sock';
+  if (opt.cmd==='unit') { console.log(unitFile(object(payload(opt)),db,sock)); return; }
   if (opt.cmd==='serve') { const engine=new Engine(db); await serve(engine,sock); return; }
   const useSocket=process.env.SIS_DIRECT!=='1' && (opt.sock!==undefined || !!process.env.SIS_SOCK || existsSync(sock));
   const call=async(cmd:string,args:Value,withIdem=true,onFrame?: (frame: Obj) => void):Promise<Obj>=>{

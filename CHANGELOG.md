@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.6.0 — 24/7 orchestration on any host (2026-11-19)
+
+- Added `admit` (alias `why`): a read-only admission report that lists every non-terminal task as admitted or held with machine-readable reasons. Idle workers can now see why nothing is claimable instead of polling `ready`.
+- Added parking: after `meta.max_failures` (default `SIS_MAX_FAILURES`, `0` = unlimited, legacy behavior) failed proofs since the last unpark or reopen a task is no longer granted, `verify` refuses with `parked`, and a `parked` event is emitted. `unpark` (controller or admin, reason required) and `reopen` reset the count. Workers cannot change `max_failures`; reopening a parked task needs the controller or admin. A `proofs(issue,passed)` index keeps the check cheap. `unpark all:true` (admin) sets a store-wide baseline so enabling parking on an existing store ignores historical failures.
+- Added recurring tasks: `recur`, `recur_tick`, `recur_list`. Deterministic instance ids per slot start (`<name>-<epoch seconds>`), templates validated at definition time, a broken spec disables itself with `last_error` while others keep running, explicit tick clocks clamped to at most one minute ahead, missed slots collapse into one, no overlap by default. The daemon materializes due recurrences every `SIS_TICK_SECS` (default 30 s, `0` disables), so nightly or hourly work needs no external LLM poller.
+- Added `sis unit` to print a systemd unit (Linux) or launchd plist (macOS) for a bound database and socket; secrets are refused.
+- Linux local-zero execution now uses bubblewrap when user namespaces work (all namespaces unshared, read-only root, only the task directory writable). Without it local-zero still fails closed. CI installs bubblewrap with an AppArmor profile and runs the sandbox escape tests on Linux.
+- Clients accept a same-major daemon from 1.5.0 on that advertises the requested operation, so client and daemon upgrades no longer need a simultaneous restart. Lifecycle commands still require the exact version. No schema or protocol change; recurrences and parking marks live in `kv`.
+
 ## 1.5.2 — help and documentation (2026-11-11)
 
 - Add database-free CLI help for optional hybrid search, sqlite-vec index controls, DuckDB analytics and persistent RPC sessions.

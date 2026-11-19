@@ -3,7 +3,7 @@ import { existsSync, lstatSync, realpathSync } from 'node:fs';
 import { createConnection, type Socket } from 'node:net';
 import { resolve } from 'node:path';
 import { VERSION } from '../runtime.ts';
-import { canonical, object, SisError, type Obj } from './util.ts';
+import { canonical, object, runtimeCompatible, SisError, type Obj } from './util.ts';
 
 interface Pending {
   sent: boolean;
@@ -16,6 +16,7 @@ export class SuperissSocketClient {
   private ready = false;
   private closed = false;
   private boundProject?: string;
+  private daemonCaps?: Obj;
   private readonly db: string;
   private readonly timeoutMs: number;
   private readonly maxPending: number;
@@ -77,7 +78,8 @@ export class SuperissSocketClient {
                 || typeof info.project_id !== 'string' || !info.project_id || caps.protocol !== 2 || caps.proof_receipts !== true || buffer.length) {
                 throw new SisError('project_binding_mismatch', 'Socket database, project or protocol identity differs');
               }
-              if (caps.version !== VERSION) throw new SisError('runtime_version_mismatch', `Expected Superiss ${VERSION}, found ${String(caps.version ?? 'unknown')}`);
+              if (!runtimeCompatible(caps, VERSION)) throw new SisError('runtime_version_mismatch', `Expected Superiss ${VERSION} (or same-major daemon >= floor advertising operations), found ${String(caps.version ?? 'unknown')}`);
+              this.daemonCaps = caps;
               if (this.boundProject && this.boundProject !== info.project_id) throw new SisError('project_binding_mismatch', 'Project identity changed; explicit new client required');
               this.boundProject = info.project_id;
               handshaking = false; this.ready = true; settled = true; clearTimeout(timer); resolve(socket);
@@ -101,6 +103,7 @@ export class SuperissSocketClient {
     if (options.signal?.aborted) return Promise.reject(new SisError('aborted', 'Request aborted before dispatch'));
     if (this.pending.size >= this.maxPending) return Promise.reject(new SisError('busy', 'Socket pending limit reached'));
     if (typeof input.cmd !== 'string' || !input.cmd || input.cmd === 'watch') return Promise.reject(new SisError('bad_args', 'Command required; watch needs a dedicated socket'));
+    if (this.daemonCaps && !runtimeCompatible(this.daemonCaps, VERSION, input.cmd)) return Promise.reject(new SisError('runtime_version_mismatch', `Daemon ${String(this.daemonCaps.version)} does not offer ${input.cmd}; upgrade the owned daemon explicitly`));
     const id = input.request_id ?? randomUUID();
     if (typeof id !== 'string' || !id || id.length > 128 || this.pending.has(id)) return Promise.reject(new SisError('bad_request_id', 'Unique text request_id required'));
     let timeout: number, frame: string;
@@ -121,6 +124,7 @@ export class SuperissSocketClient {
       if (options.signal?.aborted) { abort(); return; }
       void this.connect().then(socket => {
         if (this.pending.get(id) !== job) return;
+        if (this.daemonCaps && !runtimeCompatible(this.daemonCaps, VERSION, String(input.cmd))) { job.finish(new SisError('runtime_version_mismatch', `Daemon ${String(this.daemonCaps.version)} does not offer ${String(input.cmd)}; upgrade the owned daemon explicitly`)); return; }
         job.sent = true; socket.write(frame);
       }).catch(error => {
         if (this.pending.get(id) !== job) return;
