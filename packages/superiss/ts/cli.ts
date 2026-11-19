@@ -177,7 +177,7 @@ function unitFile(a: Obj,db: string,sock: string): string {
   const kind = text(a.kind,process.platform === 'darwin' ? 'launchd' : 'systemd');
   const bin = text(a.bin,process.env.SIS_LAUNCHER ?? (process.platform === 'darwin' ? join(process.env.HOME ?? '/','.local/bin/sis') : '/usr/local/bin/sis'));
   const name = text(a.name,'superiss-'+digest(db).slice(0,10)), root = basename(dirname(db)) === '.sis' ? dirname(dirname(db)) : dirname(db);
-  const tick = Number(a.tick_secs ?? 30), failures = Number(a.max_failures ?? 3);
+  const tick = Number(a.tick_secs ?? 30), failures = Number(a.max_failures ?? 10);
   if (!Number.isInteger(tick) || tick < 0 || !Number.isInteger(failures) || failures < 0) fail('bad_args','tick_secs and max_failures must be non-negative integers');
   if (!/^[A-Za-z0-9_.@-]{1,128}$/u.test(name)) fail('bad_args','invalid unit name');
   const env: Record<string,string> = {SIS_TICK_SECS:String(tick),SIS_MAX_FAILURES:String(failures),...Object.fromEntries(Object.entries(object(a.env)).map(([k,v])=>[k,text(v)]))};

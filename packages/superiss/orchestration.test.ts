@@ -191,7 +191,7 @@ test('unit generator prints systemd and launchd services for the bound database'
     assert.equal(systemd.status, 0, systemd.stderr);
     assert.match(systemd.stdout, /^ExecStart="\/opt\/superiss\/bin\/sis" "serve" "--db" ".*office\.db" "--sock" ".*office\.sock"$/mu);
     assert.match(systemd.stdout, /^User=devin$/mu); assert.match(systemd.stdout, /^Restart=always$/mu);
-    assert.match(systemd.stdout, /^Environment="SIS_MAX_FAILURES=3"$/mu); assert.match(systemd.stdout, /^WorkingDirectory=\/.*sis-unit-[^/"]+$/mu);
+    assert.match(systemd.stdout, /^Environment="SIS_MAX_FAILURES=10"$/mu); assert.match(systemd.stdout, /^WorkingDirectory=\/.*sis-unit-[^/"]+$/mu);
     const plist = run('kind=launchd', 'name=office');
     assert.equal(plist.status, 0, plist.stderr); assert.match(plist.stdout, /<key>KeepAlive<\/key><true\/>/u); assert.match(plist.stdout, /ai\.superiss\.office/u);
     assert.notEqual(run('kind=systemd', 'env={"SIS_ADMIN_TOKEN":"x"}').status, 0, 'secrets never go into unit files');
