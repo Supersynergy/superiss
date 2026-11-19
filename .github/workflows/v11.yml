@@ -38,6 +38,11 @@ jobs:
           "$RUNNER_TEMP/bin/sis" create id=h title=health lane=ops oracle_cmd='test -s README.md' allowed_paths='["README.md"]' --db "$db"
           SIS_DIRECT=1 "$RUNNER_TEMP/bin/sis" work lane=ops once=true --db "$db" --actor ci
           test "$("$RUNNER_TEMP/bin/sis" show id=h --db "$db" | jq -r .issue.status)" = closed
+          # Switching over an existing current link must replace it, not move into its target.
+          mkdir -p "$RUNNER_TEMP/sis/releases/old" && ln -sfn "$RUNNER_TEMP/sis/releases/old" "$RUNNER_TEMP/sis/current"
+          tools/install.sh --version "$v" --from "$RUNNER_TEMP/asset/superiss-$v.tar.gz" --prefix "$RUNNER_TEMP/sis" --bin-dir "$RUNNER_TEMP/bin"
+          case "$(readlink "$RUNNER_TEMP/sis/current")" in "$RUNNER_TEMP/sis/releases/$v-"*) ;; *) echo "current not switched"; exit 1 ;; esac
+          test -z "$(ls -A "$RUNNER_TEMP/sis/releases/old")"
       - name: Linux local-zero sandbox with bubblewrap
         if: runner.os == 'Linux'
         run: |

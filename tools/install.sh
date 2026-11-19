@@ -65,7 +65,9 @@ fi
 previous="$(readlink "$prefix/current" 2>/dev/null || true)"
 lock="$prefix/client-update.lock"; [ -e "$lock" ] || : > "$lock"
 # Atomic switch: build the new link beside the old one and rename over it (under the client lock when flock exists).
-switch() { ln -sfn "$target" "$prefix/.current.$$" && mv -f "$prefix/.current.$$" "$prefix/current"; }
+# GNU mv needs -T and BSD mv needs -h, otherwise the new link is moved *into* the old target directory.
+if mv --version >/dev/null 2>&1; then mvlink() { mv -Tf "$1" "$2"; }; else mvlink() { mv -fh "$1" "$2"; }; fi
+switch() { ln -sfn "$target" "$prefix/.current.$$" && mvlink "$prefix/.current.$$" "$prefix/current" && [ "$(readlink "$prefix/current")" = "$target" ]; }
 if command -v flock >/dev/null 2>&1; then exec 9<>"$lock"; flock -x -w 120 9; switch; flock -u 9; else switch; fi
 for tool in sis sisf; do
   link="$bindir/$tool"
