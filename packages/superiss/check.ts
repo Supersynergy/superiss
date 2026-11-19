@@ -39,7 +39,7 @@ for (const file of origin.files) {
 run('inherited-unit-regressions', process.execPath, ['test', 'ts/store.test.ts', '--bail'], false, 90000);
 run('hybrid-concurrency-recovery', process.execPath, ['test', 'hybrid.test.ts', 'release.test.ts', '--timeout', '20000', '--bail'], false, 120000);
 run('optional-search', process.execPath, ['test', 'search.test.ts', '--bail']);
-run('orchestration-admission-recurrence', process.execPath, ['test', 'orchestration.test.ts', 'local-zero.test.ts', '--bail'], false, 120000);
+run('orchestration-admission-recurrence', process.execPath, ['test', 'orchestration.test.ts', 'local-zero.test.ts', '--timeout', '20000', '--bail'], false, 120000);
 run('protocol-contract-complete', 'python3', ['tests/contract_suite.py', '--require-complete', '--serve-cmd', `${process.execPath} ${join(root, 'cli.ts')} serve`], false, 90000);
 const benchmark = JSON.parse(run('paired-cache-benchmark', process.execPath, ['benchmark.ts'], true, 30000)) as unknown;
 run('build-artifacts', process.execPath, ['build', 'cli.ts', 'analytics-worker.ts', '--target=bun', '--outdir=dist']);

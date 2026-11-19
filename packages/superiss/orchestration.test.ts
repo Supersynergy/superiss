@@ -195,6 +195,12 @@ test('unit generator prints systemd and launchd services for the bound database'
     const plist = run('kind=launchd', 'name=office');
     assert.equal(plist.status, 0, plist.stderr); assert.match(plist.stdout, /<key>KeepAlive<\/key><true\/>/u); assert.match(plist.stdout, /ai\.superiss\.office/u);
     assert.notEqual(run('kind=systemd', 'env={"SIS_ADMIN_TOKEN":"x"}').status, 0, 'secrets never go into unit files');
+    const worker = run('kind=systemd', 'mode=work', 'lane=ops', 'actor=netcup-ops', 'name=ops-worker', 'bin=/opt/superiss/bin/sis');
+    assert.equal(worker.status, 0, worker.stderr);
+    assert.match(worker.stdout, /^ExecStart="\/opt\/superiss\/bin\/sis" "work" "lane=ops" "--db" .* "--actor" "netcup-ops"$/mu);
+    assert.match(worker.stdout, /^After=network-online.target ops.service$/mu);
+    assert.notEqual(run('kind=systemd', 'mode=work', 'lane=ops').status, 0, 'worker needs an actor');
+    assert.notEqual(run('kind=systemd', 'after=x\nExecStartPre=/bin/evil').status, 0);
     assert.notEqual(run('kind=systemd', 'user=root\nExecStartPre=/bin/evil').status, 0, 'no directive injection');
     assert.match(run('kind=systemd', 'bin=/opt/a%h$HOME/sis').stdout, /^ExecStart="\/opt\/a%%h\$\$HOME\/sis"/mu, 'specifiers and variables are escaped');
   } finally { rmSync(root, { recursive: true, force: true }); }
@@ -264,5 +270,33 @@ test('heartbeats no longer churn the FTS index and existing stores are upgraded 
       await e.dispatch('update', { id: 'hb', actor: 'w', epoch: claim.epoch, title: 'renamed headline' });
       assert.equal(array(await e.dispatch('search', { q: 'headline' })).length, 1, 'indexed columns still update search');
     } finally { await e.shutdown(); e.db.close(); }
+  } finally { rmSync(f.root, { recursive: true, force: true }); }
+});
+
+test('oracle-only worker closes passing lane tasks, releases failures and never touches other lanes', async () => {
+  const f = await fixture();
+  try {
+    const e = f.engine;
+    await e.dispatch('create', { id: 'a-ok', title: 'ok', lane: 'ops', priority: 0, oracle_cmd: 'test -f source.txt', allowed_paths: ['source.txt'] });
+    await e.dispatch('create', { id: 'b-bad', title: 'bad', lane: 'ops', priority: 1, oracle_cmd: 'false', allowed_paths: ['source.txt'], meta: { max_failures: 1 } });
+    await e.dispatch('create', { id: 'c-llm', title: 'model work', lane: 'agents', priority: -1, oracle_cmd: 'true', allowed_paths: ['source.txt'] });
+    await e.shutdown(); e.db.close();
+    const cli = join(dirname(fileURLToPath(import.meta.url)), 'cli.ts');
+    const run = (...args: string[]) => spawnSync(process.execPath, [cli, 'work', ...args, '--db', f.db], { encoding: 'utf8', env: { ...process.env, SIS_DIRECT: '1', SIS_DB: '', SIS_SOCK: '' } });
+    assert.notEqual(run('once=true', '--actor', 'w').status, 0, 'lane is mandatory');
+    const runs = [run('lane=ops', 'once=true', '--actor', 'w'), run('lane=ops', 'once=true', '--actor', 'w'), run('lane=ops', 'once=true', '--actor', 'w')];
+    assert.deepEqual(runs.map(r => r.status), [0, 1, 0], 'a failed check is visible in the exit code');
+    const lines = runs.map(r => r.stdout.trim());
+    const first = JSON.parse(lines[0]), second = JSON.parse(lines[1]);
+    assert.equal(first.event, 'closed'); assert.equal(first.id, 'a-ok'); assert.match(String(first.proof_id), /^proof-/u);
+    assert.equal(second.event, 'failed'); assert.equal(second.id, 'b-bad'); assert.equal(second.parked, true);
+    assert.equal(lines[2], '', 'nothing left: parked task is not granted again');
+    const after = new Engine(f.db);
+    try {
+      assert.equal(after.issue('a-ok').status, 'closed');
+      assert.equal(after.issue('b-bad').status, 'deferred', 'failed check is backed off, not retried in a hot loop');
+      assert.equal(after.issue('b-bad').claim_actor, null);
+      assert.equal(after.issue('c-llm').status, 'open', 'other lanes untouched');
+    } finally { await after.shutdown(); after.db.close(); }
   } finally { rmSync(f.root, { recursive: true, force: true }); }
 });

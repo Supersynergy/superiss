@@ -1,10 +1,31 @@
-# Get started and upgrade — 1.5.2
+# Get started and upgrade — 1.6.0
 
 ## Requirements
 
 Bun >=1.4.4 runs the current source and release bundle. Git is required for forge work. Worktrunk is optional; the selected backend never silently changes. GitHub PR and CI operations require installed/authenticated `gh`. Gitea/Forgejo use the configured REST endpoint. No tracker model API key is needed.
 
 Analytics additionally requires an existing DuckDB 2 shared library and `run-guard`. Set `SIS_DUCKDB_LIBRARY` for an explicit library path. No extension or dependency is installed automatically. Unix sockets are required for daemon/forge use; Linux and macOS are the supported targets for those paths.
+
+## Install on Linux or macOS
+
+```sh
+# As root: /opt/superiss + /usr/local/bin. As a user: ~/.local/share/superiss + ~/.local/bin.
+curl -fsSLO https://raw.githubusercontent.com/Supersynergy/superiss/main/tools/install.sh
+bash install.sh --version 1.6.0 --sandbox
+```
+
+The installer downloads the release archive, checks its SHA-256, installs it next to earlier releases and switches `current` (under `flock` when available). It never replaces a non-symlink `sis` wrapper. `--sandbox` on Linux allows user namespaces for bubblewrap via AppArmor when the kernel restricts them (Ubuntu 24.04); install bubblewrap itself with the distribution package manager. Running daemons keep their version until restarted.
+
+## Run 24/7 as a service
+
+```sh
+sis unit kind=systemd user=svc bin=/usr/local/bin/sis --db /srv/p/.sis/p.db --sock /srv/p/.sis/p.sock > /etc/systemd/system/p.service
+sis unit kind=systemd mode=work lane=ops actor=host-ops user=svc name=p-worker bin=/usr/local/bin/sis --db /srv/p/.sis/p.db --sock /srv/p/.sis/p.sock > /etc/systemd/system/p-worker.service
+systemctl daemon-reload && systemctl enable --now p.service p-worker.service
+sis recur name=health every_secs=900 template='{"title":"Host health","lane":"ops","oracle_cmd":"test -s README.md","allowed_paths":["README.md"]}' --db /srv/p/.sis/p.db
+```
+
+On macOS use `kind=launchd` and `launchctl bootstrap gui/$(id -u) FILE.plist`. The daemon creates due recurring tasks; `sis work lane=ops` claims tasks whose work is the oracle itself, closes them with a proof and releases failures, which park after `SIS_MAX_FAILURES`. Model agents use other lanes; the worker never takes them.
 
 ## Start an explicit project
 
@@ -38,10 +59,16 @@ bun tools/check-v11.ts
 # Additional full hybrid analytics/source gate, with its native dependencies installed:
 bun packages/superiss/check.ts
 bun tools/check-v1-publication.ts
-bun tools/package-v1.ts /absolute/new-superiss-1.5.2 --with-adapters
+bun tools/package-v1.ts /absolute/new-superiss-1.6.0 --with-adapters
+# Release archive + checksum:
+tools/release-asset.sh /absolute/out
 ```
 
 The package manifest hashes every shipped runtime file, including the forge and MIT license. A package build is not a production installation or a completed soak.
+
+## Upgrade from 1.5.x to 1.6.0
+
+No schema or protocol change. A 1.6.0 client works with a running 1.5.x daemon for every operation that daemon advertises, so clients can be switched first; restart the daemon when no lease is live to get `admit`, parking and recurrences. Opening a store with 1.6.0 replaces the FTS update trigger (it no longer fires on lease updates) and adds a proofs index without rewriting data. Reclaim an index bloated by older versions once, with no daemon running: `INSERT INTO issues_fts(issues_fts) VALUES('rebuild'); VACUUM;`. Before setting `SIS_MAX_FAILURES` on an existing store run `sis unpark all=true reason=... admin_token=...` so historical failed proofs do not park tasks.
 
 ## Upgrade from 1.5.1 to 1.5.2
 

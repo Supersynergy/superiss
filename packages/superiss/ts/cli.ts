@@ -23,7 +23,7 @@ function help(topic = ''): string {
   };
   if (topic && pages[topic]) return pages[topic];
   if (topic) return `No dedicated help for ${topic}. Use sis capabilities schemas=true --db PATH or docs/OPERATIONS.md.`;
-  return 'sis <operation> [JSON | key=value ...] --db PATH [--actor NAME] [--idem KEY]\nsis serve --db PATH --sock PATH\nsis unit [kind=systemd|launchd] [user=NAME] [bin=PATH] --db PATH --sock PATH\nsis mcp --db PATH [--tool NAME] [--mcp-headers]\nsis help search|search_index|analytics|rpc\nSQLite/FTS5 is the authority; sqlite-vec is optional search; DuckDB is snapshot analytics.\nRepeated agent calls: sis rpc --db PATH. TypeScript 7.1 / Bun.';
+  return 'sis <operation> [JSON | key=value ...] --db PATH [--actor NAME] [--idem KEY]\nsis serve --db PATH --sock PATH\nsis unit [kind=systemd|launchd] [mode=serve|work lane=L actor=A] [user=NAME] [bin=PATH] --db PATH --sock PATH\nsis work lane=NAME [once=true] [timeout_secs=120] [idle_secs=30] [retry_secs=300] --db PATH --actor NAME\nsis mcp --db PATH [--tool NAME] [--mcp-headers]\nsis help search|search_index|analytics|rpc\nSQLite/FTS5 is the authority; sqlite-vec is optional search; DuckDB is snapshot analytics.\nRepeated agent calls: sis rpc --db PATH. TypeScript 7.1 / Bun.';
 }
 function options(): Options {
   const result: Options={cmd:'serve',payload:[],headers:false,tools:[]}; let selected=false;
@@ -172,6 +172,49 @@ function lockSocket(path: string): { fd: number; library: LockLibrary } {
     return {fd,library};
   } catch (error) { if (fd !== undefined) closeSync(fd); library.close(); throw error; }
 }
+// Oracle-only worker: claims tasks of one lane whose work *is* the oracle (health checks, recurring gates, audits),
+// verifies and closes on success, releases on failure. Parking bounds retries. No model is involved.
+async function work(a: Obj,opt: Options,db: string,call: (cmd: string,args: Value,withIdem?: boolean) => Promise<Obj>): Promise<void> {
+  const lane = text(a.lane), actor = opt.actor ?? '', once = a.once === true;
+  if (!lane) fail('bad_args','work requires lane=NAME so it never takes tasks meant for model agents');
+  if (!actor) fail('bad_args','work requires --actor NAME');
+  const timeout = Number(a.timeout_secs ?? 120), idle = Number(a.idle_secs ?? 30), retry = Number(a.retry_secs ?? 300);
+  if (!Number.isInteger(timeout) || timeout < 1 || timeout > 300 || !Number.isFinite(idle) || idle < 1 || idle > 3600 || !Number.isInteger(retry) || retry < 1 || retry > 86400) fail('bad_args','timeout_secs 1..300, idle_secs 1..3600, retry_secs 1..86400');
+  const cwd = resolve(text(a.cwd,basename(dirname(db)) === '.sis' ? dirname(dirname(db)) : dirname(db)));
+  let stopping = false; const stop = () => { stopping = true; };
+  process.once('SIGTERM',stop); process.once('SIGINT',stop);
+  const log = (value: Obj) => console.log(canonical({ts:Math.floor(Date.now()/1000),actor,lane,...value}));
+  // Transport errors (daemon restart, timeout) become envelopes; the loop never dies with a held claim.
+  const safe = async (cmd: string,args: Value): Promise<Obj> => { try { return await call(cmd,args,false); } catch (error) { return responseError(error); } };
+  const rest = async () => { const until = Date.now()+idle*1000; while (!stopping && Date.now() < until) await delay(250); };
+  while (!stopping) {
+    const granted = await safe('acquire',{actor,lane,ttl:timeout+120});
+    const task = object(granted.data), id = task.id;
+    if (!granted.ok || typeof id !== 'string') {
+      if (!granted.ok) log({event:'acquire_failed',error:granted.error ?? null});
+      if (once) { process.exitCode = granted.ok ? 0 : 2; return; }
+      await rest(); continue;
+    }
+    const fence = {id,actor,epoch:task.epoch ?? null};
+    const proof = await safe('verify',{...fence,cwd,timeout_secs:timeout}), result = object(proof.data);
+    let ok = false;
+    if (proof.ok && result.passed === true) {
+      const closed = await safe('close',{...fence,proof_id:result.proof_id ?? null,reason:`oracle-only worker ${actor}`});
+      ok = closed.ok === true;
+      log({event:ok ? 'closed' : 'close_failed',id,proof_id:result.proof_id ?? null,...(ok ? {} : {error:closed.error ?? null})});
+    } else log({event:'failed',id,parked:result.parked === true,exit_code:result.exit_code ?? null,error:proof.ok ? null : proof.error ?? null});
+    if (!ok) {
+      // Release on every failure path so the lease never blocks the lane until it expires.
+      const released = await safe('unclaim',fence);
+      if (!released.ok) log({event:'release_failed',id,error:released.error ?? null});
+      // Back off the failed task so one broken check never starves the rest of the lane, with or without parking.
+      else { const backoff = await safe('defer',{id,until:`+${retry}s`,actor}); if (!backoff.ok) log({event:'backoff_failed',id,error:backoff.error ?? null}); }
+      if (once) { process.exitCode = 1; return; }
+      await rest();
+    }
+    if (once) return;
+  }
+}
 // Service definition for any host: systemd on Linux, launchd on macOS. Printed only; installing it stays an explicit admin step.
 function unitFile(a: Obj,db: string,sock: string): string {
   const kind = text(a.kind,process.platform === 'darwin' ? 'launchd' : 'systemd');
@@ -182,7 +225,12 @@ function unitFile(a: Obj,db: string,sock: string): string {
   if (!/^[A-Za-z0-9_.@-]{1,128}$/u.test(name)) fail('bad_args','invalid unit name');
   const env: Record<string,string> = {SIS_TICK_SECS:String(tick),SIS_MAX_FAILURES:String(failures),...Object.fromEntries(Object.entries(object(a.env)).map(([k,v])=>[k,text(v)]))};
   for (const key of Object.keys(env)) if (!/^[A-Z_][A-Z0-9_]*$/u.test(key) || key === 'SIS_ADMIN_TOKEN') fail('bad_args',`environment key ${key} not allowed in a unit`);
-  const argv = [bin,'serve','--db',db,'--sock',sock];
+  const mode = text(a.mode,'serve');
+  if (!['serve','work'].includes(mode)) fail('bad_args','mode must be serve or work');
+  if (a.idle_secs !== undefined && !(Number.isInteger(a.idle_secs) && Number(a.idle_secs) >= 1 && Number(a.idle_secs) <= 3600)) fail('bad_args','idle_secs must be 1..3600');
+  if (a.after !== undefined && !/^[A-Za-z0-9_.@-]{1,128}\.service$/u.test(text(a.after))) fail('bad_args','after must be a unit name');
+  if (mode === 'work' && (!/^[A-Za-z0-9_.:-]{1,64}$/u.test(text(a.lane)) || !/^[A-Za-z0-9_.@:-]{1,128}$/u.test(text(a.actor)))) fail('bad_args','mode=work needs lane and actor');
+  const argv = mode === 'serve' ? [bin,'serve','--db',db,'--sock',sock] : [bin,'work',`lane=${text(a.lane)}`,...(a.idle_secs === undefined ? [] : [`idle_secs=${Number(a.idle_secs)}`]),'--db',db,'--sock',sock,'--actor',text(a.actor)];
   if (kind === 'systemd') {
     if (a.user !== undefined && !/^[a-z_][a-z0-9_-]{0,31}$/u.test(text(a.user))) fail('bad_args','invalid user name');
     // systemd expands % specifiers and $ variables even inside quotes.
@@ -190,11 +238,11 @@ function unitFile(a: Obj,db: string,sock: string): string {
     // WorkingDirectory= takes the raw rest of the line; quotes would make it relative.
     const raw = (v: string) => { if (/[\n\r]/u.test(v)) fail('bad_args','newline not allowed in unit values'); return v.replaceAll('%','%%'); };
     const user = a.user === undefined ? '' : `User=${text(a.user)}\n`, scope = a.scope === 'user' ? 'default.target' : 'multi-user.target';
-    return `# ${name}.service — generated by sis ${VERSION}\n[Unit]\nDescription=Superiss daemon ${db}\nAfter=network-online.target\nWants=network-online.target\n\n[Service]\nType=simple\n${user}WorkingDirectory=${raw(root)}\nExecStart=${argv.map(q).join(' ')}\n${Object.entries(env).map(([k,v])=>`Environment=${JSON.stringify(raw(`${k}=${v}`))}`).join('\n')}\nRestart=always\nRestartSec=5\nKillSignal=SIGTERM\nTimeoutStopSec=330\nUMask=0077\nNoNewPrivileges=yes\nProtectSystem=full\n\n[Install]\nWantedBy=${scope}`;
+    return `# ${name}.service — generated by sis ${VERSION}\n[Unit]\nDescription=Superiss ${mode === 'serve' ? 'daemon' : 'oracle worker'} ${db}\nAfter=network-online.target${mode === 'work' ? ` ${text(a.after,name.replace(/-worker$/u,'')+'.service')}` : ''}\nWants=network-online.target\n\n[Service]\nType=simple\n${user}WorkingDirectory=${raw(root)}\nExecStart=${argv.map(q).join(' ')}\n${Object.entries(env).map(([k,v])=>`Environment=${JSON.stringify(raw(`${k}=${v}`))}`).join('\n')}\nRestart=always\nRestartSec=5\nKillSignal=SIGTERM\nTimeoutStopSec=330\nUMask=0077\nNoNewPrivileges=yes\nProtectSystem=full\n\n[Install]\nWantedBy=${scope}`;
   }
   if (kind !== 'launchd') fail('bad_args','kind must be systemd or launchd');
   const x = (v: string) => v.replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;');
-  return `<?xml version="1.0" encoding="UTF-8"?>\n<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">\n<plist version="1.0"><dict>\n<key>Label</key><string>${x('ai.superiss.'+name)}</string>\n<key>ProgramArguments</key><array>${argv.map(v=>`<string>${x(v)}</string>`).join('')}</array>\n<key>WorkingDirectory</key><string>${x(root)}</string>\n<key>EnvironmentVariables</key><dict>${Object.entries(env).map(([k,v])=>`<key>${x(k)}</key><string>${x(v)}</string>`).join('')}</dict>\n<key>RunAtLoad</key><true/>\n<key>KeepAlive</key><true/>\n<key>ThrottleInterval</key><integer>5</integer>\n<key>ExitTimeOut</key><integer>330</integer>\n<key>StandardErrorPath</key><string>${x(join(dirname(db),name+'.log'))}</string>\n</dict></plist>`;
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">\n<plist version="1.0"><dict>\n<key>Label</key><string>${x('ai.superiss.'+name)}</string>\n<key>ProgramArguments</key><array>${argv.map(v=>`<string>${x(v)}</string>`).join('')}</array>\n<key>WorkingDirectory</key><string>${x(root)}</string>\n<key>EnvironmentVariables</key><dict>${Object.entries(env).map(([k,v])=>`<key>${x(k)}</key><string>${x(v)}</string>`).join('')}</dict>\n<key>RunAtLoad</key><true/>\n<key>KeepAlive</key><true/>\n<key>ThrottleInterval</key><integer>5</integer>\n<key>ExitTimeOut</key><integer>330</integer>\n<key>StandardOutPath</key><string>${x(join(dirname(db),name+'.log'))}</string>\n<key>StandardErrorPath</key><string>${x(join(dirname(db),name+'.log'))}</string>\n</dict></plist>`;
 }
 async function serve(engine: Engine,path: string): Promise<void> {
   const lock = lockSocket(path), timers = new Set<ReturnType<typeof setInterval>>();
@@ -384,6 +432,7 @@ async function main(): Promise<void> {
     if(blocked){process.stderr.write(canonical(responseError(blocked))+'\n');process.exit(2);}
     return;
   }
+  if (opt.cmd==='work') { await work(object(payload(opt)),opt,db,call); return; }
   let args=payload(opt);
   if (opt.cmd==='changes' && object(args).files===undefined) args=collectChanges(object(args),db);
   if (['checkpoint','handoff'].includes(opt.cmd) && object(args).cwd===undefined && !opt.payload[0]?.startsWith('{')) args={...object(args),cwd:process.cwd()};

@@ -29,6 +29,15 @@ jobs:
           echo "SIS_TYPE_ROOTS=$GITHUB_WORKSPACE/.cache/v11-tools/node_modules/@types" >> "$GITHUB_ENV"
       - name: Current core, forge, protocol and relocatable package
         run: bun tools/check-v11.ts
+      - name: Release archive, installer and oracle worker
+        run: |
+          v="$(jq -r .version packages/superiss/package.json)"
+          tools/release-asset.sh "$RUNNER_TEMP/asset"
+          tools/install.sh --version "$v" --from "$RUNNER_TEMP/asset/superiss-$v.tar.gz" --prefix "$RUNNER_TEMP/sis" --bin-dir "$RUNNER_TEMP/bin"
+          db="$RUNNER_TEMP/p/.sis/p.db"; mkdir -p "$(dirname "$db")"; echo ok > "$RUNNER_TEMP/p/README.md"
+          "$RUNNER_TEMP/bin/sis" create id=h title=health lane=ops oracle_cmd='test -s README.md' allowed_paths='["README.md"]' --db "$db"
+          SIS_DIRECT=1 "$RUNNER_TEMP/bin/sis" work lane=ops once=true --db "$db" --actor ci
+          test "$("$RUNNER_TEMP/bin/sis" show id=h --db "$db" | jq -r .issue.status)" = closed
       - name: Linux local-zero sandbox with bubblewrap
         if: runner.os == 'Linux'
         run: |

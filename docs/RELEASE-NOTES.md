@@ -1,4 +1,19 @@
-# Superiss 1.3.0
+# Superiss 1.6.0
+
+Superiss can now run unattended agent coordination on any Linux or macOS host.
+
+- `sis admit` (alias `why`) explains for every open task whether it can be claimed and, if not, why: missing oracle, dependencies, deferral, parking, live claim, sandbox.
+- Parking: after `max_failures` failed proofs a task is no longer granted until its controller or an admin runs `unpark`. On existing stores run `unpark all=true` first.
+- Recurring tasks: the daemon materializes `recur` templates itself (`SIS_TICK_SECS`), one task per slot, no catch-up storm, no overlap by default.
+- `sis work lane=NAME`: an oracle-only worker for checks, gates and audits that claims, verifies, closes or releases without any model.
+- `sis unit` prints systemd units and launchd plists for the daemon and workers; `tools/install.sh` installs a checksum-verified release for root or a user.
+- Linux local-zero execution in bubblewrap; clients talk to same-major daemons from 1.5.0 that advertise the requested operation.
+- Fixed: `acquire` could grant tasks deferred with text dates; the FTS trigger rewrote the search index on every heartbeat (3.1 GB on a production store).
+
+No schema or protocol change. [Upgrade](GETTING-STARTED.md) · [Operations](OPERATIONS.md) · [Validation](VALIDATION.md)
+
+## Historical 1.3.0 release notes
+
 
 - Added `sis woop`: one atomic native goal with implementation, delivery and outcome tasks, separate oracles/scopes/acceptance, ordered dependencies and explicit controller ownership. No execution or claims occur on creation.
 - Versioned intent and stage references travel through the existing revision-bound contract/brief/acquire/resume path. Input is bounded and exact; replay uses native idempotency. No database migration or dependencies.

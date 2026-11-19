@@ -1,6 +1,10 @@
-# Validation — Superiss 1.5.2
+# Validation — Superiss 1.6.0
 
 Current evidence is separate from the [historical 0.9 record](archive/0.9/VALIDATION.md). JSON receipts under `docs/research/` describe their original snapshots; their hashes are not current-file assertions.
+
+## 1.6.0 acceptance scope
+
+Same three gates on one source hash: `bun tools/check-v11.ts`, `bun packages/superiss/check.ts`, `bun tools/check-v1-publication.ts`; `orchestration.test.ts` and `local-zero.test.ts` run in the first two. Hosted CI runs the sandbox escape tests on Linux with bubblewrap. Recorded for this release: the suites on Ubuntu 24.04 ARM64 (fresh VM) and macOS ARM64; a systemd probe (generated unit, recurrence tick, `kill -9`, automatic restart, claim/verify/close readback); a launchd probe (daemon and `sis work` agents, two recurring slots closed with proofs across a daemon kill); a production cutover of a 1,558-task store from 1.5.2 with a client-first switch and an FTS reclaim from 3.18 GB to 9.6 MB with equal row counts and a passing integrity check. Not covered: distributions beyond CI and the recorded hosts, Windows, multi-day soak.
 
 ## 1.5.2 acceptance scope
 
