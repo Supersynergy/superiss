@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- `recur` rejects `local_zero` templates without `budget_eur: 0`; such templates could only create tasks whose verification always fails.
+
 ## 1.6.0 — 24/7 orchestration on any host (2026-11-19)
 
 - Added `admit` (alias `why`): a read-only admission report that lists every non-terminal task as admitted or held with machine-readable reasons. Idle workers can now see why nothing is claimable instead of polling `ready`.

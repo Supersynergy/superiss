@@ -236,6 +236,8 @@ export class Engine {
     if (t.ttl_secs != null) number(t.ttl_secs,'ttl_secs',undefined,0);
     if (t.meta !== undefined && (t.meta === null || typeof t.meta !== 'object' || Array.isArray(t.meta))) fail('bad_args','template.meta must be an object');
     validateMaxFailures(t.meta);
+    // local_zero tasks are only verifiable with an explicit zero budget; reject templates that could never pass.
+    if (object(t.meta).local_zero === true && t.budget_eur !== 0) fail('local_zero_budget','local_zero template requires budget_eur exactly 0');
     return t;
   }
   private recur(a: Obj,c: Context): Value {

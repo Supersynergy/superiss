@@ -91,6 +91,7 @@ test('recurrences create one deterministic instance per due slot without catch-u
     await assert.rejects(e.dispatch('recur', { name: 'nightly', every_secs: h, template: { title: 'no oracle' } }), { code: 'missing_oracle' });
     await assert.rejects(e.dispatch('recur', { name: 'nightly', every_secs: h, template: { id: 'fixed', title: 't', oracle_cmd: 'true' } }), { code: 'bad_args' });
     await assert.rejects(e.dispatch('recur', { name: 'nightly', every_secs: h, template: { title: 't', oracle_cmd: 'true' } }), { code: 'missing_scope' });
+    await assert.rejects(e.dispatch('recur', { name: 'nightly', every_secs: h, template: { title: 't', oracle_cmd: 'true', allowed_paths: ['.'], meta: { local_zero: true } } }), { code: 'local_zero_budget' });
     await e.dispatch('recur', { name: 'nightly', every_secs: h, start_at: t0, template: { title: 'Nightly report', oracle_cmd: 'test -s report.md', lane: 'ops', allowed_paths: ['report.md'] } });
     assert.deepEqual(object(await e.dispatch('recur_tick', { now: t0 - 1 })).created, []);
     assert.deepEqual(object(await e.dispatch('recur_tick', { now: t0 + 10 })).created, [`nightly-${t0}`]);
