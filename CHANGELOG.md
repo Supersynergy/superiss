@@ -1,7 +1,8 @@
 # Changelog
 
-## Unreleased
+## 1.6.1 — routine loops without outbox growth (2026-11-20)
 
+- Tasks with `meta.lesson: false` (health checks, recurring gates) no longer add a `lesson` outbox row on close, so routine loops do not grow an undrained outbox.
 - `recur` rejects `local_zero` templates without `budget_eur: 0`; such templates could only create tasks whose verification always fails.
 
 ## 1.6.0 — 24/7 orchestration on any host (2026-11-19)

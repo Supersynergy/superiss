@@ -301,3 +301,17 @@ test('oracle-only worker closes passing lane tasks, releases failures and never 
     } finally { await after.shutdown(); after.db.close(); }
   } finally { rmSync(f.root, { recursive: true, force: true }); }
 });
+
+test('routine tasks can opt out of the lesson outbox', async () => {
+  const f = await fixture();
+  try {
+    const e = f.engine;
+    for (const [id, meta] of [['quiet', { lesson: false }], ['loud', {}]] as const) {
+      await e.dispatch('create', { id, title: id, oracle_cmd: 'true', allowed_paths: ['source.txt'], meta });
+      const claim = object(await e.dispatch('acquire', { id, actor: 'w', ttl: 600 }));
+      const proof = object(await e.dispatch('verify', { id, actor: 'w', epoch: claim.epoch, cwd: f.root }));
+      await e.dispatch('close', { id, actor: 'w', epoch: claim.epoch, proof_id: proof.proof_id });
+    }
+    assert.deepEqual(e.rows("SELECT json_extract(payload,'$.issue') issue FROM outbox WHERE kind='lesson'").map(r => r.issue), ['loud']);
+  } finally { await f.close(); }
+});

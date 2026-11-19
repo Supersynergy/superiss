@@ -5,7 +5,7 @@
 # Earlier releases stay installed; rollback = point <prefix>/current back to the printed previous release.
 set -euo pipefail
 
-version=1.6.0 from= prefix= bindir= sandbox=0 nocheck=0
+version=1.6.1 from= prefix= bindir= sandbox=0 nocheck=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --version) version="$2"; shift 2 ;;

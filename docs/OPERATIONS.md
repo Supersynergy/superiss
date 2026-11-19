@@ -1,4 +1,4 @@
-# Core operation catalog — 1.6.0
+# Core operation catalog — 1.6.1
 
 Generated from [the current registry](../packages/superiss/ops.json). **95 core operations**, protocol 2. The eleven forge tools are listed in [the forge guide](SISF.md). The retained root registry belongs to the 0.9 reference.
 

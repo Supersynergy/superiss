@@ -1,4 +1,10 @@
-# Superiss 1.6.0
+# Superiss 1.6.1
+
+- Tasks with `meta.lesson: false` no longer add a `lesson` outbox row on close, so 24/7 health and gate loops do not grow an undrained outbox.
+- `recur` rejects `local_zero` templates without `budget_eur: 0`.
+- No schema or protocol change; 1.6.0 clients and daemons interoperate.
+
+## Superiss 1.6.0
 
 Superiss can now run unattended agent coordination on any Linux or macOS host.
 

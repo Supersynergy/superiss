@@ -443,7 +443,8 @@ export class Engine {
     if (task.status === 'closed') return {ok:true};
     this.run("UPDATE issues SET status='closed',closed_at=?,claim_actor=NULL,lease_until=NULL WHERE id=?",now(),a.id); this.run('DELETE FROM claims WHERE issue=?',a.id);
     this.emit('close',a.id ?? null,c,{proof_id:proof.proof_id,reason:a.reason ?? null,epoch});
-    this.run("INSERT INTO outbox(kind,payload,run_id) VALUES('lesson',?,?)",canonical({issue:a.id,type:task.type,lesson:`closed ${a.id} (${task.type}): ${task.title}`,reason:a.reason ?? null,actor:who,proof_id:proof.proof_id}),c.run_id);
+    // Routine tasks (health checks, recurring gates) can opt out of the lesson outbox so nothing accumulates undrained.
+    if (object(task.meta).lesson !== false) this.run("INSERT INTO outbox(kind,payload,run_id) VALUES('lesson',?,?)",canonical({issue:a.id,type:task.type,lesson:`closed ${a.id} (${task.type}): ${task.title}`,reason:a.reason ?? null,actor:who,proof_id:proof.proof_id}),c.run_id);
     return {ok:true};
   }
   private list(a: Obj,readyOnly = false,countOnly = false): Value {
