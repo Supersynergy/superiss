@@ -39,10 +39,17 @@ DROP TABLE IF EXISTS issues_fts;
 CREATE VIRTUAL TABLE issues_fts USING fts5(title,"desc",acceptance,content='issues');
 CREATE TRIGGER issues_fts_ai AFTER INSERT ON issues BEGIN INSERT INTO issues_fts(rowid,title,"desc",acceptance) VALUES(new.rowid,new.title,new."desc",new.acceptance); END;
 CREATE TRIGGER issues_fts_ad AFTER DELETE ON issues BEGIN INSERT INTO issues_fts(issues_fts,rowid,title,"desc",acceptance) VALUES('delete',old.rowid,old.title,old."desc",old.acceptance); END;
-CREATE TRIGGER issues_fts_au AFTER UPDATE ON issues BEGIN INSERT INTO issues_fts(issues_fts,rowid,title,"desc",acceptance) VALUES('delete',old.rowid,old.title,old."desc",old.acceptance); INSERT INTO issues_fts(rowid,title,"desc",acceptance) VALUES(new.rowid,new.title,new."desc",new.acceptance); END;
+CREATE TRIGGER issues_fts_au AFTER UPDATE OF title,"desc",acceptance ON issues BEGIN INSERT INTO issues_fts(issues_fts,rowid,title,"desc",acceptance) VALUES('delete',old.rowid,old.title,old."desc",old.acceptance); INSERT INTO issues_fts(rowid,title,"desc",acceptance) VALUES(new.rowid,new.title,new."desc",new.acceptance); END;
 INSERT INTO issues_fts(issues_fts) VALUES('rebuild');
 `;
 
+// Idempotent, additive upkeep for existing stores: no data rewrite and no schema version change.
+// The FTS update trigger must only fire for indexed columns; firing on every lease/heartbeat update bloats the index by gigabytes.
+const upkeep = `
+CREATE INDEX IF NOT EXISTS idx_proofs_issue ON proofs(issue,passed);
+DROP TRIGGER IF EXISTS issues_fts_au;
+CREATE TRIGGER issues_fts_au AFTER UPDATE OF title,"desc",acceptance ON issues BEGIN INSERT INTO issues_fts(issues_fts,rowid,title,"desc",acceptance) VALUES('delete',old.rowid,old.title,old."desc",old.acceptance); INSERT INTO issues_fts(rowid,title,"desc",acceptance) VALUES(new.rowid,new.title,new."desc",new.acceptance); END;
+`;
 export class StoreDatabase {
   private readonly database: DatabaseSync;
   private depth = 0;
@@ -70,6 +77,7 @@ export class StoreDatabase {
         for (const name of ['issues', 'proofs', 'checkpoints', 'claims', 'kv', 'attests', 'costs']) {
           if (!this.get("SELECT name FROM sqlite_master WHERE type='table' AND name=?", name)) throw Error(`Invalid schema: missing ${name}`);
         }
+        try { this.upkeep(); } catch { /* Best effort: a busy or read-only store still opens; the next open retries. */ }
         return;
       }
       this.transaction(() => {
@@ -107,6 +115,17 @@ export class StoreDatabase {
   get(sql: string, ...parameters: Parameter[]): SqlRow | undefined { return this.prepared(sql).get(...parameters); }
   all(sql: string, ...parameters: Parameter[]): SqlRow[] { return this.prepared(sql).all(...parameters); }
   run(sql: string, ...parameters: Parameter[]) { return this.prepared(sql).run(...parameters); }
+  // Only writes (and bumps the schema cookie) when something is actually missing or outdated.
+  private upkeep(): void {
+    const index = this.get("SELECT 1 FROM sqlite_master WHERE type='index' AND name='idx_proofs_issue'");
+    const fts = this.get("SELECT 1 FROM sqlite_master WHERE name='issues_fts'");
+    const trigger = String(this.get("SELECT sql FROM sqlite_master WHERE type='trigger' AND name='issues_fts_au'")?.sql ?? '');
+    if (index && (!fts || trigger.includes('AFTER UPDATE OF'))) return;
+    this.transaction(() => {
+      if (!index) this.exec('CREATE INDEX IF NOT EXISTS idx_proofs_issue ON proofs(issue,passed);');
+      if (fts && !trigger.includes('AFTER UPDATE OF')) this.exec(upkeep.split('\n').filter(line => line.includes('issues_fts_au')).join('\n'));
+    });
+  }
   exec(sql: string): void {
     if (/(?:^|;)\s*(?:CREATE|ALTER|DROP|REINDEX|VACUUM)\b/iu.test(sql)) this.statements.clear();
     const deadline = Date.now() + this.busyMs;

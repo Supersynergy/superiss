@@ -3384,7 +3384,7 @@
     },
     {
       "name": "admit",
-      "description": "Read-only admission report: every non-terminal task as admitted or held with machine-readable reasons (missing_oracle, blocked_by, deferred, parked, claimed, local_zero_unavailable, ...). Alias why.",
+      "description": "Read-only admission report: every non-terminal task as admitted or held with machine-readable reasons (missing_oracle, blocked_by, deferred, deferred_unparsable, parked, claimed, local_zero_unavailable, ...). Alias why.",
       "inputSchema": {
         "type": "object",
         "properties": {

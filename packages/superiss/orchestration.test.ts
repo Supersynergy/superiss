@@ -199,3 +199,70 @@ test('unit generator prints systemd and launchd services for the bound database'
     assert.match(run('kind=systemd', 'bin=/opt/a%h$HOME/sis').stdout, /^ExecStart="\/opt\/a%%h\$\$HOME\/sis"/mu, 'specifiers and variables are escaped');
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
+
+test('legacy text defer dates never let acquire grant work that ready hides', async () => {
+  const f = await fixture();
+  try {
+    const e = f.engine;
+    for (const [id, until] of [['future', '2099-01-01'], ['relative', '+7d'], ['past', '2020-01-01'], ['junk', 'next week']]) {
+      await e.dispatch('create', { id, title: id, oracle_cmd: 'true' });
+      e.run("UPDATE issues SET status='deferred',defer_until=? WHERE id=?", until, id);
+    }
+    assert.deepEqual(array(await e.dispatch('ready', {})).map(r => object(r).id), ['past']);
+    const report = object(await e.dispatch('admit', {}));
+    assert.deepEqual(array(report.admitted).map(r => object(r).id), ['past']);
+    assert.deepEqual(reasons(report, 'future'), ['deferred_until']);
+    assert.deepEqual(reasons(report, 'relative'), ['deferred_unparsable']);
+    assert.deepEqual(reasons(report, 'junk'), ['deferred_unparsable']);
+    assert.equal(object(await e.dispatch('acquire', { actor: 'w', ttl: 600 })).id, 'past');
+    assert.equal(object(await e.dispatch('acquire', { actor: 'w', ttl: 600 })).id, null, 'acquire agrees with ready');
+    // New writes are normalized to epoch seconds.
+    await e.dispatch('create', { id: 'n', title: 'n', oracle_cmd: 'true' });
+    await e.dispatch('defer', { id: 'n', until: '+1d' });
+    assert.equal(typeof e.issue('n').defer_until, 'number');
+    await assert.rejects(e.dispatch('defer', { id: 'n', until: 'soon' }), { code: 'bad_args' });
+    await e.dispatch('create', { id: 'iso', title: 'iso', oracle_cmd: 'true', defer_until: '2020-01-01T00:00:00Z' });
+    assert.equal(e.issue('iso').defer_until, 1577836800);
+  } finally { await f.close(); }
+});
+
+test('admission, acquire and ready agree for every stored time form', async () => {
+  const f = await fixture();
+  try {
+    const e = f.engine;
+    const forms = ['2020-01-01', '2020-01-01T10:00:00', '2020-01-01 10:00', '2020-01-01T10:00:00Z', '2020-01-01T10:00:00+02:00', '2020-01-01T10:00:00+0200', '2020-01-01junk',
+      '2099-01-01', '2099-01-01T00:00:00.5Z', '+7d', '1577836800', 'junk', ' 2020-01-01 ', 1577836800, 4102444800];
+    for (const [i, until] of forms.entries()) {
+      await e.dispatch('create', { id: `t${i}`, title: String(until), oracle_cmd: 'true' });
+      e.run("UPDATE issues SET status='deferred',defer_until=? WHERE id=?", until, `t${i}`);
+    }
+    const ready = array(await e.dispatch('ready', {})).map(r => String(object(r).id)).sort();
+    const admitted = array(object(await e.dispatch('admit', {})).admitted).map(r => String(object(r).id)).sort();
+    assert.deepEqual(admitted, ready);
+    const granted: string[] = [];
+    for (let id = object(await e.dispatch('acquire', { actor: 'w', ttl: 600 })).id; id; id = object(await e.dispatch('acquire', { actor: 'w', ttl: 600 })).id) granted.push(String(id));
+    assert.deepEqual(granted.sort(), ready);
+    assert.ok(ready.includes('t1') && !ready.includes('t7') && !ready.includes('t9'), 'zone-less is UTC, future and relative stay hidden');
+  } finally { await f.close(); }
+});
+
+test('heartbeats no longer churn the FTS index and existing stores are upgraded in place', async () => {
+  const f = await fixture();
+  try {
+    await f.engine.dispatch('create', { id: 'hb', title: 'searchable title', oracle_cmd: 'true', allowed_paths: ['source.txt'] });
+    // Simulate a pre-1.6 store: unconditional update trigger, no proofs index.
+    f.engine.db.exec(`DROP INDEX IF EXISTS idx_proofs_issue; DROP TRIGGER issues_fts_au; CREATE TRIGGER issues_fts_au AFTER UPDATE ON issues BEGIN INSERT INTO issues_fts(issues_fts,rowid,title,"desc",acceptance) VALUES('delete',old.rowid,old.title,old."desc",old.acceptance); INSERT INTO issues_fts(rowid,title,"desc",acceptance) VALUES(new.rowid,new.title,new."desc",new.acceptance); END;`);
+    await f.engine.shutdown(); f.engine.db.close();
+    const e = new Engine(f.db);
+    try {
+      assert.ok(e.row("SELECT 1 FROM sqlite_master WHERE name='idx_proofs_issue'"));
+      assert.match(String(e.row("SELECT sql FROM sqlite_master WHERE name='issues_fts_au'")?.sql), /AFTER UPDATE OF/u);
+      const claim = object(await e.dispatch('acquire', { id: 'hb', actor: 'w', ttl: 600 }));
+      const before = Number(e.row('SELECT COUNT(*) n FROM issues_fts_data')?.n);
+      for (let i = 0; i < 50; i++) await e.dispatch('heartbeat', { id: 'hb', actor: 'w', epoch: claim.epoch, ttl: 600 });
+      assert.equal(Number(e.row('SELECT COUNT(*) n FROM issues_fts_data')?.n), before, 'lease updates must not write FTS segments');
+      await e.dispatch('update', { id: 'hb', actor: 'w', epoch: claim.epoch, title: 'renamed headline' });
+      assert.equal(array(await e.dispatch('search', { q: 'headline' })).length, 1, 'indexed columns still update search');
+    } finally { await e.shutdown(); e.db.close(); }
+  } finally { rmSync(f.root, { recursive: true, force: true }); }
+});

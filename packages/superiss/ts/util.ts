@@ -102,6 +102,11 @@ export function git(cwd: string, ...args: string[]): string | null {
   const child = spawnSync('git', ['-C', cwd, ...args], { encoding: 'utf8', timeout: 10000, maxBuffer: 4 * 1024 * 1024 });
   return child.status === 0 ? child.stdout : null;
 }
+// Task times are epoch seconds. Text is interpreted only by SQLite (see Engine.timeOf), so JS and SQL decisions are identical:
+// ISO-prefixed text that strftime accepts is UTC, anything else reads as never due (9e18).
+export const NEVER = 9e18;
+export const sqlTime = (column: string): string => `(CASE WHEN ${column} IS NULL OR ${column}='' THEN NULL WHEN typeof(${column}) IN ('integer','real') THEN ${column} WHEN trim(${column}) GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]*' THEN COALESCE(CAST(strftime('%s',trim(${column})) AS REAL),9e18) ELSE 9e18 END)`;
+export const relativeTime = (v: string): number | null => { const m = /^\+(\d+(?:\.\d+)?)([smhdw])$/u.exec(v.trim()); return m ? Number(m[1]) * ({s:1,m:60,h:3600,d:86400,w:604800} as Record<string,number>)[m[2]] : null; };
 // Linux local-zero uses bubblewrap when present and user namespaces actually work; otherwise it fails closed.
 let linuxSandbox: string | null | undefined;
 function bubblewrap(): string | null {

@@ -2,7 +2,7 @@ import { appendFileSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync
 import { basename, dirname, join, resolve } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { StoreDatabase } from './store.ts';
-import { actor, admin, array, canonical, childWhere, decode, digest, encoding, execute, fail, fingerprint, integer, localZeroAvailable, localZeroRequirement, now, opAliases, number, object, paths, redact, required, rootDirectory, SisError, text, tokenCount, ttl, uid, type Obj, type Value } from './util.ts';
+import { actor, admin, array, canonical, childWhere, decode, digest, encoding, execute, fail, fingerprint, integer, localZeroAvailable, localZeroRequirement, now, NEVER, opAliases, relativeTime, sqlTime, number, object, paths, redact, required, rootDirectory, SisError, text, tokenCount, ttl, uid, type Obj, type Value } from './util.ts';
 import { extension } from './extension.ts';
 import { VERSION } from '../runtime.ts';
 import { woopPlan, WOOP_STAGES } from './woop.ts';
@@ -16,7 +16,8 @@ const editable = new Set('title priority type owner oracle_cmd allowed_paths lan
 const statuses = ['open','in_progress','blocked','deferred','closed','cancelled'];
 const ignoredSnapshots = new Set('heartbeat remember outbox_done outbox_fail gate slot_acquire slot_release merge_slot cancel cancel_ack checkpoint changes attest cost_add outbox_export'.split(' '));
 const blocked = `NOT EXISTS(SELECT 1 FROM deps d LEFT JOIN issues b ON b.id=d.depends_on WHERE d.issue=i.id AND COALESCE(d.type,'blocks')='blocks' AND COALESCE(b.status,'open')!='closed') AND NOT EXISTS(SELECT 1 FROM deps d LEFT JOIN gates g ON g.name=d.depends_on WHERE d.issue=i.id AND d.type='gate' AND COALESCE(g.state,'closed')!='open')`;
-const ready = `(i.status='open' OR (i.status='deferred' AND i.defer_until IS NOT NULL AND i.defer_until<=?)) AND (i.defer_until IS NULL OR i.defer_until<=?) AND (i.expires_at IS NULL OR i.expires_at>?) AND i.type NOT IN ('goal','epic') AND i.oracle_cmd IS NOT NULL AND trim(i.oracle_cmd)!='' AND NOT EXISTS(SELECT 1 FROM cancellations x WHERE x.issue=i.id AND x.requested!=0) AND NOT EXISTS(SELECT 1 FROM issues child WHERE json_extract(child.meta_json,'$.parent')=i.id OR (child.id LIKE i.id||'.%' AND instr(substr(child.id,length(i.id)+2),'.')=0))`;
+const deferAt = sqlTime('i.defer_until'), expiresAt = sqlTime('i.expires_at');
+const ready = `(i.status='open' OR (i.status='deferred' AND ${deferAt} IS NOT NULL AND ${deferAt}<=?)) AND (${deferAt} IS NULL OR ${deferAt}<=?) AND (${expiresAt} IS NULL OR ${expiresAt}>?) AND i.type NOT IN ('goal','epic') AND i.oracle_cmd IS NOT NULL AND trim(i.oracle_cmd)!='' AND NOT EXISTS(SELECT 1 FROM cancellations x WHERE x.issue=i.id AND x.requested!=0) AND NOT EXISTS(SELECT 1 FROM issues child WHERE json_extract(child.meta_json,'$.parent')=i.id OR (child.id LIKE i.id||'.%' AND instr(substr(child.id,length(i.id)+2),'.')=0))`;
 const instanceId = uid('sis-instance-');
 // Parking: a task with max_failures failed proofs since its last unpark/reopen (cumulative, passes do not reset) is held.
 // JS and SQL apply the same rule: integer 1..1000 enables, anything else (absent: SIS_MAX_FAILURES) disables.
@@ -160,6 +161,24 @@ export class Engine {
     } catch { /* Unavailable source cannot prove a checkpoint current. */ }
     return {...checkpoint,artifacts:decode(checkpoint.artifacts,[]),source_stale:sourceStale,stale:checkpoint.revision !== revision || sourceStale};
   }
+  // Stored time -> due time, computed by the same SQL expression the ready query uses.
+  timeOf(value: unknown): number | null {
+    if (value === undefined || value === null || value === '') return null;
+    if (typeof value === 'number') return value;
+    const t = this.row(`SELECT ${sqlTime('x')} t FROM (SELECT ? x)`,value)?.t;
+    return t === null || t === undefined ? null : Number(t);
+  }
+  // Write-side normalization: numbers, +<n>[smhdw] relative to now, or text SQLite reads as a date (UTC without zone).
+  timeInput(value: unknown,key: string): number | null {
+    if (value === undefined || value === null || value === '') return null;
+    if (typeof value === 'number' && Number.isFinite(value) && value >= 0 && value < NEVER) return value;
+    if (typeof value === 'string') {
+      const rel = relativeTime(value); if (rel !== null) return now()+rel;
+      if (/^\d+(\.\d+)?$/u.test(value.trim())) return Number(value.trim());
+      const t = this.timeOf(value); if (t !== null && t < NEVER) return t;
+    }
+    return fail('bad_args',`${key} must be epoch seconds, an ISO date or +<n>[smhdw]`);
+  }
   parked(task: Obj): {parked: boolean; failures: number; limit: number} {
     const limit = maxFailures(object(task.meta).max_failures);
     if (!limit) return {parked:false,failures:0,limit:0};
@@ -179,9 +198,11 @@ export class Engine {
       if (!text(task.oracle_cmd).trim()) reasons.push({code:'missing_oracle'});
       if (task.status === 'in_progress' && Number(task.lease_until ?? 0) > t) reasons.push({code:'claimed',actor:task.claim_actor ?? null,lease_until:task.lease_until ?? null});
       if (task.status === 'blocked') reasons.push({code:'status_blocked'});
-      if (task.status === 'deferred' && task.defer_until == null) reasons.push({code:'deferred'});
-      else if (Number(task.defer_until ?? 0) > t) reasons.push({code:'deferred_until',until:task.defer_until ?? null});
-      if (task.expires_at != null && Number(task.expires_at) <= t) reasons.push({code:'expired'});
+      const deferUntil = this.timeOf(task.defer_until), expiresAt = this.timeOf(task.expires_at);
+      if (task.status === 'deferred' && deferUntil === null) reasons.push({code:'deferred'});
+      else if (deferUntil !== null && deferUntil >= NEVER) reasons.push({code:'deferred_unparsable',until:task.defer_until ?? null});
+      else if ((deferUntil ?? 0) > t) reasons.push({code:'deferred_until',until:deferUntil});
+      if (expiresAt !== null && expiresAt <= t) reasons.push({code:'expired'});
       if (this.cancelled(task.id)) reasons.push({code:'cancel_requested'});
       const blockers = array(this.contract(task.id).blocked_by);
       if (blockers.length) reasons.push({code:'blocked_by',ids:blockers});
@@ -191,7 +212,7 @@ export class Engine {
       if (meta.local_zero === true && !localZeroAvailable()) reasons.push({code:'local_zero_unavailable'});
       if (a.lane != null && a.lane !== task.lane) reasons.push({code:'lane',lane:task.lane ?? null});
       const row: Obj = {id:task.id ?? null,title:task.title ?? null,priority:task.priority ?? null,status:task.status ?? null,lane:task.lane ?? null};
-      if (!reasons.length) admitted.push(row);
+      if (!reasons.length) admitted.push(task.status === 'in_progress' ? {...row,lease_expired:true} : row);
       else { held.push({...row,reasons}); for (const r of reasons) { const code = text(r.code); summary[code] = (summary[code] ?? 0)+1; } }
     }
     return {admitted,held,summary,checked:tasks.length,truncated:!a.id && tasks.length === limit};
@@ -211,7 +232,8 @@ export class Engine {
     if (t.budget_eur != null) number(t.budget_eur,'budget_eur',undefined,0);
     // verify() requires an explicit scope; a template without one would only ever produce unverifiable tasks.
     if (!paths(t.allowed_paths).length) fail('missing_scope','recurring template needs explicit allowed_paths');
-    for (const key of ['defer_until','expires_at','ttl_secs']) if (t[key] != null) number(t[key],key,undefined,0);
+    for (const key of ['defer_until','expires_at']) if (t[key] != null) this.timeInput(t[key],key);
+    if (t.ttl_secs != null) number(t.ttl_secs,'ttl_secs',undefined,0);
     if (t.meta !== undefined && (t.meta === null || typeof t.meta !== 'object' || Array.isArray(t.meta))) fail('bad_args','template.meta must be an object');
     validateMaxFailures(t.meta);
     return t;
@@ -284,7 +306,8 @@ export class Engine {
     if (task.type === 'goal' || task.type === 'epic') {
       if (a.finalize !== true || !object(this.operation('goal_done',{id:task.id},this.context({},{}))).done) return false;
     } else if (this.row(`SELECT 1 FROM issues i WHERE ${childWhere()}`,task.id,task.id,task.id)) return false;
-    if (!text(task.oracle_cmd).trim() || Number(task.defer_until ?? 0) > now() || task.status === 'deferred' && task.defer_until == null || task.expires_at != null && Number(task.expires_at) <= now()) return false;
+    const deferUntil = this.timeOf(task.defer_until), expiresAt = this.timeOf(task.expires_at);
+    if (!text(task.oracle_cmd).trim() || (deferUntil ?? 0) > now() || task.status === 'deferred' && deferUntil === null || expiresAt !== null && expiresAt <= now()) return false;
     if (a.lane != null && a.lane !== task.lane) return false;
     if (this.parked(task).parked) return false;
     if (a.goal != null && !this.row(`WITH RECURSIVE sub(x) AS (SELECT ? UNION SELECT i.id FROM issues i JOIN sub s ON json_extract(i.meta_json,'$.parent')=s.x OR (i.id LIKE s.x||'.%' AND instr(substr(i.id,length(s.x)+2),'.')=0)) SELECT 1 FROM sub WHERE x=?`,a.goal,task.id)) return false;
@@ -453,7 +476,7 @@ export class Engine {
         if (a.allowed_paths !== undefined) paths(a.allowed_paths);
         if(a.meta!==undefined&&(a.meta===null||typeof a.meta!=='object'||Array.isArray(a.meta)))fail('bad_args','meta must be an object');
         validateMaxFailures(a.meta); const meta = {...object(a.meta)}; if (a.parent) meta.parent = a.parent;
-        this.run('INSERT INTO issues(id,title,"desc",type,priority,status,owner,oracle_cmd,allowed_paths,lane,budget_eur,acceptance,created_at,meta_json,lease_epoch,defer_until,expires_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,0,?,?)',id,title,a.desc ?? a.descr ?? '',a.type ?? 'task',integer(a.priority ?? a.prio,'priority',2,-2147483648),a.status === 'deferred' ? 'deferred' : 'open',a.owner,a.oracle_cmd,a.allowed_paths,a.lane,a.budget_eur,a.acceptance,now(),canonical(meta),a.defer_until,a.expires_at ?? (a.ttl_secs != null ? now()+number(a.ttl_secs,'ttl_secs',undefined,0) : null));
+        this.run('INSERT INTO issues(id,title,"desc",type,priority,status,owner,oracle_cmd,allowed_paths,lane,budget_eur,acceptance,created_at,meta_json,lease_epoch,defer_until,expires_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,0,?,?)',id,title,a.desc ?? a.descr ?? '',a.type ?? 'task',integer(a.priority ?? a.prio,'priority',2,-2147483648),a.status === 'deferred' ? 'deferred' : 'open',a.owner,a.oracle_cmd,a.allowed_paths,a.lane,a.budget_eur,a.acceptance,now(),canonical(meta),this.timeInput(a.defer_until,'defer_until'),a.expires_at != null ? this.timeInput(a.expires_at,'expires_at') : (a.ttl_secs != null ? now()+number(a.ttl_secs,'ttl_secs',undefined,0) : null));
         this.emit('create',id,c,{title}); return {id};
       }
       case 'update': case 'admin_update': {
@@ -470,6 +493,7 @@ export class Engine {
         if (task.status === 'in_progress' && cmd !== 'admin_update') this.active(a,c);
         if (changes.allowed_paths !== undefined) paths(changes.allowed_paths);
         if (changes.budget_eur != null) number(changes.budget_eur,'budget_eur',undefined,0);
+        for (const key of ['defer_until','expires_at']) if (Object.hasOwn(changes,key)) changes[key] = this.timeInput(changes[key],key);
         if (Object.hasOwn(changes,'meta_json')) validateMaxFailures(typeof changes.meta_json === 'string' ? decode(changes.meta_json) : changes.meta_json);
         if(cmd!=='admin_update'){
           if(Object.hasOwn(changes,'budget_eur')&&task.budget_eur!=null&&(changes.budget_eur==null||Number(changes.budget_eur)>Number(task.budget_eur)))fail('over_budget','worker budget cannot increase');
@@ -514,7 +538,7 @@ export class Engine {
         if (task.status === 'in_progress') this.active({...a,id},c,true);
         if (cmd === 'delete') { this.unparkMark(id); this.run('DELETE FROM deps WHERE issue=? OR depends_on=?',id,id); this.run('DELETE FROM claims WHERE issue=?',id); this.run('DELETE FROM issues WHERE id=?',id); }
         else if (cmd === 'rename') { const to = required(a,'to'); if (this.row('SELECT id FROM issues WHERE id=?',to)) fail('exists',to); this.run('UPDATE issues SET id=? WHERE id=?',to,id); this.run("UPDATE issues SET meta_json=json_set(meta_json,'$.parent',?) WHERE json_extract(meta_json,'$.parent')=?",to,id); this.run('UPDATE deps SET issue=? WHERE issue=?',to,id); this.run('UPDATE deps SET depends_on=? WHERE depends_on=?',to,id); this.run('UPDATE claims SET issue=? WHERE issue=?',to,id); this.run('UPDATE proofs SET issue=? WHERE issue=?',to,id); this.run('DELETE FROM kv WHERE k=?','unpark:'+to); this.run('UPDATE kv SET k=? WHERE k=?','unpark:'+to,'unpark:'+id); this.emit(cmd,to,c,{from:id}); return {id:to}; }
-        else this.run('UPDATE issues SET status=?,defer_until=? WHERE id=?',cmd === 'defer' ? 'deferred' : 'open',cmd === 'defer' ? a.until ?? a.defer_until : null,id);
+        else this.run('UPDATE issues SET status=?,defer_until=? WHERE id=?',cmd === 'defer' ? 'deferred' : 'open',cmd === 'defer' ? this.timeInput(a.until ?? a.defer_until,'until') : null,id);
         this.emit(cmd,id,c,{}); return {ok:true};
       }
       case 'show': { const task = this.issue(required(a,'id')), contract = this.contract(a.id); task.run_state = this.state(task); const change = this.row("SELECT data_json FROM events WHERE issue=? AND op='changes' ORDER BY seq DESC LIMIT 1",a.id); if (change) task.changes = object(decode(change.data_json)).files; return {issue:task,deps:this.rows('SELECT depends_on,type FROM deps WHERE issue=?',a.id),blocked_by:contract.blocked_by,revision:contract.revision,events_tail:this.events(a.id,0,integer(a.limit,'limit',100,1,1000)),attests:this.rows('SELECT * FROM attests WHERE issue=? ORDER BY ts DESC LIMIT 10',a.id)}; }
@@ -556,7 +580,7 @@ export class Engine {
       case 'budget_claim': { const id = required(a,'issue'), eur = number(a.eur,'eur',undefined,0), task = this.issue(id); if (task.budget_eur != null && Number(task.budget_eur) < eur) fail('over_budget','requested budget exceeds balance'); if (task.budget_eur != null) this.run('UPDATE issues SET budget_eur=budget_eur-? WHERE id=?',eur,id); const remaining = task.budget_eur == null ? null : Number(task.budget_eur)-eur; this.emit(cmd,id,c,{eur,remaining}); return {ok:true,remaining}; }
       case 'outbox_list': return this.rows('SELECT * FROM outbox'+(a.state != null ? ' WHERE state=?' : '')+' ORDER BY id',...(a.state != null ? [a.state] : []));
       case 'outbox_done': case 'outbox_fail': { const id = integer(a.id,'id',undefined,-Number.MAX_SAFE_INTEGER);const lease=this.deliveryFence(a,cmd==='outbox_done'?'done':'failed'); const n = this.run(cmd === 'outbox_done' ? "UPDATE outbox SET state='done' WHERE id=?" : lease?"UPDATE outbox SET state='failed' WHERE id=?":"UPDATE outbox SET state='failed',attempts=attempts+1 WHERE id=?",id); if (!n.changes) fail('not_found','outbox row'); this.emit(cmd,null,c,{id,err:a.err ?? null}); return {ok:true}; }
-      case 'compact': { const cutoff = now()-number(a.days,'days',30,0)*86400, archive = text(a.archive_path,this.dbPath+'.events-archive.jsonl'), rows = this.rows('SELECT * FROM events WHERE ts<? ORDER BY seq',cutoff); if (rows.length) { appendFileSync(archive,rows.map(canonical).join('\n')+'\n'); this.run('DELETE FROM events WHERE ts<?',cutoff); } const reaped = this.run('DELETE FROM issues WHERE expires_at IS NOT NULL AND expires_at<=?',now()).changes; return {archived:rows.length,kept:this.row('SELECT COUNT(*) n FROM events')?.n,reaped:Number(reaped),archive_path:archive}; }
+      case 'compact': { const cutoff = now()-number(a.days,'days',30,0)*86400, archive = text(a.archive_path,this.dbPath+'.events-archive.jsonl'), rows = this.rows('SELECT * FROM events WHERE ts<? ORDER BY seq',cutoff); if (rows.length) { appendFileSync(archive,rows.map(canonical).join('\n')+'\n'); this.run('DELETE FROM events WHERE ts<?',cutoff); } const reaped = this.run(`DELETE FROM issues WHERE expires_at IS NOT NULL AND ${sqlTime('expires_at')}<=?`,now()).changes; return {archived:rows.length,kept:this.row('SELECT COUNT(*) n FROM events')?.n,reaped:Number(reaped),archive_path:archive}; }
       case 'gate': { const name = required(a,'name'); if (a.state != null) { if (!['open','closed'].includes(text(a.state))) fail('bad_args','gate state must be open or closed'); this.run('INSERT INTO gates(name,state,payload,updated_at) VALUES(?,?,?,?) ON CONFLICT(name) DO UPDATE SET state=excluded.state,payload=excluded.payload,updated_at=excluded.updated_at',name,a.state,a.payload,now()); this.emit(cmd,null,c,{name,state:a.state}); } return {name,state:this.row('SELECT state FROM gates WHERE name=?',name)?.state ?? 'closed'}; }
       case 'gate_list': return this.rows('SELECT * FROM gates ORDER BY name');
       case 'slot_acquire': { const name = required(a,'name'), who = this.who(a,c), lifetime = ttl(a), slot = this.row('SELECT * FROM slots WHERE name=?',name); if (slot && Number(slot.lease_until)>now()) { if (slot.holder === who) return slot; fail('slot_held','slot held'); } const epoch = Number(slot?.epoch ?? 0)+1, until = now()+lifetime, claim = uid('slot-'); this.run('INSERT INTO slots(name,holder,epoch,lease_until,claim_id,updated_at) VALUES(?,?,?,?,?,?) ON CONFLICT(name) DO UPDATE SET holder=excluded.holder,epoch=excluded.epoch,lease_until=excluded.lease_until,claim_id=excluded.claim_id,updated_at=excluded.updated_at',name,who,epoch,until,claim,now()); this.emit(cmd,null,c,{name,epoch}); return {name,holder:who,epoch,lease_until:until,claim_id:claim}; }

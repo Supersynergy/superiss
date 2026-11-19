@@ -165,6 +165,10 @@ function importStore(e: Engine,cmd: string,a: Obj,c: Context): Value {
     if (bd) { row.type=row.issue_type ?? row.type ?? 'task'; row.status=['open','in_progress','closed','deferred'].includes(text(row.status)) ? row.status : 'open'; row.meta_json=canonical({labels:array(row.labels)}); row.created_at=prior?.created_at ?? row.created_at ?? now(); }
     if (row.priority===undefined && row.prio!==undefined) row.priority=row.prio;
     if (row.created_at===undefined) row.created_at=now();
+    // Imported times use the same normalization as writes; unparsable legacy text is kept and reads as never due.
+    for (const key of ['defer_until','expires_at']) if (row[key] != null && typeof row[key] !== 'number') { try { row[key]=e.timeInput(row[key],key); } catch { /* keep raw legacy value */ } }
+    // REPLACE does not fire the FTS delete trigger (recursive_triggers is off); delete explicitly so search stays consistent.
+    if (prior) e.run('DELETE FROM issues WHERE id=?',id);
     const keys=Object.keys(row).filter(key=>columns.has(key));
     e.run(`INSERT OR REPLACE INTO issues(${keys.map(k=>'"'+k+'"').join(',')}) VALUES(${keys.map(()=>'?').join(',')})`,...keys.map(k=>row[k]));
     const deps=bd ? array(row.dependencies).map(value=>{const d=object(value);return {on:d.depends_on_id ?? d.depends_on,type:d.type};}) : array(row.deps).map(object);
