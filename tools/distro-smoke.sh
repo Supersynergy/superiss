@@ -6,7 +6,7 @@ archive="$1" version="$2"
 if command -v apt-get >/dev/null; then apt-get update -qq >/dev/null && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq curl unzip ca-certificates bash >/dev/null
 elif command -v dnf >/dev/null; then dnf install -y -q --allowerasing curl unzip ca-certificates bash findutils gzip tar >/dev/null
 elif command -v apk >/dev/null; then apk add -q curl unzip ca-certificates bash libstdc++ libgcc >/dev/null
-elif command -v pacman >/dev/null; then pacman -Sy --noconfirm --needed curl unzip ca-certificates bash findutils >/dev/null
+elif command -v pacman >/dev/null; then pacman -Syu --noconfirm --needed curl unzip ca-certificates bash findutils >/dev/null
 elif command -v zypper >/dev/null; then zypper -q -n install curl unzip ca-certificates bash findutils gzip tar >/dev/null
 elif command -v yum >/dev/null; then yum install -y -q curl unzip ca-certificates bash findutils gzip tar >/dev/null; fi
 arch=$(uname -m); [ "$arch" = aarch64 ] || arch=x64
