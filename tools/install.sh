@@ -68,7 +68,12 @@ lock="$prefix/client-update.lock"; [ -e "$lock" ] || : > "$lock"
 # GNU mv needs -T and BSD mv needs -h, otherwise the new link is moved *into* the old target directory.
 if mv --version >/dev/null 2>&1; then mvlink() { mv -Tf "$1" "$2"; }; else mvlink() { mv -fh "$1" "$2"; }; fi
 switch() { ln -sfn "$target" "$prefix/.current.$$" && mvlink "$prefix/.current.$$" "$prefix/current" && [ "$(readlink "$prefix/current")" = "$target" ]; }
-if command -v flock >/dev/null 2>&1; then exec 9<>"$lock"; flock -x -w 120 9; switch; flock -u 9; else switch; fi
+# BusyBox flock (Alpine) has no -w; wait without a timeout there.
+if command -v flock >/dev/null 2>&1; then
+  exec 9<>"$lock"
+  if flock --help 2>&1 | grep -q -- '-w'; then flock -x -w 120 9; else flock -x 9; fi
+  switch; flock -u 9
+else switch; fi
 for tool in sis sisf; do
   link="$bindir/$tool"
   # Replace only our own links; a regular file or a link elsewhere (site wrapper) is kept.
