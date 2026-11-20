@@ -5,7 +5,7 @@
 # Earlier releases stay installed; rollback = point <prefix>/current back to the printed previous release.
 set -euo pipefail
 
-version=1.6.1 from= prefix= bindir= sandbox=0 nocheck=0
+version=1.6.2 from= prefix= bindir= sandbox=0 nocheck=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --version) version="$2"; shift 2 ;;
@@ -24,11 +24,14 @@ else prefix="${prefix:-$HOME/.local/share/superiss}"; bindir="${bindir:-$HOME/.l
 
 need() { command -v "$1" >/dev/null 2>&1 || { printf 'missing required command: %s\n' "$1" >&2; exit 3; }; }
 need tar
-command -v bun >/dev/null 2>&1 || { printf 'Bun >= 1.4.4 is required and is not installed automatically (https://bun.sh).\n' >&2; exit 3; }
-bunv="$(bun --version)"
-[ "$(printf '%s\n1.4.4\n' "$bunv" | sort -t. -k1,1n -k2,2n -k3,3n | head -1)" = 1.4.4 ] || { printf 'Bun %s is older than 1.4.4\n' "$bunv" >&2; exit 3; }
+older() { [ "$(printf '%s\n%s\n' "$1" "$2" | sort -t. -k1,1n -k2,2n -k3,3n | head -1)" != "$2" ]; }
+# Bun runs everything; Node >= 22.13 (built-in node:sqlite) runs the core CLI and daemon where Bun does not exist (FreeBSD).
+if command -v bun >/dev/null 2>&1; then js=bun; older "$(bun --version)" 1.4.4 && { printf 'Bun %s is older than 1.4.4\n' "$(bun --version)" >&2; exit 3; }
+elif command -v node >/dev/null 2>&1; then js=node; older "$(node --version | tr -d v)" 22.13.0 && { printf 'Node %s is older than 22.13.0\n' "$(node --version)" >&2; exit 3; }
+  printf 'Bun not found: using Node; forge, analytics and local_zero adapters need Bun.\n' >&2
+else printf 'Bun >= 1.4.4 or Node >= 22.13 is required and is not installed automatically.\n' >&2; exit 3; fi
 sha256() { if command -v sha256sum >/dev/null 2>&1; then sha256sum "$1" | cut -d' ' -f1; else shasum -a 256 "$1" | cut -d' ' -f1; fi; }
-json() { bun -e 'const m=JSON.parse(require("fs").readFileSync(process.argv[1],"utf8"));console.log(String(m[process.argv[2]]??""))' "$1" "$2"; }
+json() { "$js" -e 'const m=JSON.parse(require("fs").readFileSync(process.argv[1],"utf8"));console.log(String(m[process.argv[2]]??""))' "$1" "$2"; }
 
 work="$(mktemp -d)"; trap 'rm -rf "$work"' EXIT
 archive="$work/superiss.tar.gz"
@@ -98,6 +101,6 @@ fi
 
 "$prefix/current/bin/sis" capabilities --db "$work/probe2.db" > "$work/caps.json"
 printf 'installed %s (previous: %s)\n' "$target" "${previous:-none}"
-bun -e 'const c=JSON.parse(require("fs").readFileSync(process.argv[1],"utf8"));console.log(JSON.stringify({version:c.version,operations:c.operations.length,local_zero_execution:c.local_zero_execution}))' "$work/caps.json"
+"$js" -e 'const c=JSON.parse(require("fs").readFileSync(process.argv[1],"utf8"));console.log(JSON.stringify({version:c.version,operations:c.operations.length,local_zero_execution:c.local_zero_execution}))' "$work/caps.json"
 [ -z "$previous" ] || printf 'rollback: ln -sfn %s %s/current\n' "$previous" "$prefix"
 printf 'Running daemons keep their version until restarted. Service file: sis unit --db DB --sock SOCK\n'

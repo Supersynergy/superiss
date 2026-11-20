@@ -1,4 +1,4 @@
-name: Superiss 1.6.1
+name: Superiss 1.6.2
 on:
   push:
     branches: [main]
@@ -69,6 +69,54 @@ jobs:
           v="$(jq -r .version packages/superiss/package.json)"
           tools/release-asset.sh "$RUNNER_TEMP/asset"
           docker run --rm -v "$RUNNER_TEMP/asset:/a:ro" -v "$PWD/tools:/t:ro" "${{ matrix.image }}" sh /t/distro-smoke.sh "/a/superiss-$v.tar.gz" "$v"
+  freebsd-node:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6
+        with:
+          bun-version: '1.4.4'
+      - name: Build release archive
+        run: tools/release-asset.sh "$GITHUB_WORKSPACE/.cache/asset"
+      - name: FreeBSD 14 with Node only (no Bun exists for FreeBSD)
+        uses: vmactions/freebsd-vm@811efaaac0668df8bfb8308c3ec997b5ab50037b
+        with:
+          release: '14.2'
+          usesh: true
+          prepare: pkg install -y node22 bash
+          run: |
+            v="$(node -e 'console.log(require("./packages/superiss/package.json").version)')"
+            bash tools/node-smoke.sh "$PWD/.cache/asset/superiss-$v.tar.gz" "$v"
+  windows-native:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6
+        with:
+          bun-version: '1.4.4'
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+      - name: Build release archive
+        shell: bash
+        run: tools/release-asset.sh "$RUNNER_TEMP/asset"
+      - name: Install and run a direct-mode worker cycle with a cmd oracle
+        shell: pwsh
+        run: |
+          $v = (Get-Content packages/superiss/package.json -Raw | ConvertFrom-Json).version
+          ./tools/install.ps1 -Version $v -From "$env:RUNNER_TEMP\asset\superiss-$v.tar.gz" -Prefix "$env:RUNNER_TEMP\sis"
+          $sis = "$env:RUNNER_TEMP\sis\bin\sis.cmd"
+          $p = "$env:RUNNER_TEMP\p"; New-Item -ItemType Directory -Force "$p\.sis" | Out-Null; Set-Content "$p\README.md" 'ok'
+          Set-Location $p
+          $task = @{ id = 'w'; title = 'windows'; lane = 'ops'; oracle_cmd = 'if exist README.md (exit /b 0) else (exit /b 1)'; allowed_paths = @('README.md') } | ConvertTo-Json -Compress
+          Set-Content "$p\task.json" $task
+          & $sis create "@$p\task.json" --db "$p\.sis\p.db"
+          & $sis work lane=ops once=true --db "$p\.sis\p.db" --actor win
+          $status = (& $sis show id=w --db "$p\.sis\p.db" | ConvertFrom-Json).issue.status
+          if ($status -ne 'closed') { throw "expected closed, got $status" }
+          Write-Output "windows native passed"
   worktrunk:
     runs-on: ubuntu-latest
     timeout-minutes: 10

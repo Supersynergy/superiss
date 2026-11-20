@@ -11,7 +11,7 @@ Analytics additionally requires an existing DuckDB 2 shared library and `run-gua
 ```sh
 # As root: /opt/superiss + /usr/local/bin. As a user: ~/.local/share/superiss + ~/.local/bin.
 curl -fsSLO https://raw.githubusercontent.com/Supersynergy/superiss/main/tools/install.sh
-bash install.sh --version 1.6.1 --sandbox
+bash install.sh --version 1.6.2 --sandbox
 ```
 
 The installer downloads the release archive, checks its SHA-256, installs it next to earlier releases and switches `current` (under `flock` when available). It never replaces a non-symlink `sis` wrapper. `--sandbox` on Linux allows user namespaces for bubblewrap via AppArmor when the kernel restricts them (Ubuntu 24.04); install bubblewrap itself with the distribution package manager. Running daemons keep their version until restarted.

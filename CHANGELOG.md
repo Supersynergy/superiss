@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.6.2 — Node runtime for hosts without Bun, native Windows (2026-11-20)
+
+- Release bundles include `dist/cli.node.js`. `bin/sis` falls back to Node 22.13+ when Bun is absent, so the CLI, daemon, recurrences and `sis work` run on FreeBSD. Under Node the daemon socket is guarded by an atomic lock directory with a live-owner check; DuckDB analytics and the custom SQLite library load only under Bun.
+- Native Windows: `tools/install.ps1` installs a checksum-verified release with a `sis.cmd` shim; the CLI and `sis work` run in direct mode and oracles run in `cmd.exe` with process-tree termination via `taskkill`.
+- `install.sh` accepts Node 22.13+ when Bun is missing. CI adds a FreeBSD 14 VM (Node only) and a windows-latest job.
+
 ## 1.6.1 — routine loops without outbox growth (2026-11-20)
 
 - `install.sh` works with BusyBox `flock` (Alpine), which has no `-w` timeout. CI installs and runs a recur -> work cycle on Debian 12, Ubuntu 22.04/24.04, Fedora 41, Rocky 9, Amazon Linux 2023, openSUSE Leap 15.6, Arch and Alpine 3.20; platform table in docs/FEATURES.md.

@@ -12,9 +12,12 @@ interface FFI {
   CString: new (pointer: number) => { toString(): string };
   dlopen(path: string, symbols: Record<string, { args: number[]; returns: number }>): Library;
 }
-const ffi = createRequire(import.meta.url)('bun:ffi') as FFI;
-const F = ffi.FFIType;
-const declarations = {
+// bun:ffi is loaded on first DuckDB use only, so the core CLI also runs under Node (FreeBSD, Windows).
+let ffiModule: FFI | undefined;
+const loadFfi = (): FFI => ffiModule ??= createRequire(import.meta.url)('bun:ffi') as FFI;
+const ffi = new Proxy({} as FFI, { get: (_target, key) => loadFfi()[key as keyof FFI] });
+let F: FFI['FFIType'];
+const declarationsOf = () => { F = loadFfi().FFIType; return {
   duckdb_library_version: { args: [], returns: F.ptr },
   duckdb_create_config: { args: [F.ptr], returns: F.i32 },
   duckdb_set_config: { args: [F.ptr, F.ptr, F.ptr], returns: F.i32 },
@@ -52,7 +55,7 @@ const declarations = {
   duckdb_value_is_null: { args: [F.ptr, F.u64, F.u64], returns: F.bool },
   duckdb_value_varchar: { args: [F.ptr, F.u64, F.u64], returns: F.ptr },
   duckdb_free: { args: [F.ptr], returns: F.void },
-};
+}; };
 const cstring = (text: string): Buffer => {
   if (text.includes('\0')) throw Error('NUL not permitted in a native identifier');
   return Buffer.from(text + '\0');
@@ -89,7 +92,7 @@ export class DuckStore {
       finally { closeSync(fd); }
     }
     const library = process.env.SIS_DUCKDB_LIBRARY ?? (process.platform === 'darwin' ? '/opt/homebrew/opt/duckdb/lib/libduckdb.dylib' : 'libduckdb.so');
-    this.library = ffi.dlopen(library, declarations);
+    this.library = ffi.dlopen(library, declarationsOf());
     this.version = this.string(this.call('duckdb_library_version'));
     const config = Buffer.alloc(8);
     try {

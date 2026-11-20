@@ -1,6 +1,6 @@
-# Features and support — 1.6.1
+# Features and support — 1.6.2
 
-| Capability | Current 1.6.1 runtime | Retained 0.9 reference |
+| Capability | Current 1.6.2 runtime | Retained 0.9 reference |
 | --- | --- | --- |
 | Default source launcher | `bin/sis`, `bin/sis-v1` alias | `bin/sis-reference`, `sis reference`, explicit `SIS_IMPL=rs|py` |
 | Implementation | Bun / TypeScript 7.1 | Rust / Python |
@@ -64,11 +64,12 @@ lease alive and retry only after inspecting the claim and capacity.
 
 ## Platforms
 
-| Platform | Status |
-| --- | --- |
-| Linux x86_64 and arm64, glibc and musl (Debian, Ubuntu, Fedora, Rocky/RHEL, Amazon Linux, openSUSE, Arch, Alpine) | Supported; install, recurrence and worker cycle run in CI per distribution |
-| macOS arm64 and x86_64 | Supported; launchd units via `sis unit kind=launchd` |
-| Windows | Use WSL2 (a Linux distribution above); native Windows lacks the Unix-socket and flock paths the daemon needs |
-| FreeBSD and other Unix | Not supported: Bun, the required runtime, has no release for them |
-| Sandboxed `local_zero` | macOS `sandbox-exec`; Linux bubblewrap with working user namespaces (AppArmor profile via `install.sh --sandbox` on Ubuntu 24.04); otherwise fails closed |
+| Platform | Runtime | What runs | Verified |
+| --- | --- | --- | --- |
+| Linux x86_64/arm64, glibc and musl (Debian, Ubuntu, Fedora, Rocky/RHEL, Amazon Linux, openSUSE, Arch, Alpine) | Bun 1.4.4+ | everything: daemon, worker, units, forge, analytics, local_zero (bubblewrap) | CI per distribution |
+| macOS arm64/x86_64 | Bun 1.4.4+ | everything; launchd units | CI + manual |
+| FreeBSD 14 and other hosts without Bun | Node 22.13+ (`dist/cli.node.js`, chosen by `bin/sis` when Bun is absent) | CLI, daemon (`sis serve`, Node lock directory), recurrences, `sis work`; no forge/analytics/local_zero | CI in a FreeBSD VM |
+| Windows 10/11 native | Node 22.13+ via `tools/install.ps1` and `sis.cmd` | direct mode (CLI and `sis work` without daemon; SQLite locking coordinates processes), oracles run in `cmd.exe` | CI on windows-latest |
+| Windows with WSL2 | as Linux | everything | as Linux |
 
+Do not run a Bun and a Node daemon on the same store at the same time; each refuses a live socket, but their locks differ.

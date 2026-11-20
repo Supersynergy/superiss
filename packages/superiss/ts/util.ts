@@ -144,6 +144,7 @@ function controllerLock(): number | undefined {
   const fd=Number(value);
   try {
     if(!fstatSync(fd).isFile())fail('bad_args','controller lock must reference a regular file');
+    if(!process.versions.bun)fail('unsupported_runtime','SIS_CONTROLLER_LOCK_FD requires the Bun runtime');
     const ffi=createRequire(import.meta.url)('bun:ffi') as {FFIType:{i32:number};dlopen:(path:string,symbols:Record<string,{args:number[];returns:number}>)=>{symbols:{flock:(fd:number,op:number)=>number};close:()=>void}};
     const library=ffi.dlopen(process.platform==='darwin'?'/usr/lib/libSystem.B.dylib':'libc.so.6',{flock:{args:[ffi.FFIType.i32,ffi.FFIType.i32],returns:ffi.FFIType.i32}});
     try{if(library.symbols.flock(fd,2|4)!==0)fail('bad_args','controller lock is held by another process');}finally{library.close();}
@@ -155,7 +156,9 @@ export function execute(command: string, cwd: string, seconds: number, localZero
   let env = { ...process.env };
   const fd=controllerLock();
   for (const key of ['SIS_ADMIN_TOKEN','SIS_SOCK','SIS_DIRECT','SIS_DB','SIS_CWD_DB','SIS_CONTROLLER_LOCK_FD','SIS_SERVICE_LOCK_FD']) delete env[key];
-  let binary='/bin/sh',args=['-c',command];
+  const windows=process.platform==='win32';
+  // Windows runs oracles through cmd.exe; everything else through POSIX sh.
+  let binary=windows?(process.env.ComSpec||'cmd.exe'):'/bin/sh',args=windows?['/d','/s','/c',command]:['-c',command];
   const execution:Obj={mode:'local_zero',sandbox:process.platform==='linux'?'linux-bubblewrap':'macos-seatbelt',network:'denied',ipc:'denied',writes:'cwd',credential_environment:'cleared'};
   if(localZero&&process.platform==='linux'){
     const bwrap=bubblewrap();if(!bwrap)fail('local_zero_unavailable',localZeroRequirement);
@@ -170,11 +173,11 @@ export function execute(command: string, cwd: string, seconds: number, localZero
     binary='/usr/bin/sandbox-exec';args=['-p',profile,'/bin/sh','-c',command];env={PATH:'/usr/bin:/bin:/usr/sbin:/sbin',HOME:cwd,TMPDIR:cwd,LANG:'C',LC_ALL:'C'};
   }
   return new Promise((resolveResult, reject) => {
-    const child = spawn(binary, args, { cwd, env, detached: true, stdio: fd===undefined?['ignore','pipe','pipe']:['ignore','pipe','pipe',fd] });
+    const child = spawn(binary, args, { cwd, env, detached: !windows, windowsVerbatimArguments: windows, windowsHide: true, stdio: fd===undefined?['ignore','pipe','pipe']:['ignore','pipe','pipe',fd] });
     const chunks: Buffer[] = [];
     let bytes = 0, timed = false;
     for (const stream of [child.stdout!, child.stderr!]) stream.on('data', (data: Buffer) => { const keep = data.subarray(0, Math.max(0, 65536 - bytes)); if (keep.length) { chunks.push(keep); bytes += keep.length; } });
-    const kill = () => { if (child.pid) { try { process.kill(-child.pid, 'SIGKILL'); } catch (e) { if (object(e).code !== 'ESRCH') child.kill('SIGKILL'); } } };
+    const kill = () => { if (!child.pid) return; if (windows) { spawnSync('taskkill',['/pid',String(child.pid),'/T','/F'],{stdio:'ignore',windowsHide:true}); return; } try { process.kill(-child.pid, 'SIGKILL'); } catch (e) { if (object(e).code !== 'ESRCH') child.kill('SIGKILL'); } };
     const timeout = setTimeout(() => { timed = true; kill(); }, seconds * 1000);
     child.once('error', error => { clearTimeout(timeout); reject(error); });
     child.once('exit', () => kill());

@@ -1,6 +1,7 @@
 #!/usr/bin/env bun
 import { createConnection, createServer, type Socket } from 'node:net';
-import { closeSync, constants, existsSync, fstatSync, lstatSync, mkdirSync, openSync, readFileSync, readdirSync, realpathSync, renameSync, rmSync, statSync } from 'node:fs';
+import { closeSync, constants, existsSync, fstatSync, lstatSync, mkdirSync, openSync, readFileSync, readdirSync, realpathSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { randomBytes } from 'node:crypto';
 import { createRequire } from 'node:module';
 import { basename, dirname, join, resolve } from 'node:path';
 import { Engine, registry, type Context } from '../engine.ts';
@@ -155,6 +156,7 @@ function lockSocket(path: string): { fd: number; library: LockLibrary } {
     catch (error) { if (error instanceof SisError || object(error).code !== 'ESRCH') fail('socket_in_use','legacy lock owner is alive or cannot be checked'); }
     renameSync(lock,lock+'.legacy-'+uid(''));
   }
+  if (!process.versions.bun) return nodeLock(path,ownUid);
   const ffi = createRequire(import.meta.url)('bun:ffi') as { FFIType: { i32: number }; dlopen: (path: string, symbols: Record<string,{args: number[]; returns: number}>) => LockLibrary };
   const arch = process.arch === 'x64' ? 'x86_64' : process.arch === 'arm64' ? 'aarch64' : process.arch;
   const libraries = process.platform === 'darwin' ? ['/usr/lib/libSystem.B.dylib'] : process.platform === 'linux' ? ['libc.so.6',`/lib/ld-musl-${arch}.so.1`] : [];
@@ -243,6 +245,27 @@ function unitFile(a: Obj,db: string,sock: string): string {
   if (kind !== 'launchd') fail('bad_args','kind must be systemd or launchd');
   const x = (v: string) => v.replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;');
   return `<?xml version="1.0" encoding="UTF-8"?>\n<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">\n<plist version="1.0"><dict>\n<key>Label</key><string>${x('ai.superiss.'+name)}</string>\n<key>ProgramArguments</key><array>${argv.map(v=>`<string>${x(v)}</string>`).join('')}</array>\n<key>WorkingDirectory</key><string>${x(root)}</string>\n<key>EnvironmentVariables</key><dict>${Object.entries(env).map(([k,v])=>`<key>${x(k)}</key><string>${x(v)}</string>`).join('')}</dict>\n<key>RunAtLoad</key><true/>\n<key>KeepAlive</key><true/>\n<key>ThrottleInterval</key><integer>5</integer>\n<key>ExitTimeOut</key><integer>330</integer>\n<key>StandardOutPath</key><string>${x(join(dirname(db),name+'.log'))}</string>\n<key>StandardErrorPath</key><string>${x(join(dirname(db),name+'.log'))}</string>\n</dict></plist>`;
+}
+// Node has no flock; an atomically created lock directory with a live-owner check guards the socket instead.
+// Do not run a Bun and a Node daemon on the same store; each refuses a live socket, but the locks differ.
+function nodeLock(path: string,ownUid: number): { fd: number; library: LockLibrary } {
+  const dir = path+'.nodelock', owner = join(dir,'owner.json'), nonce = 'sis-'+randomBytes(12).toString('hex');
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try { mkdirSync(dir,{mode:0o700}); }
+    catch (error) {
+      if (object(error).code !== 'EEXIST') throw error;
+      const info = lstatSync(dir);
+      if (!info.isDirectory() || info.uid !== ownUid) fail('socket_in_use','lock directory is not owned by this user');
+      let pid = 0; try { pid = Number(object(decode(readFileSync(owner,'utf8'))).pid); } catch { /* A missing owner file means a crash during creation. */ }
+      if (Number.isSafeInteger(pid) && pid > 0) { try { process.kill(pid,0); fail('socket_in_use','socket lock owner is alive'); } catch (e) { if (e instanceof SisError || object(e).code !== 'ESRCH') throw e instanceof SisError ? e : new SisError('socket_in_use','lock owner cannot be checked'); } }
+      renameSync(dir,dir+'.stale-'+uid('')); continue;
+    }
+    writeFileSync(owner,canonical({pid:process.pid,nonce}),{mode:0o600});
+    const fd = openSync(owner,'r');
+    const release = () => { try { if (object(decode(readFileSync(owner,'utf8'))).nonce === nonce) { rmSync(owner); rmSync(dir,{recursive:true}); } } catch { /* Already released or replaced by a newer owner. */ } };
+    return {fd,library:{symbols:{flock:() => 0},close:release}};
+  }
+  return fail('socket_in_use','socket lock could not be acquired');
 }
 async function serve(engine: Engine,path: string): Promise<void> {
   const lock = lockSocket(path), timers = new Set<ReturnType<typeof setInterval>>();

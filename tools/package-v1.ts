@@ -36,8 +36,12 @@ case "\${1:-}" in
     exec "\${SIS_BUN:-bun}" "$ROOT/tools/v1-integrations.ts" "$ROOT/bin/sis" "$@" ;;
   up|down|status) exec "\${SIS_BUN:-bun}" "$ROOT/packages/superiss/dist/v1-lifecycle.js" "$ROOT/bin/sis" "$@" ;;
 esac
+# Without Bun (FreeBSD, minimal hosts) the core CLI and daemon run on Node >= 22 with the bundled node:sqlite build.
+if [ -z "\${SIS_BUN:-}" ] && ! command -v bun >/dev/null 2>&1 && command -v node >/dev/null 2>&1; then exec node "$ROOT/packages/superiss/dist/cli.node.js" "$@"; fi
 exec "\${SIS_BUN:-bun}" "$ROOT/packages/superiss/dist/cli.js" "$@"
 `;
+// Windows (native, without WSL): direct mode on Node; the daemon needs Unix sockets and stays on Linux/macOS/WSL2.
+const windowsLauncher = '@echo off\r\nnode "%~dp0..\\packages\\superiss\\dist\\cli.node.js" %*\r\n';
 
 /** New directory only. Never installs dependencies, modifies a database or switches current. */
 export function packageRelease(destination: string, options: { adapters?: boolean } = {}): ReleaseManifest {
@@ -70,6 +74,8 @@ export function packageRelease(destination: string, options: { adapters?: boolea
     const build = spawnSync(process.execPath, ['build', ...entries, '--target=bun', '--outdir=' + join(runtime, 'dist')], { cwd: repository, encoding: 'utf8', timeout: 30000 });
     assert.equal(build.status, 0, build.stderr || String(build.error));
   }
+  const nodeBuild = spawnSync(process.execPath, ['build', join(source, 'cli.ts'), '--target=node', '--outfile=' + join(runtime, 'dist', 'cli.node.js')], { cwd: repository, encoding: 'utf8', timeout: 30000 });
+  assert.equal(nodeBuild.status, 0, nodeBuild.stderr || String(nodeBuild.error));
   for (const file of ['ops.json', 'package.json', 'README.md', 'ts/data/o200k_base.tiktoken', 'ts/data/cl100k_base.tiktoken', 'web/board.html']) {
     mkdirSync(dirname(join(runtime, file)), { recursive: true });
     copyFileSync(join(source, file), join(runtime, file));
@@ -85,6 +91,7 @@ export function packageRelease(destination: string, options: { adapters?: boolea
   mkdirSync(join(out, 'bin'));
   writeFileSync(join(out, 'bin', 'sis'), launcher, { mode: 0o755 });
   chmodSync(join(out, 'bin', 'sis'), 0o755);
+  writeFileSync(join(out, 'bin', 'sis.cmd'), windowsLauncher);
   writeFileSync(join(out, 'bin', 'sisf'), launcher.slice(0,launcher.indexOf('if [ "')) + 'exec "${SIS_BUN:-bun}" "$ROOT/packages/superiss/dist/sisf.js" "$@"\n', {mode:0o755});
   const files: Record<string, string> = {};
   for (const entry of readdirSync(out, { recursive: true, withFileTypes: true })) {
