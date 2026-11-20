@@ -5,6 +5,9 @@ out="${1:?usage: tools/release-asset.sh OUTDIR}"
 repo="$(cd "$(dirname "$0")/.." && pwd)"
 # Git Bash on Windows: Bun needs native paths.
 native() { if command -v cygpath >/dev/null 2>&1; then cygpath -w "$1"; else printf '%s' "$1"; fi; }
+# GNU tar reads "D:\\..." as host:path; use the POSIX form of a Windows output path.
+if command -v cygpath >/dev/null 2>&1; then out="$(cygpath -u "$out")"; fi
+mkdir -p "$out"; out="$(cd "$out" && pwd)"
 cd "$repo"
 version="$(bun -e "console.log(JSON.parse(require('fs').readFileSync('packages/superiss/package.json','utf8')).version)")"
 stage="$(mktemp -d)"; trap 'rm -rf "$stage"' EXIT
