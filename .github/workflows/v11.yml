@@ -52,6 +52,23 @@ jobs:
           sudo apparmor_parser -r /etc/apparmor.d/bwrap
           bun -e "import {localZeroAvailable} from './packages/superiss/ts/util.ts'; if (!localZeroAvailable()) { console.error('bubblewrap unusable'); process.exit(1); }"
           bun test packages/superiss/local-zero.test.ts packages/superiss/orchestration.test.ts --bail
+  linux-distros:
+    strategy:
+      fail-fast: false
+      matrix:
+        image: ['debian:12', 'ubuntu:22.04', 'fedora:41', 'rockylinux:9', 'alpine:3.20']
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6
+        with:
+          bun-version: '1.4.4'
+      - name: Install release archive and run recur -> work in ${{ matrix.image }}
+        run: |
+          v="$(jq -r .version packages/superiss/package.json)"
+          tools/release-asset.sh "$RUNNER_TEMP/asset"
+          docker run --rm -v "$RUNNER_TEMP/asset:/a:ro" -v "$PWD/tools:/t:ro" "${{ matrix.image }}" sh /t/distro-smoke.sh "/a/superiss-$v.tar.gz" "$v"
   worktrunk:
     runs-on: ubuntu-latest
     timeout-minutes: 10
