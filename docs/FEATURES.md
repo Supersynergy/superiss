@@ -61,3 +61,14 @@ lease alive and retry only after inspecting the claim and capacity.
 - `meta.repo_key` routes within the configured store. Cross-machine authentication and distributed scheduling are not included.
 - Analytics is optional; SQLite remains authoritative. Reports cannot grant claims or approve closes.
 - [Validation](VALIDATION.md) distinguishes executed tests, environment-blocked tests and historical receipts.
+
+## Platforms
+
+| Platform | Status |
+| --- | --- |
+| Linux x86_64 and arm64, glibc and musl (Debian, Ubuntu, Fedora, Rocky/RHEL, Amazon Linux, openSUSE, Arch, Alpine) | Supported; install, recurrence and worker cycle run in CI per distribution |
+| macOS arm64 and x86_64 | Supported; launchd units via `sis unit kind=launchd` |
+| Windows | Use WSL2 (a Linux distribution above); native Windows lacks the Unix-socket and flock paths the daemon needs |
+| FreeBSD and other Unix | Not supported: Bun, the required runtime, has no release for them |
+| Sandboxed `local_zero` | macOS `sandbox-exec`; Linux bubblewrap with working user namespaces (AppArmor profile via `install.sh --sandbox` on Ubuntu 24.04); otherwise fails closed |
+

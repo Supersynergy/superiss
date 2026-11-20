@@ -56,7 +56,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        image: ['debian:12', 'ubuntu:22.04', 'fedora:41', 'rockylinux:9', 'alpine:3.20']
+        image: ['debian:12', 'ubuntu:22.04', 'ubuntu:24.04', 'fedora:41', 'rockylinux:9', 'amazonlinux:2023', 'opensuse/leap:15.6', 'archlinux:latest', 'alpine:3.20']
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
