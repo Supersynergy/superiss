@@ -66,7 +66,8 @@ previous="$(readlink "$prefix/current" 2>/dev/null || true)"
 lock="$prefix/client-update.lock"; [ -e "$lock" ] || : > "$lock"
 # Atomic switch: build the new link beside the old one and rename over it (under the client lock when flock exists).
 # GNU mv needs -T and BSD mv needs -h, otherwise the new link is moved *into* the old target directory.
-if mv --version >/dev/null 2>&1; then mvlink() { mv -Tf "$1" "$2"; }; else mvlink() { mv -fh "$1" "$2"; }; fi
+# GNU and BusyBox mv list -T in their help; BSD/macOS mv uses -h instead.
+if mv --help 2>&1 | grep -q -- '-T'; then mvlink() { mv -Tf "$1" "$2"; }; else mvlink() { mv -fh "$1" "$2"; }; fi
 switch() { ln -sfn "$target" "$prefix/.current.$$" && mvlink "$prefix/.current.$$" "$prefix/current" && [ "$(readlink "$prefix/current")" = "$target" ]; }
 # BusyBox flock (Alpine) has no -w; wait without a timeout there.
 if command -v flock >/dev/null 2>&1; then
