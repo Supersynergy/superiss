@@ -2,7 +2,7 @@
 
 ## 1.6.1 — routine loops without outbox growth (2026-11-20)
 
-- `install.sh` works with BusyBox `flock` (Alpine), which has no `-w` timeout. Verified on Debian 12, Ubuntu 22.04/24.04, Fedora 41, Rocky 9 and Alpine 3.20.
+- `install.sh` works with BusyBox `flock` (Alpine), which has no `-w` timeout. CI installs and runs a recur -> work cycle on Debian 12, Ubuntu 22.04/24.04, Fedora 41, Rocky 9, Amazon Linux 2023, openSUSE Leap 15.6, Arch and Alpine 3.20; platform table in docs/FEATURES.md.
 - Tasks with `meta.lesson: false` (health checks, recurring gates) no longer add a `lesson` outbox row on close, so routine loops do not grow an undrained outbox.
 - `recur` rejects `local_zero` templates without `budget_eur: 0`; such templates could only create tasks whose verification always fails.
 
